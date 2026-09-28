@@ -3,15 +3,15 @@
 // ⚠ 這支程式「還沒有在實機上編譯測試過」，腳位全部依推估板型，
 //    請先對照 ares1_pins.h 的說明確認你的 ESP32-S3-CAM 絲印再上傳。
 //
-// Arduino IDE 設定：開發板選 ESP32S3 Dev Module、PSRAM 選 OPI PSRAM、
-//   用原生 USB 那個孔上傳時請開 USB CDC On Boot。
+// Arduino IDE 設定：開發板選 ESP32S3 Dev Module、Flash 16MB、PSRAM 選 OPI PSRAM、
+//   USB CDC On Boot = Disabled，接「TTL」那個 USB-C 上傳（OTG 口的腳位拿去接編碼器了）。
 //
 // 序列埠指令（115200）：
 //   w / s / a / d  前進／後退／左轉／右轉（放開不會自己停，按空白鍵停）
 //   空白           停車
 //   h              頭部 ±45° 掃描一次        c  頭部置中
 //   t              喇叭嗶一聲                m  麥克風音量條 3 秒
-//   b              讀電池電壓
+//   b              讀電池電壓                e  編碼器計數與轉速（按一次印 3 秒）
 #include <Arduino.h>
 #include <ESP_I2S.h>
 #include "ares1_pins.h"
@@ -56,6 +56,21 @@ void headYaw(float deg) {
   float us = SERVO_CENTER_US + deg * SERVO_US_PER_DEG;   // 正值＝頭往車子左側轉；裝反就改正負號
   ledcWrite(PIN_SERVO, (uint32_t)(us / 20000.0f * ((1 << SERVO_RES) - 1)));
 }
+
+// ---------------- 霍爾編碼器（先只數 A 相，方向取自馬達指令） ----------------
+volatile uint32_t encL = 0, encR = 0;
+void IRAM_ATTR isrEncL() { encL++; }
+void IRAM_ATTR isrEncR() { encR++; }
+
+void encoderBegin() {
+  pinMode(PIN_ENC_LA, INPUT);            // 編碼器板本身有上拉；3.3 V 供電
+  pinMode(PIN_ENC_RA, INPUT);
+  attachInterrupt(digitalPinToInterrupt(PIN_ENC_LA), isrEncL, RISING);
+  attachInterrupt(digitalPinToInterrupt(PIN_ENC_RA), isrEncR, RISING);
+}
+
+// ---------------- 狀態燈（板載 WS2812） ----------------
+void statusLed(uint8_t r, uint8_t g, uint8_t b) { rgbLedWrite(PIN_RGB, r, g, b); }
 
 // ---------------- 電池 ----------------
 float readVbat() {
@@ -113,9 +128,11 @@ void setup() {
   ledcAttach(PIN_SERVO, SERVO_FREQ, SERVO_RES);
   headYaw(0);
   analogReadResolution(12);
+  encoderBegin();
+  statusLed(0, 8, 0);
   bool ok = audioBegin();
   Serial.printf("\nARES-1 上線測試  VBAT=%.2f V  I2S=%s\n", readVbat(), ok ? "OK" : "失敗（檢查腳位）");
-  Serial.println("w/s/a/d 移動、空白停、h 掃頭、c 置中、t 嗶聲、m 麥克風、b 電池");
+  Serial.println("w/s/a/d 移動、空白停、h 掃頭、c 置中、t 嗶聲、m 麥克風、b 電池、e 編碼器");
   if (ok) beep(1200, 120);
 }
 
@@ -149,6 +166,15 @@ void loop() {
         Serial.println();
         break;
       case 'b': Serial.printf("VBAT = %.2f V\n", readVbat()); break;
+      case 'e':
+        for (int i = 0; i < 6; i++) {
+          uint32_t l0 = encL, r0 = encR;
+          delay(500);
+          Serial.printf("編碼器 左 %lu（%+.0f 脈衝/s）  右 %lu（%+.0f 脈衝/s）\n",
+                        (unsigned long)encL, (encL - l0) * 2.0f * (curL >= 0 ? 1 : -1),
+                        (unsigned long)encR, (encR - r0) * 2.0f * (curR >= 0 ? 1 : -1));
+        }
+        break;
     }
   }
 
@@ -157,8 +183,10 @@ void loop() {
     float v = readVbat();
     if (v < VBAT_STOP && v > 3.0f) {           // > 3 V：只接 USB 時不誤判
       tgtL = tgtR = 0;
+      statusLed(16, 0, 0);
       Serial.printf("電池 %.2f V 過低，已停車，請換電池\n", v);
     } else if (v < VBAT_WARN && v > 3.0f) {
+      statusLed(12, 6, 0);
       Serial.printf("電池 %.2f V 偏低，準備回充\n", v);
     }
   }

@@ -5,8 +5,8 @@
 //   openscad -D 'part="tub"' -o stl/tub.stl ares1.scad
 //   part = "assembly" 會顯示整車組合（含簡化的電子零件，不可列印）
 //
-// 座標（組合狀態）：x = 車子左側（從車尾往前看）、y = 車頭方向、z = 向上，原點在地面中心。
-// 與 web/index.html 的 Three.js 座標對應：web(X, Y, Z) = scad(x, z, y)。
+// 座標（組合狀態）：建模時 x = 車子左側、y = 車頭方向、z = 向上，原點在地面中心，
+// 與 web/index.html 對應 web(X, Y, Z) = scad(x, z, y)。這個對應是鏡像，輸出前由 out() 鏡射回來。
 // 每個零件用 print_*() 轉成列印方向（平放在 z = 0）。
 // =====================================================================
 include <ares1_params.scad>
@@ -57,6 +57,7 @@ doorZ0 = floorTop + 1;
 doorZ1 = min(by1 + 2.5, deckY0 - 1.5);
 drvX    = hw - 4 - drvW / 2;
 drvZ    = coax ? 12 : 30;
+DRV_HOLE = [11.4, 20.4];   // 孔距 22.8 × 40.8（由 R3.6 圓角推得）
 deckHoleZ = coax ? 30 : -28;
 bodyY0  = deckY1;
 bodyY1  = bodyY0 + bodyH;
@@ -83,7 +84,8 @@ riserH  = neckExtra;
 mountY1 = topY1 + riserH;
 mountY0 = mountY1 - 4;
 // SG92R（SG9x 規格書值，待實物量測）
-sv_l = 22.8; sv_w = 12.2; sv_h = 22.7; sv_tabSpan = 32.2; sv_tabT = 2.5; sv_tabZ = 15.9;
+// 23.2×12.1×22.7、跨距 32.1、總高 30.5 依商品圖 [C]；耳片高度、軸心位置 [E]
+sv_l = 23.2; sv_w = 12.1; sv_h = 22.7; sv_tabSpan = 32.1; sv_tabT = 2.5; sv_tabZ = 15.9;
 sv_shaftOff = 5.9; sv_bossD = 11.8; sv_bossH = 4.0; sv_holeSp = 27.8; sv_hornD = 20; sv_hornH = 4.2;
 servoY0 = mountY0 - sv_tabT - sv_tabZ;
 servoTop= servoY0 + sv_h;
@@ -104,7 +106,8 @@ lensFrontZ = hz1 - 1;
 pcbY = headH / 2 + 1;
 pcbFrontZ = lensFrontZ - lensH;
 esp_l = 62.6; esp_w = 28.3; esp_t = 1.6;
-eyeX = min(hW - 18, 21);
+camEye = abs(lensOffset) >= 12 ? sign(lensOffset) : 0;   // 真鏡頭在哪一隻眼（-1＝右眼）
+eyeX = camEye != 0 ? abs(lensOffset) : min(hW - 18, 21);
 micP = [esp_l / 2 - 9, hz0 + 12, headH - hT];
 // 上身骨架的頂板螺絲柱
 TOP_BOSSES = [[wingX0 - 3, inZ0 + 6], [-(wingX0 - 3), inZ0 + 6], [30, spineZ0 - 4], [-30, spineZ0 - 4]];
@@ -146,11 +149,11 @@ module tub() {
       for (sx = [-1, 1], sz = [-1, 1]) translate([sx * (hw - 5), sz * (tubZ1 - endWallT - 5), floorTop - 0.5]) cylinder(d = 8, h = deckY0 - floorTop + 0.5);
       // 馬達尾端托架（兩根立柱，束線帶從底板槽繞過馬達）
       for (m = MOTORS) {
-        cx = m[1] - m[0] * motorTotal + m[0] * 7;
+        cx = m[1] - m[0] * motorTotal + m[0] * (encLen + 6);   // 托在馬達身上，讓出編碼器接頭
         for (s = [-1, 1]) boxB(cx - 3, cx + 3, m[2] + s * 12.9, m[2] + s * 16.4, floorTop - 0.5, axleY);
       }
       // 驅動板螺絲座（M3 自攻；孔距 41×23 為推估，待量測）
-      for (sx = [-1, 1], sz = [-1, 1]) translate([drvX + sx * 11.5, drvZ + sz * 20.5, floorTop - 0.5]) cylinder(d = 6.5, h = 4.5);
+      for (sx = [-1, 1], sz = [-1, 1]) translate([drvX + sx * DRV_HOLE[0], drvZ + sz * DRV_HOLE[1], floorTop - 0.5]) cylinder(d = 6.5, h = 4.5);
       // 電池抽屜滑軌
       railY0 = drawerRear ? tubZ0 + endWallT - 0.5 : bz0;
       railY1 = drawerRear ? bz1 : tubZ1 - endWallT + 0.5;
@@ -167,10 +170,11 @@ module tub() {
     for (m = MOTORS) {
       xin = m[0] > 0 ? hw : -wallOut;
       cylX(4.2, xin - 1, xin + plateT + 1, m[2], axleY);
+      // 兩個 M3 上下排列 → 編碼器 6P 接頭朝上；沉孔 2 mm 配 ISO 7380 圓頭
       for (d = [-motorHole / 2, motorHole / 2]) {
-        cylX(1.7, xin - 1, xin + plateT + 1, m[2] + d, axleY);
-        if (m[0] > 0) cylX(3.1, wallOut - 2, wallOut + 1, m[2] + d, axleY);
-        else cylX(3.1, -wallOut - 1, -wallOut + 2, m[2] + d, axleY);
+        cylX(1.7, xin - 1, xin + plateT + 1, m[2], axleY + d);
+        if (m[0] > 0) cylX(3.1, wallOut - 2, wallOut + 1, m[2], axleY + d);
+        else cylX(3.1, -wallOut - 1, -wallOut + 2, m[2], axleY + d);
       }
       hull() for (d = [-4, 4]) cylX(2.2, xin - 1, xin + plateT + 1, -m[2] + d, axleY);
     }
@@ -187,10 +191,10 @@ module tub() {
     // 螺絲柱孔（M3 熱熔螺母 Ø4.0×6）
     for (sx = [-1, 1], sz = [-1, 1]) translate([sx * (hw - 5), sz * (tubZ1 - endWallT - 5), deckY0 - 7]) cylinder(d = 4.0, h = 8);
     // 驅動板螺絲座導孔
-    for (sx = [-1, 1], sz = [-1, 1]) translate([drvX + sx * 11.5, drvZ + sz * 20.5, floorY + 0.8]) cylinder(d = 2.8, h = 10);
+    for (sx = [-1, 1], sz = [-1, 1]) translate([drvX + sx * DRV_HOLE[0], drvZ + sz * DRV_HOLE[1], floorY + 0.8]) cylinder(d = 2.8, h = 10);
     // 托架束線帶孔
     for (m = MOTORS) {
-      cx = m[1] - m[0] * motorTotal + m[0] * 7;
+      cx = m[1] - m[0] * motorTotal + m[0] * (encLen + 6);
       for (s = [-1, 1]) boxB(cx - 2, cx + 2, m[2] + s * 12, m[2] + s * 17.5, floorTop + 1.2, floorTop + 2.8);
     }
   }
@@ -480,6 +484,7 @@ module motor_dummy(m) {
   color("Silver") cylX(mR, x0 - s * gearLen, x0 - s * (gearLen + motorCan), m[2], axleY);
   color("Black") cylX(mR, x0 - s * (gearLen + motorCan), x0 - s * motorTotal, m[2], axleY);
   color("LightGray") cylX(shaftD / 2, x0, x0 + s * shaftLen, m[2], axleY);
+  color("White") boxB(x0 - s * (motorTotal - 1.5), x0 - s * (motorTotal - 9.5), m[2] - 4.5, m[2] + 4.5, axleY + mR - 1.5, axleY + mR + 3.5);   // 編碼器 6P 接頭朝上
 }
 module head_assembly() {
   color("SlateGray") head_floor();
@@ -487,7 +492,7 @@ module head_assembly() {
   color("OldLace") head_back();
   color("Black") inPCBFrame() translate([-esp_l / 2, -esp_t, -esp_w / 2]) cube([esp_l, esp_t, esp_w]);
   color("#222") inPCBFrame() cylY(4, 0, lensH, lensOffset, 0);
-  for (s = [-1, 1]) translate([s * eyeX, hz1 + 0.6, pcbY]) rotate([-90, 0, 0]) { color("Chocolate") eye_ring(); color("#3a4550") translate([0, 0, -0.6]) pupil(); }
+  for (s = [-1, 1]) translate([s * eyeX, hz1 + 0.6, pcbY]) rotate([-90, 0, 0]) { color("Chocolate") eye_ring(); if (s != camEye) color("#3a4550") translate([0, 0, -0.6]) pupil(); }
   if (mic_in_head) color("ForestGreen") translate([micP[0] - 5, micP[1] - 5, micP[2] - 2.8]) cube([10, 10, 1.2]);
 }
 module assembly() {
@@ -527,20 +532,24 @@ module print_head_floor()   { translate([0, 0, hFloorT]) rotate([180, 0, 0]) hea
 module print_head_hood()    { rotate([-90, 0, 0]) translate([0, -hz1, 0]) head_hood(); }
 module print_head_back()    { rotate([90, 0, 0]) translate([0, -hz0, 0]) head_back(); }
 
-if (part == "assembly")        assembly();
-if (part == "tub")             print_tub();
-if (part == "sprocket")        sprocket(true);
-if (part == "idler")           sprocket(false);
-if (part == "track_link")      translate([0, 0, trackT / 2]) track_link();
-if (part == "track_links_16")  track_links_plate(4, 4);
-if (part == "battery_sled")    print_battery_sled();
-if (part == "upper_frame")     print_upper_frame();
-if (part == "neck_deck")       print_neck_deck();
-if (part == "body_shell")      print_body_shell();
-if (part == "speaker_ring")    speaker_ring();
-if (part == "head_floor")      print_head_floor();
-if (part == "head_hood")       print_head_hood();
-if (part == "head_back")       print_head_back();
-if (part == "eye_ring")        translate([0, 0, 0.6]) eye_ring();
-if (part == "pupil")           pupil();
-if (part == "eyelid")          eyelid();
+// 內部建模沿用網頁座標（x＝車子左側、y＝車頭、z＝上）。y/z 對調等於鏡像，
+// 所以所有輸出統一再 mirror([1,0,0]) 一次，得到和網頁、實車同方向的零件。
+module out() mirror([1, 0, 0]) children();
+
+if (part == "assembly") out() assembly();
+if (part == "tub") out() print_tub();
+if (part == "sprocket") out() sprocket(true);
+if (part == "idler") out() sprocket(false);
+if (part == "track_link") out() translate([0, 0, trackT / 2]) track_link();
+if (part == "track_links_16") out() track_links_plate(4, 4);
+if (part == "battery_sled") out() print_battery_sled();
+if (part == "upper_frame") out() print_upper_frame();
+if (part == "neck_deck") out() print_neck_deck();
+if (part == "body_shell") out() print_body_shell();
+if (part == "speaker_ring") out() speaker_ring();
+if (part == "head_floor") out() print_head_floor();
+if (part == "head_hood") out() print_head_hood();
+if (part == "head_back") out() print_head_back();
+if (part == "eye_ring") out() translate([0, 0, 0.6]) eye_ring();
+if (part == "pupil") out() pupil();
+if (part == "eyelid") out() eyelid();

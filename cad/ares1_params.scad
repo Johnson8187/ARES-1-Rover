@@ -57,8 +57,8 @@ headW      = 80;       // [D]
 headH      = 44;       // [D]
 headD      = 48;       // [D]
 camTilt    = 10;       // [D] 鏡頭俯角（度）
-lensOffset = 0;        // [M] 鏡頭偏離 PCB 中心（沿長邊）
-lensH      = 9;        // [M] 鏡頭前緣高出 PCB 正面
+lensOffset = -20;      // [M] 鏡頭偏離 PCB 中心（負＝天線端）。GOOUUU 相機貼在模組鐵殼上約 -20 → 真鏡頭在右眼
+lensH      = 11;       // [M] 鏡頭前緣高出 PCB 正面（相機模組墊在鐵殼上）
 eyelid     = 8;        // [D] 表情眼瞼角度（度）
 yawMax     = 45;       // [D] 軟體轉頭範圍 ±
 

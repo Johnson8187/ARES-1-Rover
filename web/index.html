@@ -171,6 +171,7 @@ textarea.export{width:100%;min-height:140px;font-family:var(--mono);font-size:12
       <button data-view="side">側面</button>
       <button data-view="top">頂面</button>
       <button data-view="bottom">底面</button>
+      <button data-view="rear">背面</button>
       <button data-view="head">頭部特寫</button>
     </nav>
   </header>
@@ -216,6 +217,9 @@ textarea.export{width:100%;min-height:140px;font-family:var(--mono);font-size:12
       <label class="check"><input type="checkbox" id="layChassis" checked> 底盤層</label>
       <label class="check"><input type="checkbox" id="layBody" checked> 身體層</label>
       <label class="check"><input type="checkbox" id="layHead" checked> 頭部層</label>
+      <h3>換電池</h3>
+      <button class="btn primary" id="btnBat">換電池示範</button>
+      <p class="small muted">電池在底盤最低處，從後門整個抽出來換，不拆外殼、不翻車。</p>
       <h3>操作</h3>
       <p class="small muted">拖曳旋轉 · 滾輪或雙指縮放 · 右鍵或雙指拖曳平移 · 點零件看規格。</p>
     </div>
@@ -336,7 +340,7 @@ const DEFAULTS = {
   bodyW: 110, bodyD: 100, bodyH: 96, shellT: 1.6, deckT: 3,
   // 頭部
   neckExtra: 0, neckZ: 0, headZ: 2, headW: 80, headH: 44, headD: 48,
-  camTilt: 10, lensOffset: 0, lensH: 9, eyelid: 8, yawMax: 45, micInHead: true,
+  camTilt: 10, lensOffset: -20, lensH: 11, eyelid: 8, yawMax: 45, micInHead: true,
   // 分析
   fovDiag: 66, mu: 0.7, bed: 180,
 };
@@ -376,8 +380,8 @@ const PARAM_UI = [
     { k: 'headH', label: '頭高', min: 38, max: 64, step: 1, st: 'D' },
     { k: 'headD', label: '頭深', min: 40, max: 64, step: 1, st: 'D', hint: '要容納鏡頭＋PCB＋排針＋杜邦頭＋線彎。' },
     { k: 'camTilt', label: '鏡頭俯角', min: 0, max: 25, step: 1, st: 'D', hint: '往下看地面比較好，但轉頭時畫面下緣可能拍到車身。' },
-    { k: 'lensOffset', label: '鏡頭偏離 PCB 中心', min: -15, max: 15, step: 0.5, st: 'M' },
-    { k: 'lensH', label: '鏡頭高出 PCB', min: 4, max: 14, step: 0.5, st: 'M' },
+    { k: 'lensOffset', label: '鏡頭偏離 PCB 中心（負＝天線端）', min: -24, max: 24, step: 0.5, st: 'M', hint: 'GOOUUU 板的相機是軟排線接的，平常貼在模組鐵殼上，約 −20。偏移 ≥ 12 mm 時，真鏡頭會放進一隻眼睛。' },
+    { k: 'lensH', label: '鏡頭高出 PCB', min: 4, max: 16, step: 0.5, st: 'M', hint: '相機模組墊在模組鐵殼上，依商品照估 11。' },
     { k: 'yawMax', label: '轉頭範圍 ±', min: 20, max: 60, step: 1, st: 'D' },
     { k: 'eyelid', label: '表情眼瞼角度', min: -25, max: 25, step: 1, st: 'D', hint: '純造型的可替換列印片，正值像在好奇，負值像在生氣。' },
   ]},
@@ -389,9 +393,10 @@ const PARAM_UI = [
 ];
 
 // SG92R（依 SG9x 系列規格書，待實物量測）
-const SERVO = { l: 22.8, w: 12.2, h: 22.7, tabSpan: 32.2, tabT: 2.5, tabZ: 15.9, shaftOff: 5.9, bossD: 11.8, bossH: 4.0, holeSp: 27.8, hornD: 20, hornH: 4.2 };
+const SERVO = { l: 23.2, w: 12.1, h: 22.7, tabSpan: 32.1, tabT: 2.5, tabZ: 15.9, shaftOff: 5.9, bossD: 11.8, bossH: 4.0, holeSp: 27.8, hornD: 20, hornH: 4.2 };
 // ESP32-S3-CAM
-const ESP = { l: 62.6, w: 28.3, t: 1.6, rowSp: 25.4, pinLen: 8.5, dupont: 14, bend: 6 };
+const ESP = { l: 62.6, w: 28.3, t: 1.6, rowSp: 24.7, antOver: 4.3, shield0: 1.9, shield1: 21.2, fpcX: -2.5, pinLen: 8.5, dupont: 14, bend: 6 };
+// GOOUUU ESP32-S3-CAM（N16R8）：沿長邊從天線端量起；天線約突出 PCB 4.3 mm，相機 FPC 座在中間略偏天線端
 
 let P = { ...DEFAULTS };
 
@@ -461,7 +466,9 @@ function computeLayout(P) {
   const d = {};
   d.x = +(L.hw - 4 - P.drvW / 2);
   d.z = coax ? 12 : 30;
-  d.y0 = L.floorTop + 4; d.y1 = d.y0 + 14;
+  d.y0 = L.floorTop + 4; d.y1 = d.y0 + 12;
+  d.hole = [11.4, 20.4];                          // 孔距 22.8 × 40.8（由 R3.6 圓角推得）
+  d.tz = i => d.box ? d.box.z1 - 9 - i * 5.08 : 0; // 端子：0 VM、1 G、2 OUT1 … 5 OUT4（面向車身中央，VM 在前）
   d.box = { x0: d.x - P.drvW / 2, x1: d.x + P.drvW / 2, y0: d.y0, y1: d.y1, z0: d.z - P.drvL / 2, z1: d.z + P.drvL / 2 };
   L.drv = d;
 
@@ -504,7 +511,7 @@ function computeLayout(P) {
   L.skirt = { r0: 24.5, r1: 26.5, drop: 8.5 };
   L.pivotY = L.hornTop + 2;
   L.servoBox = { x0: -SERVO.shaftOff, x1: SERVO.l - SERVO.shaftOff, y0: L.servoY0, y1: L.servoTop, z0: P.neckZ - SERVO.w / 2, z1: P.neckZ + SERVO.w / 2 };
-  L.harnessR = 16; L.bundleR = 3; // 12 芯 26 AWG＋螺旋套約 Ø6
+  L.harnessR = 16; L.bundleR = 3.5; // 15 芯（含編碼器 A/B）＋螺旋套約 Ø7
   L.stopAng = P.yawMax + 10;
   L.windowR0 = 9; L.windowR1 = L.collar.r0 - 0.5; L.windowZ = -7.5; // 線槽窗口（相對轉軸）
 
@@ -517,6 +524,8 @@ function computeLayout(P) {
   h.stackDepth = P.lensH + ESP.t + ESP.pinLen + ESP.dupont + ESP.bend;
   h.backInnerZ = h.z0 + h.wall;
   h.micLocal = [ESP.l / 2 - 9, P.headH - h.wall - 1.2, h.z0 + 12];
+  h.camEye = Math.abs(P.lensOffset) >= 12 ? Math.sign(P.lensOffset) : 0;   // 真鏡頭在哪一隻眼（−1＝右眼）
+  h.eyeX = h.camEye ? Math.abs(P.lensOffset) : Math.min(P.headW / 2 - 18, 21);
   L.head = h;
   L.pivot = new THREE.Vector3(0, L.pivotY, P.neckZ);
 
@@ -568,7 +577,7 @@ function massItems(P, L, yaw) {
   add('buck', '降壓模組', 15, (L.buck.x0 + L.buck.x1) / 2, (L.buck.y0 + L.buck.y1) / 2, (L.buck.z0 + L.buck.z1) / 2);
   add('perf', '配電洞洞板', 10, (L.perf.x0 + L.perf.x1) / 2, (L.perf.y0 + L.perf.y1) / 2, (L.perf.z0 + L.perf.z1) / 2);
   add('switch', '電源開關', 6, L.sw.x, L.sw.y0 + 8, L.sw.z);
-  add('servo', 'SG92R', 9, (L.servoBox.x0 + L.servoBox.x1) / 2, (L.servoY0 + L.servoTop) / 2, P.neckZ);
+  add('servo', 'SG92R', 13, (L.servoBox.x0 + L.servoBox.x1) / 2, (L.servoY0 + L.servoTop) / 2, P.neckZ);
   add('wiresB', '身體線材', 15, 0, (L.bodyY0 + L.bodyY1) / 2 + 10, -25);
   const h = L.head;
   const hoodVol = (P.headW * P.headH + P.headW * P.headD + 2 * P.headH * P.headD) * h.wall;
@@ -730,7 +739,7 @@ function runChecks(P, L) {
 
   // 12 頭內 PCB
   const innerW = P.headW - 2 * L.head.wall;
-  const needW = ESP.l + 2 * 2.5;
+  const needW = ESP.l + ESP.antOver + 2 * 1.5;
   const pcbVert = ESP.w * Math.cos(P.camTilt * D2R) + (ESP.t + P.lensH) * Math.sin(P.camTilt * D2R);
   const innerH = P.headH - L.head.floorT - L.head.wall;
   const depthAvail = L.head.lensFrontZ - L.head.backInnerZ;
@@ -740,8 +749,11 @@ function runChecks(P, L) {
     `內寬 ${fx(innerW)} / 需要 ${fx(needW)}；內高 ${fx(innerH)} / PCB 投影 ${fx(pcbVert)}＋線 6；深度 ${fx(depthAvail)} / 鏡頭 ${P.lensH}＋PCB＋排針 ${ESP.pinLen}＋杜邦 ${ESP.dupont}＋彎線 ${ESP.bend}。排針方向與長度待量測。`, ['esp32', 'headHood']);
 
   // 13 USB
+  const eyeFit = L.head.eyeX + 14 <= P.headW / 2 - L.head.wall;
+  add('頭部與配線', '真鏡頭與眼睛對位', eyeFit ? 'pass' : 'fail', L.head.camEye ? (L.head.camEye < 0 ? '鏡頭在右眼' : '鏡頭在左眼') : '鏡頭在兩眼中間',
+    eyeFit ? (L.head.camEye ? `鏡頭偏離 PCB 中心 ${fx(Math.abs(P.lensOffset))} mm，剛好當一隻眼睛；另一隻是印出來的造型眼。相機是軟排線接的，差幾 mm 可以直接挪相機模組對齊眼圈。` : '鏡頭在中間，兩隻眼睛都是造型，真鏡頭藏在護目鏡中間。') : '眼圈超出頭殼，請加寬頭部或調整鏡頭位置。', ['headHood', 'esp32']);
   add('頭部與配線', 'USB-C 燒錄插線', 'pass', '頭部左側開孔',
-    'USB 在 PCB 一端，朝頭部左側開 13×8 mm 孔。頭轉到 0° 時插頭外側 40 mm 內沒有障礙。插 USB 燒錄時請關電池開關（5V 已加 SS34 防逆流）。', ['esp32', 'headHood']);
+    'OTG 與 TTL 兩個 USB-C 都在 PCB 同一端，朝頭部左側開 8×20 mm 孔。請用 TTL 口燒錄（CH340 自動重置，最穩），OTG 腳位 GPIO19/20 拿去接編碼器。插 USB 時請關電池開關（5V 已加 SS34 防逆流）。', ['esp32', 'headHood']);
 
   // 14 鏡頭視野
   const o0 = fovOcclusion(P, L, 0), o1 = fovOcclusion(P, L, P.yawMax * D2R);
@@ -779,10 +791,12 @@ function runChecks(P, L) {
   // 18 電源
   add('電源與腳位', 'DRV8870 最低工作電壓', 'warn', 'VM ≥ 6.5 V',
     '2S 鋰電滿電 8.4 V、標稱 7.4 V、放電終止約 6.0 V。電壓低於 6.5 V 時驅動晶片欠壓保護，馬達會斷斷續續。韌體在 6.9 V 提示回充、6.6 V 停車。', ['driver', 'battery']);
+  add('電源與腳位', '編碼器電壓', 'warn', '必須 3.3 V',
+    'ESP32-S3 的 GPIO 不耐 5 V。編碼器 VCC 接驅動板 LM317M 的 VO，先用三用電表把 VO 調到 3.3 V 再接；每條訊號線再串 1 kΩ 保護。', ['driver', 'motorL', 'motorR']);
   add('電源與腳位', '5 V 電流預算', 'pass', '峰值約 1.8 A',
     'ESP32-S3＋相機＋Wi-Fi 約 0.5 A 峰值、SG92R 堵轉約 0.65 A、MAX98357A 3 W 峰值約 0.65 A。降壓模組需 ≥ 3 A 標示（LM2596 實際連續約 2 A）。伺服與功放旁各加 470 µF。', ['buck', 'perf']);
-  add('電源與腳位', 'GPIO 數量', 'pass', '需要 10／可用 11',
-    '相機吃掉 14 支腳、PSRAM 與 Flash 吃掉 26–37。其餘可用腳位扣掉 USB、UART、strapping 後剩 11 支，I2S 必須讓麥克風與功放共用 BCLK/WS 才夠。各腳位需對照你的板子絲印確認。', ['esp32']);
+  add('電源與腳位', 'GPIO 數量（含編碼器）', 'pass', '用 12＋選配 2／可用 14',
+    '依 GOOUUU 排針：相機佔 4–13、15–18，35/36/37 雖然有拉出來但被 Octal PSRAM 佔用。馬達 4、伺服 1、I2S 4（麥克風與功放共用 BCLK/WS）、電池 1、編碼器 A 相 2（GPIO19/20，改用 TTL 口燒錄）。編碼器 B 相選配 GPIO3/46（46 會影響燒錄模式）。', ['esp32']);
 
   // 19 列印尺寸
   const bed = P.bed;
@@ -824,12 +838,12 @@ function partInfo(id, P, L) {
       use: '換電池不用拆外殼，也不用把車翻過來（直立式車翻面容易壓壞頭）。',
       notes: ['電池線留 120 mm 餘長，抽屜拉出 80 mm 仍連著。', '想完全拔下來充電時，拔 JST 接頭即可。'] },
     driver: { name: 'DRV8870 雙路馬達驅動板', kind: '採購件', layer: '底盤層', mat: '',
-      dims: [m('PCB', `${P.drvL} × ${P.drvW}`, 'C'), m('安裝孔', 'Ø3 ×4', 'C'), m('孔距', '約 41 × 23（推估）', 'M'), m('含端子高度', '約 15', 'E'), m('螺絲座', '底板一起印出，高 4', 'D')],
-      spec: 'DRV8870 每顆 1 通道：VM 6.5–45 V、峰值 3.6 A。每顆馬達 IN1／IN2 兩支 PWM，不需 ENA。邏輯 3.3 V 相容。',
-      use: '把 ESP32 的 4 支 PWM 轉成馬達電流。',
-      notes: ['IN1=PWM、IN2=0 前進；IN1=0、IN2=PWM 後退；兩腳都 1 是煞車，都 0 是滑行。', '晶片欠壓門檻約 6.3 V，2S 快沒電時馬達會先停，順便保護電池。', '若模組有 ISEN／限流電阻，請拍照確認限流值。'] },
+      dims: [m('PCB', `${P.drvL} × ${P.drvW}`, 'C'), m('安裝孔', 'Ø3 ×4', 'C'), m('孔距', '40.8 × 22.8（由 R3.6 圓角推得）', 'E'), m('端子台', 'VM G OUT1–4，高約 10', 'C'), m('排針', 'IN1–4 VO G S1 G S2 G', 'C'), m('螺絲座', '底板一起印出，高 4', 'D')],
+      spec: '兩顆 DRV8870（VM 6.5–45 V、峰值 3.6 A），R100（0.1 Ω）取樣電阻限流。板上 LM317M＋可變電阻輸出 VO（可調電壓，最多約 0.5 A）。',
+      use: '把 ESP32 的 4 支 PWM 轉成馬達電流；VO 順便調成 3.3 V 給兩顆馬達的霍爾編碼器。',
+      notes: ['擺法：藍色端子朝車身中央（外側只剩 4 mm 插不了線），VM 在前端。前（右）馬達接 OUT1/2＝IN1/IN2，後（左）馬達接 OUT3/4＝IN3/IN4。', 'IN1=PWM、IN2=0 前進；IN1=0、IN2=PWM 後退；兩腳都 1 煞車、都 0 滑行。', '⚠ VO 接編碼器前，先用三用電表把可變電阻調到 3.3 V。', 'S1／S2 用途待確認（可能是電流取樣輸出），第一版不接。', '晶片欠壓約 6.3 V：2S 快沒電時馬達會先停。'] },
     fuse: { name: '保險絲＋底盤接頭 J1/J2', kind: '採購件', layer: '底盤層', mat: '',
-      dims: [m('保險絲', '5 A 迷你刀片＋線上座', 'D'), m('J1', 'JST-XH 6P：BAT×2、SW×2、GND×2', 'D'), m('J2', 'JST-XH 4P：馬達訊號', 'D')],
+      dims: [m('保險絲', '5 A 迷你刀片＋線上座', 'D'), m('J1', 'JST-XH 6P：BAT×2、SW×2、GND×2', 'D'), m('J2', 'JST-XH 8P：PWM×4＋編碼器 A/B×4', 'D')],
       spec: '保險絲緊貼電池正極；J1/J2 讓上身可以整組拔下來。',
       use: '短路保護，以及上身與底盤快速分離。', notes: ['兩顆馬達同時堵轉＋5 V 負載最壞約 5.5 A，3 A 保險絲會誤熔，所以用 5 A。', 'XH 端子每 pin 約 3 A：J1 的 BAT、SW、GND 各用兩個 pin 並聯（JST-XH 6P），線徑 20 AWG。'] },
     frame: { name: '上身骨架', kind: '列印件', layer: '身體層', mat: 'PLA，直立列印（底板貼平台），免支撐',
@@ -852,7 +866,7 @@ function partInfo(id, P, L) {
       spec: '由 MAX98357A 驅動。4 Ω 在 5 V 下最大約 3 W。', use: '機器人說話、音效。',
       notes: ['墊高環把喇叭頂到離格柵 1 mm，聲音會大很多。', '喇叭在身體前下方，離頭部麥克風最遠。'] },
     amp: { name: 'MAX98357A I2S 功放', kind: '採購件', layer: '身體層', mat: '',
-      dims: [m('PCB', '17.7 × 19.1', 'C'), m('上方兩孔距', '12.6', 'C')],
+      dims: [m('PCB', '17.7 × 19.1', 'C'), m('上方兩孔距', '12.6（孔心距底邊 16.7）', 'C'), m('腳位', 'LRC BCLK DIN GAIN SD GND Vin（2.54）', 'C')],
       spec: 'I2S 數位輸入、D 類 3 W。VIN 接 5 V。GAIN 預設 9 dB。', use: '把 ESP32 的 I2S 音訊直接推喇叭。',
       notes: ['放在喇叭旁邊，喇叭線 < 8 cm，減少 D 類輸出干擾。', 'SD 腳預設（未接）＝左右聲道平均輸出。'] },
     buck: { name: '降壓模組 5 V', kind: '採購件', layer: '身體層', mat: '',
@@ -869,15 +883,15 @@ function partInfo(id, P, L) {
       spec: '6 A／250 VAC 等級，直流 8.4 V 用得起。', use: '總電源。放在身體頂部左後角，外殼拔起時不會卡到。',
       notes: ['按鈕高度低於頭部底面，轉頭不會碰到。'] },
     servo: { name: 'SG92R 伺服機（頭部 Yaw）', kind: '採購件', layer: '身體層', mat: '',
-      dims: [m('本體', `${SERVO.l} × ${SERVO.w} × ${SERVO.h}`, 'E'), m('耳片跨距', SERVO.tabSpan, 'E'), m('耳片孔距', SERVO.holeSp, 'E'), m('耳片下緣距底', SERVO.tabZ, 'E'), m('軸心距本體端', SERVO.shaftOff, 'E'), m('圓舵盤', 'Ø20', 'E')],
-      spec: '4.8 V 約 2.5 kg·cm、0.1 s/60°。由 ESP32 GPIO2 直接輸出 50 Hz PWM，不需要 LU9685。',
+      dims: [m('本體', `${SERVO.l} × ${SERVO.w} × ${SERVO.h}`, 'C'), m('耳片跨距', SERVO.tabSpan, 'C'), m('含軸總高', '30.5', 'C'), m('重量（含線）', '約 13 g', 'C'), m('耳片孔距', SERVO.holeSp, 'E'), m('耳片下緣距底', SERVO.tabZ, 'E'), m('軸心距本體端', SERVO.shaftOff, 'E'), m('圓舵盤', 'Ø20', 'E')],
+      spec: '4.8 V 約 2.5 kg·cm、0.1 s/60°。由 ESP32 GPIO2 直接輸出 50 Hz PWM，不需要 LU9685 或任何伺服驅動板。MG996R 不需要：55 g、堵轉 2.5 A，會讓頭變重、5 V 電源也撐不住。',
       use: '頭部左右轉 ±' + P.yawMax + '°（伺服 45°–135°）。',
-      notes: ['尺寸取自 SG9x 系列規格書，請用卡尺實量後更新。', '裝舵盤前先把伺服轉到 90°（置中），頭才會正對前方。', '頭部重量由頸座軸環承受，伺服軸只負責轉。'] },
+      notes: ['外形尺寸已依商品圖更新；耳片高度與軸心位置請用卡尺確認。', '裝舵盤前先把伺服轉到 90°（置中），頭才會正對前方。', '頭部重量由頸座軸環承受，伺服軸只負責轉。'] },
     mic: { name: 'INMP441 麥克風', kind: '採購件', layer: P.micInHead ? '頭部層' : '身體層', mat: '',
-      dims: [m('PCB', '10 × 10', 'C'), m('收音孔方向', '待確認（通常在背面穿孔）', 'M'), m('腳位順序', '待確認', 'M')],
+      dims: [m('PCB', '10 × 10', 'C'), m('收音孔', '在元件面（金屬殼上的小孔）', 'C'), m('腳位', 'L/R WS SCK｜GND VDD SD', 'C')],
       spec: 'I2S 數位 MEMS 麥克風，L/R 接 GND＝左聲道。3.3 V 由 ESP32 板上取。',
       use: '語音與環境聲音。',
-      notes: P.micInHead ? ['放在頭頂內側，收音孔對準頭頂 3 個 Ø1.5 小孔。', '和相機一起轉：轉頭就是「轉耳朵」。', '在 USB 那一端，避開天線。'] : ['放在頂板下方後角。和喇叭共用外殼，會收到喇叭振動。'] },
+      notes: P.micInHead ? ['元件面（金屬殼）朝上貼頭頂，收音孔對準 3 個 Ø1.5 小孔；排針不要焊，5 條線直接焊在焊盤上比較薄。', '和相機一起轉：轉頭就是「轉耳朵」。', '在 USB 那一端，避開天線。'] : ['放在頂板下方後角。和喇叭共用外殼，會收到喇叭振動。'] },
     headFloor: { name: '頭部轉盤', kind: '列印件', layer: '頭部層', mat: 'PETG',
       dims: [m('板厚', L.head.floorT, 'D'), m('裙邊', `ID ${L.skirt.r0 * 2} / OD ${L.skirt.r1 * 2}，下垂 ${L.skirt.drop}`, 'D'), m('線束孔', `Ø8，轉軸後 ${L.harnessR} mm`, 'D')],
       spec: '底部凸台鎖在 Ø20 圓舵盤上（2 顆 M2 自攻＋中心螺絲）。裙邊套住頸座軸環，後方有限位指。',
@@ -885,17 +899,17 @@ function partInfo(id, P, L) {
       notes: ['中心 Ø6 孔是讓螺絲起子鎖舵盤中心螺絲用的，要在裝頭罩前鎖。'] },
     headHood: { name: '頭罩（護目鏡式）', kind: '列印件', layer: '頭部層', mat: 'PETG（相機發熱，PLA 在 55 °C 會軟）',
       dims: [m('外形', `${P.headW} × ${P.headH} × ${P.headD}`, 'D'), m('壁厚', L.head.wall, 'D'), m('鏡頭孔', 'Ø12', 'D'), m('USB 開孔', '13 × 8', 'D')],
-      spec: '前、上、左右四面。內側有兩條傾斜 ' + P.camTilt + '° 的 PCB 卡槽，夾住 ESP32 板子的短邊。',
-      use: '外觀是兩隻大眼（裝飾），真正的鏡頭藏在兩眼中間的深色護目鏡裡。',
-      notes: ['鏡頭在 PCB 中段，所以兩眼只能是造型；這反而讓鏡頭有保護。', '眼瞼是可替換小零件，營隊可以讓學員設計自己的表情。'] },
+      spec: '前、上、左右四面。內側四個角座（傾斜 ' + P.camTilt + '°）托住 ESP32 板子，後蓋的壓柱從後面壓住。',
+      use: L.head.camEye ? '右眼就是真鏡頭，左眼是印出來的造型眼，兩眼都有橘色眼圈，看起來是一對。' : '兩隻大眼是造型，真鏡頭藏在兩眼中間的深色護目鏡裡。',
+      notes: ['眼瞼是可替換小零件，營隊可以讓學員設計自己的表情。', '左側 8×20 開孔露出 OTG 與 TTL 兩個 USB-C。'] },
     headBack: { name: '頭部後蓋', kind: '列印件', layer: '頭部層', mat: 'PETG',
       dims: [m('外形', `${P.headW} × ${P.headH} × ${L.head.wall}`, 'D')],
       spec: '兩顆 M2 鎖在轉盤上；有散熱槽。', use: '拆掉就能拔杜邦線、看 LED。', notes: ['散熱槽位置在 ESP32 模組後方。'] },
     esp32: { name: 'ESP32-S3-CAM', kind: '採購件', layer: '頭部層', mat: '',
-      dims: [m('PCB', '62.6 × 28.3', 'C'), m('厚度', '1.6', 'E'), m('鏡頭位置', '中段（定性）／座標待量', 'M'), m('鏡頭高出 PCB', P.lensH, 'M'), m('USB-C', '一端（定性）／位置待量', 'M'), m('排針列距', '25.4（推估）', 'M'), m('對角視角', P.fovDiag + '°', 'M')],
-      spec: 'ESP32-S3（推估 N16R8，Octal PSRAM）＋OV2640/OV3660。相機腳位推估與 ESP32-S3-EYE 相同。',
-      use: '大腦＋眼睛。整塊板子裝在頭裡，鏡頭跟頭一起轉。',
-      notes: ['PCB 橫放，USB 朝頭部左側開孔。天線端朝右，周圍 10 mm 不放線。', '排針向後，用杜邦母頭插上後熱熔膠固定，避免震動鬆脫。', '長時間串流會發熱，頭罩用 PETG 並保留後蓋散熱槽。'] },
+      dims: [m('PCB', '62.6 × 28.3', 'C'), m('排針', '2 × 20，列距 24.7（廠商圖）', 'C'), m('USB-C', 'OTG＋TTL 並排在同一端，中心 ±5.6', 'C'), m('天線突出 PCB', `約 ${ESP.antOver}`, 'E'), m('鏡頭位置', `軟排線，平常在鐵殼上，約 ${P.lensOffset}`, 'M'), m('鏡頭高出 PCB', P.lensH, 'M'), m('對角視角', P.fovDiag + '°', 'M')],
+      spec: 'GOOUUU ESP32-S3-CAM，ESP32-S3-N16R8（Octal PSRAM）＋OV2640（軟排線）、板載 WS2812（GPIO48）、CH340 串列埠（TTL 口）與原生 USB（OTG 口）。',
+      use: '大腦＋眼睛。整塊板子裝在頭裡，真鏡頭剛好落在右眼。',
+      notes: ['相機模組不是焊死的：軟排線可以挪幾 mm，直接把鏡頭對到右眼圈中心，再用雙面膠固定。', '用 TTL 口燒錄；OTG 口的 GPIO19/20 拿去接編碼器。', 'G35/G36/G37 雖然有拉到排針，但被 Octal PSRAM 佔用，絕對不能接。', '排針朝後，杜邦母頭插好後點熱熔膠。板上只有一支 GND：5V 與 GND 用 24 AWG。', '天線端朝頭部右側，天線突出約 4 mm，周圍不放線與金屬。'] },
     spkRing: { name: '喇叭墊高環', kind: '列印件', layer: '身體層', mat: 'PLA',
       dims: [m('長度', fx(L.spk.zB - L.spineZ1), 'D'), m('內徑', P.spkD + 0.6, 'D')],
       spec: '從脊板往前把喇叭推到格柵後方 1 mm。', use: '固定喇叭，同時形成密閉音箱。', notes: [] },
@@ -907,10 +921,10 @@ function partInfo(id, P, L) {
 
   function motorInfo(side, mo) {
     return { name: `${side}馬達 JGA25-370`, kind: '採購件', layer: '底盤層', mat: '',
-      dims: [m('本體直徑', 'Ø25', 'C'), m('馬達段', '31', 'C'), m('編碼器蓋', '11', 'C'), m('減速箱長 L', P.gearLen, 'E'), m('總長（不含軸）', fx(L.motorTotal), 'E'), m('輸出軸', 'Ø4，突出 12.5', 'C'), m('前端安裝孔', '2×M3，中心距 17', 'C'), m('D 切面／凸台', '—', 'M'), m('電壓／轉速', '—', 'M')],
-      spec: `${side === '左' ? '裝在左側壁、靠車尾' : '裝在右側壁、靠車頭'}，軸心高 ${fx(L.axleY)} mm。前端 2 顆 M3×6 從側壁外面鎖入，尾端放在底板 U 形托架上並用束線帶固定。`,
-      use: '直接驅動履帶驅動輪。',
-      notes: ['只靠前端兩顆螺絲會懸臂晃動，尾端托架一定要裝。', '編碼器第一版不接（GPIO 不夠），線材束好收在尾端。', '若是 6 V 版本，7.4–8.4 V 屬超壓，韌體 PWM 上限設 70%。'] };
+      dims: [m('本體直徑', 'Ø25', 'C'), m('馬達段', '31', 'C'), m('編碼器蓋', '11', 'C'), m('減速箱長 L', P.gearLen, 'E'), m('總長（不含軸）', fx(L.motorTotal), 'E'), m('輸出軸', 'Ø4，突出 12.5', 'C'), m('前端安裝孔', '2×M3，中心距 17', 'C'), m('D 切面', '3.5（圖面）', 'C'), m('軸根銅套凸台', 'Ø7，高約 2.5', 'E'), m('電壓／轉速／減速比', '—', 'M')],
+      spec: `${side === '左' ? '裝在左側壁、靠車尾，接 OUT3/4' : '裝在右側壁、靠車頭，接 OUT1/2'}，軸心高 ${fx(L.axleY)} mm。前端 2 顆 M3 從側壁外面鎖入（兩孔上下排列），尾端放在底板托架上並用束線帶固定。`,
+      use: '直接驅動履帶驅動輪；霍爾編碼器回授速度，讓兩邊履帶跑一樣快、車子走得直。',
+      notes: ['兩個 M3 孔轉成上下排列，編碼器 6P 白色接頭就會朝上，插線不卡底板。', 'M3 用圓頭（ISO 7380）× 6 mm，頭高 1.65 剛好藏進 2 mm 沉孔，不碰驅動輪；進入減速箱不超過 4 mm。', '6P 線的腳位（M+、M−、VCC、GND、A、B）每家不同，請拍線材顏色或絲印給我。', '若是 6 V 版本，7.4–8.4 V 屬超壓，韌體 PWM 上限設 70%。'] };
   }
   function wheelInfo(drive) {
     return { name: drive ? '驅動輪（鏈輪）' : '惰輪', kind: '列印件', layer: '底盤層', mat: 'PETG，100% 填充的輪轂',
@@ -1118,7 +1132,7 @@ function buildChassis() {
   for (const mo of [L.mL, L.mR_]) {
     const sx = mo.sign > 0 ? L.hw : -L.hw - P.plateT;
     const idz = -mo.z;
-    const hs = [circ(mo.z, L.axleY, 4.2, 20), circ(mo.z + P.motorHole / 2, L.axleY, 1.7, 12), circ(mo.z - P.motorHole / 2, L.axleY, 1.7, 12),
+    const hs = [circ(mo.z, L.axleY, 4.2, 20), circ(mo.z, L.axleY + P.motorHole / 2, 1.7, 12), circ(mo.z, L.axleY - P.motorHole / 2, 1.7, 12),
       rrect(idz - 4 - 2.2, L.axleY - 2.2, idz + 4 + 2.2, L.axleY + 2.2, 2.1)];
     t.add(plateZY(wallOutline, hs, sx, P.plateT, mPrint));
   }
@@ -1135,13 +1149,13 @@ function buildChassis() {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) t.add(cylY(4, wy0, wy1, sx * (L.hw - 5), sz * (L.tubZ1 - L.endWallT - 5), mPrintDk, 16));
   // 馬達尾端托架：跨在底板槽兩側的立柱，束線帶繞過馬達
   for (const mo of [L.mL, L.mR_]) {
-    const cx = mo.innerX + mo.sign * 7;
+    const cx = mo.innerX + mo.sign * (P.encLen + 6);
     for (const s of [-1, 1]) t.add(boxB(cx - 3, cx + 3, L.floorTop, L.axleY, mo.z + s * 12.9, mo.z + s * 16.4, mPrintDk));
     t.add(cylX(L.mR + 0.6, cx - 1.6, cx + 1.6, L.axleY, mo.z, mat(0xf2f2f2), 24));
   }
   // 驅動板螺絲座（與底板一起列印）
   const d = L.drv;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) t.add(cylY(3.25, L.floorTop, d.y0, d.x + sx * 11.5, d.z + sz * 20.5, mPrintDk, 16));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) t.add(cylY(3.25, L.floorTop, d.y0, d.x + sx * d.hole[0], d.z + sz * d.hole[1], mPrintDk, 16));
   // 電池滑軌
   const b = L.bat.box;
   t.add(boxB(b.x0 - 3.5, b.x0 - 1.5, L.floorTop, L.floorTop + 4, L.bat.drawer === 'rear' ? z0 + L.endWallT : b.z0, L.bat.drawer === 'rear' ? b.z1 : z1 - L.endWallT, mPrintDk));
@@ -1156,8 +1170,9 @@ function buildChassis() {
     g.add(cylX(L.mR, xB, xC, L.axleY, mo.z, mat(COL.metal, { m: 0.7, r: 0.3 })));
     g.add(cylX(L.mR, xC, xD, L.axleY, mo.z, mat(COL.dark)));
     g.add(cylX(P.shaftD / 2, xA, xA + s * P.shaftLen, L.axleY, mo.z, mat(0xd9dde0, { m: 0.8, r: 0.25 }), 16));
-    g.add(boxB(xD - s * 2, xD, L.axleY - 3, L.axleY + 7, mo.z - 5, mo.z + 5, mat(0xf2f2f2)));
-    for (const dz of [-P.motorHole / 2, P.motorHole / 2]) g.add(cylX(2.7, xA + s * P.plateT, xA + s * (P.plateT + 2.2), L.axleY, mo.z + dz, mat(0x5b6066, { m: 0.6 }), 12));
+    g.add(cylX(3.5, xA, xA + s * 2.5, L.axleY, mo.z, mat(0xc98b5a, { m: 0.6, r: 0.35 }), 20));   // Ø7 銅套凸台（高 2.5）
+    g.add(boxB(xD + s * 1.5, xD + s * 9.5, L.axleY + L.mR - 1.5, L.axleY + L.mR + 3.5, mo.z - 4.5, mo.z + 4.5, mat(0xf2f2f2)));   // 6P 編碼器接頭，朝上
+    for (const dy of [-P.motorHole / 2, P.motorHole / 2]) g.add(cylX(2.8, xA + s * (P.plateT - 2), xA + s * (P.plateT - 0.35), L.axleY + dy, mo.z, mat(0x5b6066, { m: 0.6 }), 12));
   }
 
   // 輪子
@@ -1204,12 +1219,22 @@ function buildChassis() {
 
   // 驅動板
   {
-    const g = part('driver'); const d = L.drv;
-    g.add(boxB(d.box.x0, d.box.x1, d.y0, d.y0 + 1.6, d.box.z0, d.box.z1, mat(COL.pcbRed, { r: 0.5 })));
-    for (const dz of [-10, 10]) g.add(boxB(d.x - 4, d.x + 4, d.y0 + 1.6, d.y0 + 3, d.z + dz - 3, d.z + dz + 3, mat(0x111111)));
-    g.add(boxB(d.box.x0 + 3, d.box.x1 - 3, d.y0 + 1.6, d.y0 + 11, d.box.z0 + 0.5, d.box.z0 + 8, mat(0x2f8f4a)));
-    g.add(boxB(d.box.x0 + 3, d.box.x1 - 3, d.y0 + 1.6, d.y0 + 11, d.box.z1 - 8, d.box.z1 - 0.5, mat(0x2f8f4a)));
-    g.add(boxB(d.box.x0 + 0.5, d.box.x0 + 3, d.y0 + 1.6, d.y0 + 10, d.z - 8, d.z + 8, mat(0x111111)));
+    const g = part('driver'); const d = L.drv; const b = d.box; const y1 = d.y0 + 1.6;
+    g.add(boxB(b.x0, b.x1, d.y0, y1, b.z0, b.z1, mat(0x15181c, { r: 0.5 })));
+    // 藍色端子台（VM、G、OUT1–4）面向車身中央，VM 在前端
+    for (let i = 0; i < 6; i++) {
+      const zc = d.tz(i);
+      g.add(boxB(b.x0 + 0.5, b.x0 + 8, y1, y1 + 10, zc - 2.45, zc + 2.45, mat(0x2f7fd6, { r: 0.5 })));
+      g.add(cylY(1.6, y1 + 10, y1 + 10.3, b.x0 + 4.5, zc, mat(0xb9bec3, { m: 0.7 }), 12));
+    }
+    for (const dz of [8, -10]) {   // DRV8870 ×2 與 R100 取樣電阻 ×2
+      g.add(boxB(d.x - 3, d.x + 1, y1, y1 + 1.5, d.z + dz - 2.5, d.z + dz + 2.5, mat(0x111111)));
+      g.add(boxB(d.x + 3, d.x + 9, y1, y1 + 2.2, d.z + dz - 1.6, d.z + dz + 1.6, mat(0x2b2b2b)));
+    }
+    g.add(boxB(b.x1 - 13, b.x1 - 5, y1, y1 + 4.5, b.z1 - 7, b.z1 - 1, mat(0x222222)));   // LM317M
+    // 排針：IN1 IN2 IN3 IN4 VO G S1 G S2 G（沿外側長邊，IN1 在前）
+    g.add(boxB(b.x1 - 3.8, b.x1 - 1.2, y1, y1 + 2.5, b.z1 - 8 - 24.13, b.z1 - 8 + 1.27, mat(0x111111)));
+    g.add(boxB(b.x1 - 3.9, b.x1 - 1.1, y1 + 2.5, y1 + 16.5, b.z1 - 8 - 14.0, b.z1 - 8 + 1.3, mat(0x202020)));   // 杜邦頭：IN1–4、VO、G
   }
   // 電池與抽屜
   {
@@ -1390,11 +1415,13 @@ function buildHead() {
   // 護目鏡、眼睛、眼瞼
   const vz = h.z1;
   hh.add(plateXY(rrect(-W + 5, lensY - 13, W - 5, lensY + 13, 10), [circ(lensX, lensY, 6, 24)], vz, 0.8, mat(COL.visor, { r: 0.18, m: 0.2 })));
-  const ex = Math.min(W - 18, 21);
+  const ex = h.eyeX;
   for (const s of [-1, 1]) {
     hh.add(plateXY(circ(s * ex, lensY, 14, 40), [circ(s * ex, lensY, 10, 40)], vz + 0.8, 1.8, mat(COL.eye, { r: 0.4 })));
-    hh.add(plateXY(circ(s * ex, lensY, 6.5, 32), [], vz + 0.8, 0.6, mat(0x3a4550, { r: 0.2, m: 0.3 })));
-    hh.add(plateXY(circ(s * ex + 2.5, lensY + 2.5, 1.6, 12), [], vz + 1.45, 0.3, mat(0xffffff, { r: 0.2 })));
+    if (s !== h.camEye) {   // 裝飾眼：印出來的瞳孔＋反光點；鏡頭眼的瞳孔就是真鏡頭
+      hh.add(plateXY(circ(s * ex, lensY, 6.5, 32), [], vz + 0.8, 0.6, mat(0x3a4550, { r: 0.2, m: 0.3 })));
+      hh.add(plateXY(circ(s * ex + 2.5, lensY + 2.5, 1.6, 12), [], vz + 1.45, 0.3, mat(0xffffff, { r: 0.2 })));
+    }
     const lid = [];
     for (let i = 0; i <= 16; i++) { const a = i / 16 * Math.PI; lid.push([14.5 * Math.cos(a), 14.5 * Math.sin(a) * 0.62]); }
     const lm = plateXY(lid, [], 0, 1.4, mat(0x565e66));
@@ -1418,17 +1445,23 @@ function buildHead() {
   const ox = -lensX;
   const add = m => { pcb.add(m); return m; };
   add(boxB(ox - ESP.l / 2, ox + ESP.l / 2, -ESP.w / 2, ESP.w / 2, -ESP.t, 0, mat(COL.pcbBlack, { r: 0.45 })));
-  add(boxB(ox - ESP.l / 2 + 7, ox - ESP.l / 2 + 25, -9, 9, 0, 3.2, mat(0xc4c8cc, { m: 0.8, r: 0.3 })));
-  add(boxB(ox - ESP.l / 2 + 0.5, ox - ESP.l / 2 + 7, -9, 9, 0, 0.9, mat(0x2a2f36)));
-  add(boxB(-4.3, 4.3, -4.3, 4.3, 0, 2.8, mat(0x222222)));
-  add(cylZ(4, 2.8, P.lensH - 1.2, 0, 0, mat(0x1d1f22, { r: 0.3 }), 24));
-  add(cylZ(2.6, P.lensH - 1.2, P.lensH, 0, 0, mat(0x0a0c10, { r: 0.08, m: 0.5 }), 24));
-  for (const dy of [-5.5, 5.5]) add(boxB(ox + ESP.l / 2 - 7.3, ox + ESP.l / 2 + 1, dy - 1.6, dy + 1.6, 0, 3.2, mat(0xaeb3b8, { m: 0.8, r: 0.3 })));
+  const e0 = ox - ESP.l / 2;   // 天線端 PCB 邊緣（群組座標）
+  add(boxB(e0 + ESP.shield0, e0 + ESP.shield1, -9, 9, 0, 3.1, mat(0xc4c8cc, { m: 0.8, r: 0.3 })));   // WROOM 鐵殼
+  add(boxB(e0 - ESP.antOver, e0 + ESP.shield0, -9, 9, 0, 0.9, mat(0x2a2f36)));                      // 天線（突出 PCB）
+  const onShield = lensX >= -ESP.l / 2 + ESP.shield0 + 3 && lensX <= -ESP.l / 2 + ESP.shield1 - 3;
+  const cb = onShield ? 3.3 : 0.8;                                                                 // 相機模組墊在鐵殼上
+  add(boxB(-4.3, 4.3, -4.3, 4.3, cb, cb + 2.4, mat(0x222222)));
+  add(cylZ(4, cb + 2.4, Math.max(cb + 2.6, P.lensH - 1.2), 0, 0, mat(0x1d1f22, { r: 0.3 }), 24));
+  add(cylZ(2.6, Math.max(cb + 2.6, P.lensH - 1.2), Math.max(cb + 3, P.lensH), 0, 0, mat(0x0a0c10, { r: 0.08, m: 0.5 }), 24));
+  const fx0 = ox + ESP.fpcX;   // FPC 座
+  add(boxB(fx0 - 2, fx0 + 2, -6.5, 6.5, 0, 1.3, mat(0x111111)));
+  if (Math.abs(fx0) > 6) add(boxB(Math.min(4.3, fx0), Math.max(-4.3, fx0), -3.2, 3.2, cb + 0.1, cb + 0.4, mat(0xd08a2e, { r: 0.5 })));   // 橘色軟排線
+  for (const dy of [-5.6, 5.6]) add(boxB(ox + ESP.l / 2 - 7.3, ox + ESP.l / 2 + 0.6, dy - 1.6, dy + 1.6, 0, 3.2, mat(0xaeb3b8, { m: 0.8, r: 0.3 })));   // OTG／TTL USB-C
   for (const s of [-1, 1]) {
     add(boxB(ox - 25.4, ox + 25.4, s * ESP.rowSp / 2 - 1.27, s * ESP.rowSp / 2 + 1.27, -ESP.t - 2.5, -ESP.t, mat(0x111111)));
     add(boxB(ox - 12.7, ox + 12.7, s * ESP.rowSp / 2 - 1.3, s * ESP.rowSp / 2 + 1.3, -ESP.t - 2.5 - ESP.dupont, -ESP.t - 2.5, mat(0x202020)));
   }
-  const ko = add(boxB(ox - ESP.l / 2, ox - ESP.l / 2 + 7, -9, 9, 0.9, 10, mat(0x4aa3ff, { t: true, op: 0.14 })));
+  const ko = add(boxB(e0 - ESP.antOver, e0 + ESP.shield0 + 1, -9, 9, 0.9, 10, mat(0x4aa3ff, { t: true, op: 0.14 })));
   ko.castShadow = false; ko.userData.keepout = true;
 
   // 麥克風
@@ -1549,10 +1582,12 @@ function wirePaths() {
   const batRear = L.bat.drawer === 'rear' ? b.box.z0 : b.box.z1;
   const batLead = v(b.x + 6, b.y1 - 4, batRear + (L.bat.drawer === 'rear' ? -2 : 2));
   const fuse = v(b.x + 13, b.y1 + 3, batRear - 11 * (L.bat.drawer === 'rear' ? 1 : -1));
-  const vmT = v(d.x + 6, d.y0 + 8, d.box.z0 + 3);
-  const outL = v(d.x + 8, d.y0 + 8, d.box.z0 + 3), outR = v(d.x - 6, d.y0 + 8, d.box.z1 - 3);
-  const inT = v(d.box.x0 + 2, d.y0 + 6, d.z);
-  const mLend = v(L.mL.innerX - 2, L.axleY + 6, L.mL.z), mRend = v(L.mR_.innerX + 2, L.axleY + 6, L.mR_.z);
+  const tX = d.box.x0 - 1, tY = d.y0 + 1.6 + 6;
+  const vmT = v(tX, tY, (d.tz(0) + d.tz(1)) / 2);
+  const outR = v(tX, tY, (d.tz(2) + d.tz(3)) / 2), outL = v(tX, tY, (d.tz(4) + d.tz(5)) / 2);   // OUT1/2 前(右)馬達、OUT3/4 後(左)馬達
+  const inT = v(d.box.x1 - 2.5, d.y0 + 1.6 + 16.5, d.box.z1 - 8 - 3.8);
+  const voT = v(d.box.x1 - 2.5, d.y0 + 1.6 + 16.5, d.box.z1 - 8 - 11.4);
+  const mLend = v(L.mL.innerX + L.mL.sign * 5.5, L.axleY + L.mR + 4, L.mL.z), mRend = v(L.mR_.innerX + L.mR_.sign * 5.5, L.axleY + L.mR + 4, L.mR_.z);
   const up1 = v(0, L.deckY1 + 4, hz - 2);
   const swB = v(L.sw.x, L.sw.y0 + 1, L.sw.z);
   const bk = L.buck, pf = L.perf;
@@ -1574,16 +1609,19 @@ function wirePaths() {
   return [
     { id: 'bat', name: '電池正負極 → 保險絲 → J1', col: 0xd23a2a, r: 1.2, awg: '20 AWG 矽膠線（紅／黑）', from: '電池盒', to: 'J1（底盤接頭）', pts: [batLead, fuse, v(J.x - 6, J.y - 2, J.z - 8), J], grp: '電源' },
     { id: 'vbatUp', name: 'VBAT 上身 ↔ 開關（去回兩條）', col: 0xe0702a, r: 1.2, awg: '20 AWG', from: 'J1', to: '頂板開關', pts: [J, up1, v(20, L.bodyY0 + 20, L.inZ0 + 6), v(L.sw.x - 6, L.sw.y0 - 20, L.inZ0 + 5), swB], grp: '電源' },
-    { id: 'vsw', name: '開關後 VBAT → DRV8870 VM／GND', col: 0xf0a030, r: 1.1, awg: '20 AWG', from: 'J1（SW 腳）', to: 'DRV8870 VM', pts: [J, v(12, L.deckY0 - 6, hz + 12), v(d.x, L.deckY0 - 8, d.box.z0 - 6), vmT], grp: '電源' },
+    { id: 'vsw', name: '開關後 VBAT → DRV8870 VM／GND', col: 0xf0a030, r: 1.1, awg: '20 AWG', from: 'J1（SW 腳）', to: 'DRV8870 VM', pts: [J, v(8, L.deckY0 - 6, hz + 14), v(tX - 8, L.deckY0 - 7, vmT.z - 16), v(tX - 6, tY + 3, vmT.z - 2), vmT], grp: '電源' },
     { id: 'buckIn', name: '開關後 VBAT → 降壓輸入', col: 0xf0a030, r: 1, awg: '22 AWG', from: '頂板開關', to: '降壓 IN', pts: [swB, v(L.sw.x - 2, L.sw.y0 - 6, L.sw.z - 4), buckIn], grp: '電源' },
     { id: 'v5', name: '5 V → 配電板匯流排', col: 0xc9302c, r: 1, awg: '22 AWG', from: '降壓 OUT', to: '配電板', pts: [buckOut, v(20, buckOut.y - 6, L.spineZ0 - 4), v(-20, perfF.y, L.spineZ0 - 4), perfF], grp: '電源' },
     { id: 'servoP', name: 'SG92R 三線（5V／GND／訊號）', col: 0xe6b422, r: 0.9, awg: '伺服原廠線', from: '配電板 3P', to: 'SG92R', pts: [perfT, v(-20, L.servoY0 + 2, P.neckZ - 14), servoC], grp: '訊號' },
     { id: 'ampP', name: '5 V＋I2S（BCLK/WS/DOUT）→ 功放', col: 0x8e44ad, r: 0.9, awg: '26 AWG ×5', from: '配電板', to: 'MAX98357A', pts: [perfB, v(-12, L.deckY1 + 12, L.spineZ0 - 5), hole, v(10, L.deckY1 + 10, L.spineZ1 + 4), ampIn], grp: '音訊' },
     { id: 'spk', name: '功放 → 喇叭', col: 0xe86aa6, r: 0.8, awg: '24 AWG 雙絞', from: 'MAX98357A', to: '喇叭', pts: [ampOut, v(L.amp.x - 6, L.spk.y + 4, L.amp.z + 8), spkT], grp: '音訊' },
-    { id: 'mL', name: 'DRV8870 OUT1/2 → 左馬達（後）', col: 0x8a8f96, r: 1, awg: '22 AWG 雙絞', from: 'DRV8870', to: '左馬達', pts: [outL, v(d.x, L.deckY0 - 7, d.box.z0 - 14), v(mLend.x + 6, L.deckY0 - 8, L.mL.z + 18), mLend], grp: '馬達' },
-    { id: 'mR', name: 'DRV8870 OUT3/4 → 右馬達（前）', col: 0x6c7178, r: 1, awg: '22 AWG 雙絞', from: 'DRV8870', to: '右馬達', pts: [outR, v(outR.x - 4, L.deckY0 - 8, d.box.z1 + 2), v(mRend.x + 2, L.deckY0 - 10, L.mR_.z - 4), mRend], grp: '馬達' },
-    { id: 'mSig', name: '馬達 PWM ×4 → J2 → DRV8870 IN1–4', col: 0x2e9e5b, r: 0.8, awg: '26 AWG ×4', from: 'ESP32（經頸部線束）', to: 'DRV8870 IN', pts: [perfB, v(pf.x1 + 4, L.deckY1 + 6, pf.z0), v(-4, L.deckY1 + 3, hz), v(-3, L.deckY0 - 6, hz), v(inT.x - 12, L.deckY0 - 8, d.z - 6), inT], grp: '馬達' },
-    { id: 'neck', name: '頸部線束 12 芯（5V、GND×2、PWM×4、伺服、I2S×3、VBAT 偵測）', col: 0x7c3aed, r: 2.2, awg: '26 AWG 杜邦線束＋螺旋套', from: '配電板', to: 'ESP32-S3-CAM 排針', pts: [perfT, ...midSlack, win, neckMid, hHoleB, hHole, Lh(0, h.floorT + 8, -L.harnessR + 4), hdr], grp: '訊號' },
+    { id: 'mL', name: 'DRV8870 OUT3/4 → 左馬達（後）M+／M−', col: 0x8a8f96, r: 1, awg: '22 AWG 雙絞', from: 'DRV8870 OUT3/4', to: '左馬達 6P 接頭', pts: [outL, v(tX - 10, L.deckY0 - 8, outL.z - 10), v(mLend.x + 8, L.deckY0 - 7, L.mL.z + 16), mLend], grp: '馬達' },
+    { id: 'mR', name: 'DRV8870 OUT1/2 → 右馬達（前）M+／M−', col: 0x6c7178, r: 1, awg: '22 AWG 雙絞', from: 'DRV8870 OUT1/2', to: '右馬達 6P 接頭', pts: [outR, v(tX - 8, L.deckY0 - 8, outR.z + 8), v(mRend.x + 4, L.deckY0 - 7, L.mR_.z - 10), mRend], grp: '馬達' },
+    { id: 'mSig', name: '馬達 PWM ×4 → J2 → DRV8870 IN1–4', col: 0x2e9e5b, r: 0.8, awg: '26 AWG ×4', from: 'ESP32（經頸部線束）', to: 'DRV8870 IN1–4', pts: [perfB, v(pf.x1 + 4, L.deckY1 + 6, pf.z0), v(-4, L.deckY1 + 3, hz), v(-3, L.deckY0 - 6, hz), v(22, L.deckY0 - 5, 0), v(inT.x - 3, L.deckY0 - 5, inT.z - 8), inT], grp: '馬達' },
+    { id: 'encL', name: '左馬達編碼器 A／B → J2', col: 0x9acd32, r: 0.7, awg: '26 AWG ×2（串 1 kΩ）', from: '左馬達 6P 接頭', to: 'J2 → 頸部線束 → GPIO19／GPIO3', pts: [mLend, v(mLend.x - 2, L.deckY0 - 4, L.mL.z + 12), v(-6, L.deckY0 - 4, hz - 8), v(-2, L.deckY0 - 3, hz)], grp: '馬達' },
+    { id: 'encR', name: '右馬達編碼器 A／B → J2', col: 0x7cb342, r: 0.7, awg: '26 AWG ×2（串 1 kΩ）', from: '右馬達 6P 接頭', to: 'J2 → 頸部線束 → GPIO20／GPIO46', pts: [mRend, v(mRend.x + 2, L.deckY0 - 4, L.mR_.z - 12), v(6, L.deckY0 - 4, 10), v(3, L.deckY0 - 3, hz + 3)], grp: '馬達' },
+    { id: 'encV', name: '編碼器 3.3 V／GND（驅動板 VO 調到 3.3 V）', col: 0xf5d547, r: 0.7, awg: '26 AWG ×2', from: 'DRV8870 VO／G', to: '兩顆馬達編碼器 VCC／GND', pts: [mRend, v(voT.x - 6, L.deckY0 - 3, L.mR_.z - 2), voT, v(voT.x - 10, L.deckY0 - 3, voT.z - 20), v(20, L.deckY0 - 3, -20), v(mLend.x + 3, L.deckY0 - 3, L.mL.z + 6), mLend], grp: '馬達' },
+    { id: 'neck', name: '頸部線束 15 芯（5V、GND、PWM×4、伺服、I2S×3、VBAT、編碼器 A/B×4）', col: 0x7c3aed, r: 2.5, awg: '5V／GND 24 AWG＋其餘 26 AWG，螺旋套約 Ø7', from: '配電板', to: 'ESP32-S3-CAM 排針', pts: [perfT, ...midSlack, win, neckMid, hHoleB, hHole, Lh(0, h.floorT + 8, -L.harnessR + 4), hdr], grp: '訊號' },
     { id: 'micW', name: 'ESP32 → INMP441（3V3、GND、SCK、WS、SD）', col: 0xa855f7, r: 0.7, awg: '28 AWG ×5', from: 'ESP32 排針', to: 'INMP441', pts: P.micInHead ? [hdrT, Lh(h.micLocal[0] - 6, P.headH - 10, h.micLocal[2] - 8), micP] : [perfT, v(-L.bw + 16, L.topY0 - 10, L.bodyZ0 + 14), micP], grp: '音訊' },
   ];
 }
@@ -1627,6 +1665,7 @@ function applyState() {
     let e = UI.explode;
     const pos = p.base.clone().addScaledVector(p.vec, e);
     if (asmCur && asmCur.has(id)) pos.addScaledVector(p.vec, asmAnim.k);
+    if ((id === 'sled' || id === 'battery') && batDemo.k > 0) pos.z += (L.bat.drawer === 'rear' ? -1 : 1) * 92 * batDemo.k;
     p.obj.position.copy(pos);
     const ghost = (UI.wires && (STRUCT.has(id))) || (SHELLS.has(id) && UI.shell === 'xray');
     const ghostOp = SHELLS.has(id) ? (UI.wires ? 0.06 : 0.16) : 0.14;
@@ -1670,21 +1709,35 @@ function isShown(o) { let n = o; while (n) { if (n.visible === false) return fal
    ========================================================= */
 const ASM = [
   { t: '檢查零件與工具', parts: ['tub'], d: '對照「規格」分頁的 BOM 清點。工具：十字起子、2.5 mm 六角扳手、烙鐵、熱熔膠槍、剝線鉗、三用電表。底盤槽先把 4 顆 M3 熱熔螺母燙進四角柱。' },
-  { t: '裝左右馬達（對角）', parts: ['motorL', 'motorR'], d: '左馬達從左壁內側、靠車尾插入；右馬達從右壁內側、靠車頭插入。每顆用 2 顆 M3×6 從側壁外面鎖入減速箱前端。尾端放進 U 形托架並用 3 mm 束線帶綁住。' },
+  { t: '裝左右馬達（對角）', parts: ['motorL', 'motorR'], d: '左馬達從左壁內側、靠車尾插入；右馬達從右壁內側、靠車頭插入。兩個 M3 孔轉成上下排列，編碼器白色 6P 接頭就會朝上。每顆用 2 顆 M3×6 圓頭螺絲從側壁外面鎖入（進入減速箱 ≤ 4 mm）。馬達身體放在托架上用 3 mm 束線帶綁住。' },
   { t: '裝驅動輪與惰輪', parts: ['sprL', 'sprR', 'idlL', 'idlR'], d: '驅動輪 D 形孔對準馬達軸 D 面推到底，鎖 M3 止付螺絲。惰輪穿 M4×40 螺絲放進長槽，先不要鎖緊。' },
-  { t: '裝 DRV8870 驅動板', parts: ['driver'], d: '4 顆 M3 自攻鎖在底板左前方的螺絲座。馬達線接 OUT：左馬達接 OUT1/2、右馬達接 OUT3/4（方向錯了之後在韌體反轉即可）。' },
+  { t: '裝 DRV8870 驅動板', parts: ['driver'], d: '藍色端子朝車身中央、VM 在前端，4 顆 M3 自攻鎖在底板左前方的螺絲座。前（右）馬達接 OUT1/2、後（左）馬達接 OUT3/4（方向錯了在韌體反轉）。先用三用電表把 VO 調到 3.3 V，再接兩顆編碼器的 VCC／GND。' },
   { t: '電池抽屜、保險絲、J1/J2', parts: ['sled', 'battery', 'fuse'], d: '電池盒鎖在抽屜上，正極先串 5 A 保險絲再接 J1。抽屜從後門推入右側通道，後門兩顆 Ø6×2 磁鐵吸住。先不要裝電池！' },
   { t: '組履帶並掛上', parts: ['trackL', 'trackR'], d: `每邊 ${'${links}'} 片，用 1.75 mm 線材當插銷，兩端用烙鐵燙平。套上驅動輪與惰輪，把惰輪往外推到履帶「手指壓下去約 5 mm」的鬆緊，再鎖緊 M4。` },
   { t: '上身骨架：喇叭與功放', parts: ['frame', 'spkRing', 'speaker', 'amp'], d: '喇叭放進墊高環、墊高環鎖在脊板前面。MAX98357A 用 M2 鎖在喇叭旁邊，喇叭線剪短到 8 cm 以內。' },
   { t: '降壓模組與配電板', parts: ['buck', 'perf'], d: '降壓模組鎖在左翼、配電板鎖在右翼。通電前先用 9 V 電池或電源供應器把降壓輸出調到 5.1 V。配電板焊好 SS34、470 µF、分壓電阻。' },
   { t: '頂板：伺服與開關', parts: ['topPlate', 'servo', 'switch'], d: '伺服從頂板下方塞入，耳片貼住頂板底面用 M2 自攻鎖好。先用測試程式把伺服轉到 90°（置中）！開關壓入左後角開孔。頂板用 4 顆 M3 鎖在骨架上。' },
   { t: '頭部轉盤裝上舵盤', parts: ['headFloor'], d: '圓舵盤先用 2 顆 M2 鎖在轉盤底部凸台，再把轉盤朝正前方套進伺服花鍵，從上方 Ø6 孔鎖中心螺絲。裙邊要蓋住頸座軸環，後方限位指落在兩根限位柱之間。' },
-  { t: 'ESP32、麥克風、頭罩', parts: ['esp32', 'mic', 'headHood'], d: '頸部線束先從頂板窗口往上穿過轉盤 Ø8 孔。ESP32 沿卡槽從後方推入（USB 朝左側開孔），杜邦線插上後點熱熔膠。INMP441 貼在頭頂收音孔下。頭罩用 4 顆 M2 鎖在轉盤。' },
+  { t: 'ESP32、麥克風、頭罩', parts: ['esp32', 'mic', 'headHood'], d: '頸部線束先從頂板窗口往上穿過轉盤 Ø8 孔。ESP32 從頭罩後方放進四個角座（USB 朝左側開孔），把相機模組挪到右眼圈正後方用雙面膠固定。杜邦線插上後點熱熔膠。INMP441 金屬殼朝上貼在頭頂收音孔下。頭罩用 4 顆 M2 鎖在轉盤。' },
   { t: '頸部線束整理與後蓋', parts: ['headBack'], d: '手動把頭轉到 ±45°，確認線束在窗口內滑動、沒有被拉緊。身體內的線束留一個 U 形餘長圈，用束線帶固定在骨架後方。裝上頭部後蓋。' },
   { t: '上身與底盤合體、套外殼', parts: ['shell'], d: '插上 J1、J2，上身骨架對準底盤四角柱鎖 4 顆 M3。外殼套筒從頭頂往下套，側面 4 顆 M3 固定。' },
   { t: '通電測試', parts: [], d: '① 不裝電池，用三用電表量 VBAT 與 GND 不短路。② 裝電池、開開關，量配電板 5 V。③ 燒錄測試程式：伺服 ±45° 掃描、左右馬達各正反轉、喇叭嗶聲、麥克風音量條。④ 地面測試：慢速前進、原地轉、急停不前翻。' },
 ];
 const asmAnim = { k: 0, t0: 0 };
+const batDemo = { k: 0, from: 0, to: 0, t0: 0 };
+const BAT_STEPS = '① 關掉頂板開關　② 捏住後門的拉片往後拉，磁鐵就鬆開　③ 抽屜整個滑出約 9 cm，電池盒露出來　④ 換上充好的 18650（看清楚 +／−）　⑤ 推回去，聽到磁鐵「喀」一聲吸住。全程不用拆外殼、不用把車翻過來。';
+function batterySwap(on) {
+  batDemo.from = batDemo.k; batDemo.to = on ? 1 : 0; batDemo.t0 = performance.now();
+  $('#btnBat').textContent = on ? '把電池推回去' : '換電池示範';
+  if (on) {
+    if (UI.asm >= 0) asmExit();
+    UI.selected = 'sled'; refreshInspector();
+    $('#stepbar').classList.add('on');
+    $('#stepTitle').textContent = '換電池：從後門抽出';
+    $('#stepText').textContent = BAT_STEPS;
+    setView('rear');
+  } else if (UI.asm < 0) $('#stepbar').classList.remove('on');
+}
 function asmGo(i) {
   UI.asm = clamp(i, 0, ASM.length - 1);
   asmAnim.k = 1; asmAnim.t0 = performance.now();
@@ -1739,34 +1792,37 @@ function renderChecks() {
   });
 }
 const GPIO = [
-  ['GPIO1', 'VBAT 電壓偵測', 'ADC1_CH0，100k/33k 分壓', 'D'],
-  ['GPIO14', '左馬達 IN1（PWM 20 kHz）', '', 'D'],
-  ['GPIO21', '左馬達 IN2（PWM）', '', 'D'],
-  ['GPIO47', '右馬達 IN1（PWM）', '部分模組 1.8 V 版會不同，N16R8 為 3.3 V', 'M'],
-  ['GPIO38', '右馬達 IN2（PWM）', '若板上有 SD 卡座，可能是 SD_CMD；不插卡即可用', 'M'],
-  ['GPIO2', 'SG92R 訊號（50 Hz）', '部分板子接了板載 LED，會跟著微亮，無害', 'M'],
-  ['GPIO39', 'I2S BCLK（共用）', '麥克風 SCK＋功放 BCLK；可能是 SD_CLK', 'M'],
-  ['GPIO40', 'I2S WS／LRCLK（共用）', '可能是 SD_D0', 'M'],
+  ['GPIO1', 'VBAT 電壓偵測', '右排。ADC1_CH0，100k/33k 分壓', 'D'],
+  ['GPIO2', 'SG92R 訊號（50 Hz）', '右排。不需要 LU9685', 'D'],
+  ['GPIO47', '右（前）馬達 IN1', '右排。20 kHz PWM', 'D'],
+  ['GPIO38', '右（前）馬達 IN2', '右排', 'D'],
+  ['GPIO14', '左（後）馬達 IN3', '左排', 'D'],
+  ['GPIO21', '左（後）馬達 IN4', '右排', 'D'],
+  ['GPIO39', 'I2S BCLK（共用）', '麥克風 SCK＋功放 BCLK', 'D'],
+  ['GPIO40', 'I2S WS／LRC（共用）', '麥克風 WS＋功放 LRC', 'D'],
   ['GPIO41', 'I2S DOUT → MAX98357A DIN', '', 'D'],
   ['GPIO42', 'I2S DIN ← INMP441 SD', '', 'D'],
-  ['GPIO48', '保留', '很多 S3 板子接 WS2812 RGB LED', 'M'],
-  ['GPIO4–13、15–18', '相機佔用', '推估與 ESP32-S3-EYE 相同對應', 'M'],
-  ['GPIO19／20', '原生 USB D−／D+', '不要用', 'C'],
-  ['GPIO43／44', 'UART0（USB 轉串列）', '未來編碼器可改用這兩支，log 走原生 USB', 'C'],
-  ['GPIO0、3、45、46', 'Strapping 開機腳', '不接外部負載', 'C'],
-  ['GPIO26–37', 'Flash／Octal PSRAM', '完全不可用', 'C'],
+  ['GPIO19', '左馬達編碼器 A', 'OTG 口的 D−。改用 TTL 口燒錄後可自由使用', 'D'],
+  ['GPIO20', '右馬達編碼器 A', 'OTG 口的 D+', 'D'],
+  ['GPIO3', '左馬達編碼器 B（選配）', '左排。strapping 腳，但預設 eFuse 下不影響開機', 'D'],
+  ['GPIO46', '右馬達編碼器 B（選配）', '左排。⚠ 燒錄時必須是低電位：燒錄失敗就把輪子轉一點或拔 J2', 'M'],
+  ['GPIO48', '板載 WS2812 RGB', '拿來當狀態燈（低電量閃紅）', 'C'],
+  ['GPIO43／44', 'TX0／RX0 → CH340（TTL 口）', '燒錄與序列埠，不要接別的東西', 'C'],
+  ['GPIO4–13、15–18', '相機', 'GOOUUU 與 ESP32-S3-EYE 相同對應', 'C'],
+  ['GPIO35／36／37', 'Octal PSRAM', '排針上有，但絕對不能用', 'C'],
+  ['GPIO0、45', 'Strapping（BOOT、Flash 電壓）', '不接', 'C'],
 ];
 function renderGpio() {
   $('#gpioTable').innerHTML = `<div class="tblwrap"><table><thead><tr><th>腳位</th><th>用途</th><th>狀態</th></tr></thead><tbody>` +
     GPIO.map(([g, u, n, s]) => `<tr><td class="v">${g}</td><td>${esc(u)}${n ? `<div class="small muted">${esc(n)}</div>` : ''}</td><td>${tag(s)}</td></tr>`).join('') + '</tbody></table></div>' +
-    `<div class="note">腳位是依「鏡頭在中段、USB 在一端」的 ESP32-S3-WROOM CAM 類板子推估。請拍板子正反面絲印給我，我再對一次。I2S 用同一個 I2S0 全雙工，麥克風與喇叭取樣率必須相同（建議 16 kHz）。</div>`;
+    `<div class="note">已依 GOOUUU ESP32-S3-CAM 排針絲印核對。編碼器必須用 3.3 V 供電（ESP32-S3 不耐 5 V），每條訊號串 1 kΩ。I2S 用同一個 I2S0 全雙工，麥克風與喇叭取樣率必須相同（建議 16 kHz）。</div>`;
 }
 function renderPower() {
   $('#powerTree').innerHTML = `<div class="tblwrap"><table><tbody>
     <tr><td class="v">2S 18650</td><td>6.0–8.4 V → 5 A 保險絲 → J1 → 頂板開關</td></tr>
     <tr><td class="v">VBAT_SW</td><td>→ DRV8870 VM（馬達）<br>→ 降壓模組 IN<br>→ 100k/33k 分壓 → GPIO1</td></tr>
     <tr><td class="v">5 V（調 5.1）</td><td>→ SG92R＋470 µF<br>→ MAX98357A VIN＋470 µF<br>→ SS34 → 頸部線束 → ESP32 5V 腳</td></tr>
-    <tr><td class="v">3.3 V</td><td>ESP32 板上 LDO → INMP441</td></tr>
+    <tr><td class="v">3.3 V</td><td>ESP32 板上 LDO → INMP441<br>DRV8870 板上 LM317M（VO 調 3.3 V）→ 兩顆馬達編碼器</td></tr>
     <tr><td class="v">GND</td><td>配電板單點匯流，底盤經 J1 回電池負極</td></tr>
   </tbody></table></div>`;
 }
@@ -1778,12 +1834,12 @@ function renderWires() {
 function specPaneHtml() {
   const rows = [
     ['JGA25-370', '本體直徑', 'Ø25', 'C'], ['JGA25-370', '馬達段／編碼器蓋', '31／11', 'C'], ['JGA25-370', '減速箱長 L', `${P.gearLen}（未標示）`, 'E'],
-    ['JGA25-370', '輸出軸', 'Ø4，突出 12.5', 'C'], ['JGA25-370', '前端 M3 孔距', '17', 'C'], ['JGA25-370', 'D 切面深度、前端凸台', '—', 'M'], ['JGA25-370', '額定電壓／轉速', '—', 'M'],
-    ['ESP32-S3-CAM', 'PCB', '62.6 × 28.3', 'C'], ['ESP32-S3-CAM', '鏡頭位置', '中段（座標待量）', 'M'], ['ESP32-S3-CAM', '鏡頭高出 PCB', `${P.lensH}`, 'M'],
-    ['ESP32-S3-CAM', 'USB-C', '一端（位置待量）', 'M'], ['ESP32-S3-CAM', '排針列距／方向／長度', '25.4？', 'M'], ['ESP32-S3-CAM', '天線端', '推測在 USB 對側', 'M'],
-    ['MAX98357A', 'PCB／上方孔距', '17.7 × 19.1／12.6', 'C'], ['INMP441', 'PCB', '10 × 10', 'C'], ['INMP441', '收音孔方向、腳位', '—', 'M'],
-    ['DRV8870 雙路', 'PCB／孔徑', '48 × 30／Ø3', 'C'], ['DRV8870 雙路', '孔距、端子位置', '—', 'M'],
-    ['SG92R', '本體／耳片跨距／孔距', '22.8×12.2×22.7／32.2／27.8', 'E'], ['SG92R', '實物', '—', 'M'],
+    ['JGA25-370', '輸出軸', 'Ø4，突出 12.5（含 Ø7 銅套）', 'C'], ['JGA25-370', 'D 切面', '3.5', 'C'], ['JGA25-370', '前端 M3 孔距', '17', 'C'], ['JGA25-370', '編碼器 6P 接頭', '在編碼器蓋側面', 'C'], ['JGA25-370', '減速比（決定 L）／電壓／6P 腳位', '—', 'M'],
+    ['ESP32-S3-CAM', '型號', 'GOOUUU，N16R8', 'C'], ['ESP32-S3-CAM', 'PCB／排針', '62.6 × 28.3／2×20，列距 24.7', 'C'], ['ESP32-S3-CAM', 'USB-C', 'OTG＋TTL 同一端', 'C'],
+    ['ESP32-S3-CAM', '天線突出 PCB', `約 ${ESP.antOver}`, 'E'], ['ESP32-S3-CAM', '鏡頭位置（軟排線）', `約 ${P.lensOffset}`, 'M'], ['ESP32-S3-CAM', '鏡頭高出 PCB', `${P.lensH}`, 'M'], ['ESP32-S3-CAM', '背面有無 TF 卡座', '—', 'M'],
+    ['MAX98357A', 'PCB／上方孔距', '17.7 × 19.1／12.6', 'C'], ['MAX98357A', '孔心到底邊', '16.7', 'C'], ['INMP441', 'PCB／腳位／收音孔', '10 × 10／6P／元件面', 'C'],
+    ['DRV8870 雙路', 'PCB／孔徑', '48 × 30／Ø3', 'C'], ['DRV8870 雙路', '端子與排針排列', 'VM G OUT1–4／IN1–4 VO G S1 G S2 G', 'C'], ['DRV8870 雙路', '孔距', '40.8 × 22.8', 'E'], ['DRV8870 雙路', 'S1／S2 用途', '—', 'M'],
+    ['SG92R', '本體／耳片跨距／總高', '23.2×12.1×22.7／32.1／30.5', 'C'], ['SG92R', '耳片高度、軸心位置', '—', 'M'],
     ['電池盒', '外形', `${P.batL} × ${P.batW} × ${P.batH}`, 'E'], ['降壓模組', '外形', `${P.buckL} × ${P.buckW} × ${P.buckH}`, 'E'], ['喇叭', '外形', `Ø${P.spkD} × ${P.spkH}`, 'E'],
     ['履帶', '節距／寬／片數', `${P.trackPitch}／${P.trackW}／${L.links}`, 'D'], ['驅動輪', '節圓', `${fx(L.PD, 2)}（≈Ø41）`, 'D'],
   ];
@@ -1796,17 +1852,18 @@ function specPaneHtml() {
     ['中', '馬達只靠前端兩顆 M3 懸臂', '尾端 U 形托架＋束線帶。'],
     ['中', '驅動輪 D 孔打滑', '孔內埋 M3 螺母＋止付螺絲，輪轂 100% 填充。'],
     ['中', '頭內 ESP32 發熱', '頭罩用 PETG、後蓋散熱槽、串流時降低解析度。'],
-    ['中', '所有 GPIO 依推估板型', '收到板子照片後重新核對。'],
+    ['中', '編碼器 5 V 燒壞 GPIO', '編碼器只接 3.3 V（驅動板 VO 先量）＋每條 1 kΩ。'],
+    ['中', 'GPIO46（編碼器 B）影響燒錄', '先只接 A 相；B 相選配，燒錄失敗時拔 J2。'],
     ['低', '離地 ' + fx(L.clearance, 1) + ' mm', '營隊場地避免碎石；障礙物高度 ≤ 15 mm。'],
     ['低', '同一 I2S 全雙工', '麥克風與喇叭必須同取樣率，錄音時播音會被收進去（本來就該避免）。'],
   ];
   const needs = [
-    'ESP32-S3-CAM 正面、背面、側面照（旁邊放直尺）＋板名絲印：確認鏡頭座標、鏡頭高度、USB-C 位置、排針方向與長度、天線端、GPIO 標示、有沒有 SD 卡座與 RGB LED。',
-    'JGA25-370：量減速箱長 L、前端凸台直徑與高度、D 切面深度；拍馬達貼紙（電壓／轉速）。',
-    'DRV8870 雙路模組：正反面照，量 4 個孔的中心距，確認端子排列與是否有限流電阻。',
-    'SG92R：側面照＋卡尺量耳片高度、軸心到本體端距離；拍附的舵盤種類。',
-    '電池盒：實際外形與出線位置；18650 是否含保護板（長 65 或 69–70）。',
-    '降壓模組型號與孔位；喇叭的固定方式、阻抗與功率；INMP441 板子照片（收音孔在哪一面）。',
+    'ESP32-S3-CAM：量鏡頭中心到天線端 PCB 邊的距離（目前估 11 mm → 偏移 −20）、鏡頭頂高出 PCB 多少、背面有沒有 TF 卡座。',
+    'JGA25-370：馬達貼紙或商品頁的電壓／轉速／減速比（決定減速箱長 L），以及 6P 編碼器線每一條的顏色或絲印。',
+    'DRV8870 模組：S1／S2 在背面接到哪裡（拍背面）。',
+    'SG92R：卡尺量耳片下緣到底部、軸心到本體端的距離。',
+    '喇叭：你用的是 Ø40 圓形，還是商品圖裡那種長方形腔體喇叭？（尺寸、阻抗、功率）',
+    '電池盒：實際外形與出線位置；18650 是否含保護板（長 65 或 69–70）。降壓模組型號與孔位。',
     '營隊印表機型號／平台尺寸，以及能用的線材（PLA／PETG／TPU）。',
   ];
   const cmp = [
@@ -1834,14 +1891,14 @@ function specPaneHtml() {
   <div class="tblwrap"><table><thead><tr><th>零件</th><th>數量</th><th>材料</th><th>STL</th></tr></thead><tbody>
   ${[['底盤槽', 1, 'PETG/PLA', 'tub'], ['驅動輪', 2, 'PETG', 'sprocket'], ['惰輪', 2, 'PETG', 'idler'], ['履帶片', 2 * L.links, 'PETG', 'track_link'], ['電池抽屜', 1, 'PLA', 'battery_sled'],
     ['上身骨架', 1, 'PLA', 'upper_frame'], ['頂板／頸座', 1, 'PETG', 'neck_deck'], ['身體外殼', 1, 'PLA', 'body_shell'], ['喇叭墊高環', 1, 'PLA', 'speaker_ring'],
-    ['頭部轉盤', 1, 'PETG', 'head_floor'], ['頭罩', 1, 'PETG', 'head_hood'], ['頭部後蓋', 1, 'PETG', 'head_back'], ['眼瞼（可換）', 2, 'PLA', 'eyelid']]
+    ['頭部轉盤', 1, 'PETG', 'head_floor'], ['頭罩', 1, 'PETG', 'head_hood'], ['頭部後蓋', 1, 'PETG', 'head_back'], ['眼圈', 2, '橘色 PLA', 'eye_ring'], ['瞳孔（造型眼）', 1, '深灰 PLA', 'pupil'], ['眼瞼（可換）', 2, 'PLA', 'eyelid']]
     .map(([a, b, c, d]) => `<tr><td>${a}</td><td class="v">${b}</td><td>${c}</td><td class="v">cad/stl/${d}.stl</td></tr>`).join('')}</tbody></table></div>
   <h3>採購件＋五金</h3>
   <ul class="clean">
     <li>JGA25-370 ×2、ESP32-S3-CAM ×1、MAX98357A ×1、INMP441 ×1、DRV8870 雙路 ×1、SG92R ×1</li>
     <li>18650（含保護板）×2＋2 槽電池盒、5 V ≥3 A 降壓模組、Ø40 喇叭 4 Ω 3 W、KCD1 船型開關</li>
-    <li>5 A 迷你刀片保險絲＋線上座、SS34、470 µF/16 V ×2、100k＋33k、100 nF、JST-XH 6P／4P 各一組、5×7 洞洞板</li>
-    <li>M3×6 ×4（馬達）、M3×8 ×20、M3 熱熔螺母 ×4（底盤四角）、M3 止付螺絲＋M3 螺母 ×2、M4×40＋防鬆螺帽 ×2、M2×6 自攻 ×10、Ø6×2 釹磁鐵 ×4</li>
+    <li>5 A 迷你刀片保險絲＋線上座、SS34、470 µF/16 V ×2、100k＋33k、1 kΩ ×4（編碼器保護）、100 nF、JST-XH 6P／8P 各一組、5×7 洞洞板</li>
+    <li>M3×6 圓頭 ISO 7380 ×4（馬達）、M3×8 ×20、M3 熱熔螺母 ×4（底盤四角）、M3 止付螺絲＋M3 螺母 ×2、M4×40＋防鬆螺帽 ×2、M2×6 自攻 ×10、Ø6×2 釹磁鐵 ×4</li>
     <li>1.75 mm 線材約 2 m（履帶插銷）、杜邦母母線 20 cm ×20、20/22/26 AWG 矽膠線、熱縮管、3 mm 束線帶、螺旋纏線管</li>
   </ul>`;
 }
@@ -1897,14 +1954,15 @@ function overviewHtml() {
   <h4>設計重點</h4>
   <ul class="clean">
     <li><b>馬達對角擺</b>：左後右前，兩顆 64 mm 長的馬達在 110 mm 內寬裡完全錯開。</li>
-    <li><b>電池走右側通道</b>：放在底盤最低處，從後門抽出，不用翻車。</li>
-    <li><b>頭部是護目鏡臉</b>：鏡頭在 PCB 中段，所以兩隻大眼是造型，真鏡頭藏在兩眼中間。</li>
+    <li><b>電池走右側通道</b>：放在底盤最低處，從後門抽出，不用翻車。按下面「換電池示範」看怎麼換。</li>
+    <li><b>右眼就是真鏡頭</b>：GOOUUU 板的相機貼在模組上、偏天線端約 20 mm，剛好是一隻眼睛的位置；左眼是造型眼。</li>
+    <li><b>編碼器接回 ESP32</b>：A 相用 GPIO19/20（改用 TTL 口燒錄），3.3 V 由驅動板的 LM317M 供應。</li>
     <li><b>頸部線束繞開轉軸</b>：伺服佔住轉軸，線束改從轉軸後方 16 mm 穿過腎形窗口。</li>
     <li><b>外殼是套筒</b>：拆 4 顆螺絲往上拔，連頭都不用拆。</li>
   </ul>
-  <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn" data-go="asm">看組裝步驟</button><button class="btn" data-go="wire">看配線</button><button class="btn" data-go="spec">待量測清單</button></div>`;
+  <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="ovBat">換電池示範</button><button class="btn" data-go="asm">看組裝步驟</button><button class="btn" data-go="wire">看配線</button><button class="btn" data-go="spec">待量測清單</button></div>`;
 }
-function bindOverview() { $$('#inspector [data-go]').forEach(b => b.onclick = () => selectTab(b.dataset.go)); }
+function bindOverview() { $$('#inspector [data-go]').forEach(b => b.onclick = () => selectTab(b.dataset.go)); const ob = $('#ovBat'); if (ob) ob.onclick = () => batterySwap(batDemo.to < 1); }
 
 /* =========================================================
    12. 參數 UI
@@ -1980,7 +2038,7 @@ const scan = { on: false, t0: 0 };
 $('#yawScan').onclick = () => { scan.on = !scan.on; scan.t0 = performance.now(); $('#yawScan').textContent = scan.on ? '停止' : '掃描'; };
 
 // 視角
-const VIEWS = { iso: [1, 0.62, 1.15], front: [0, 0.18, 1], side: [1, 0.15, 0], top: [0, 1, -0.001], bottom: [0, -1, -0.001], head: [0.8, 0.35, 1] };
+const VIEWS = { rear: [-0.85, 0.5, -1.1], iso: [1, 0.62, 1.15], front: [0, 0.18, 1], side: [1, 0.15, 0], top: [0, 1, -0.001], bottom: [0, -1, -0.001], head: [0.8, 0.35, 1] };
 let camAnim = null;
 function setView(v) {
   $$('.views button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
@@ -2044,12 +2102,19 @@ function tick(now) {
     const cur = new Set(ASM[UI.asm].parts);
     for (const id of cur) { const p = parts[id]; if (p) p.obj.position.copy(p.base).addScaledVector(p.vec, UI.explode + e); }
   }
+  if (batDemo.k !== batDemo.to) {
+    const k = Math.min(1, (now - batDemo.t0) / (reduceMotion ? 1 : 900));
+    batDemo.k = batDemo.from + (batDemo.to - batDemo.from) * (1 - Math.pow(1 - k, 3));
+    if (k >= 1) batDemo.k = batDemo.to;
+    applyState();
+  }
   controls.update();
   renderer.render(scene, camera);
   labelRenderer.render(scene, camera);
 }
 
 /* 啟動 */
+$('#btnBat').onclick = () => batterySwap(batDemo.to < 1);
 $('#asmStart').onclick = () => asmGo(0);
 $('#asmPrev').onclick = () => asmGo(UI.asm < 0 ? 0 : UI.asm - 1);
 $('#asmNext').onclick = () => asmGo(UI.asm < 0 ? 0 : UI.asm + 1);
