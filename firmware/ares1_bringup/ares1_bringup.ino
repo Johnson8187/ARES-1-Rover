@@ -3,6 +3,11 @@
 // ⚠ 這支程式「還沒有在實機上編譯測試過」，腳位全部依推估板型，
 //    請先對照 ares1_pins.h 的說明確認你的 ESP32-S3-CAM 絲印再上傳。
 //
+// 電源是學員自備的 PD 行動電源 → CH224K 誘騙 9 V。注意：
+//   - CH224K 第一次一定要先單獨量到 9.0 V 再接上車（出廠常是 20 V）。
+//   - 9 V 不會隨行動電源電量慢慢掉；電量看行動電源自己的燈。GPIO1 量的是「PD 有沒有成功」。
+//   - 行動電源電流太小會自動關機，所以這支程式不用 deep sleep。
+//
 // Arduino IDE 設定：開發板選 ESP32S3 Dev Module、Flash 16MB、PSRAM 選 OPI PSRAM、
 //   USB CDC On Boot = Disabled，接「TTL」那個 USB-C 上傳（OTG 口的腳位拿去接編碼器了）。
 //
@@ -11,7 +16,7 @@
 //   空白           停車
 //   h              頭部 ±45° 掃描一次        c  頭部置中
 //   t              喇叭嗶一聲                m  麥克風音量條 3 秒
-//   b              讀電池電壓                e  編碼器計數與轉速（按一次印 3 秒）
+//   b              讀 9 V 電源               e  編碼器計數與轉速（按一次印 3 秒）
 #include <Arduino.h>
 #include <ESP_I2S.h>
 #include "ares1_pins.h"
@@ -19,7 +24,7 @@
 // ---------------- 馬達（DRV8870：IN1=PWM、IN2=0 前進；反過來後退；兩腳 0 滑行） ----------------
 constexpr uint32_t MOTOR_FREQ = 20000;   // 20 kHz，聽不到嘯叫
 constexpr uint8_t  MOTOR_RES  = 10;      // 0–1023
-constexpr float    MOTOR_MAX  = 0.70f;   // 馬達電壓規格未確認前先限 70%（6 V 版在 8.4 V 屬超壓）
+constexpr float    MOTOR_MAX  = 0.66f;   // 6 V 馬達接 9 V：平均 ≈ 6 V。不要拿掉，馬達會過熱
 constexpr float    RAMP_PER_S = 4.0f;    // 0→全速 0.25 s，遠低於穩定性分析的 2.4 m/s² 上限
 constexpr bool     INVERT_L   = false;   // 裝好後方向相反就改這兩個
 constexpr bool     INVERT_R   = true;    // 左右馬達鏡像安裝，右邊預設反轉
@@ -44,6 +49,12 @@ void updateMotors(float dt) {
   motorWrite(PIN_ML_IN1, PIN_ML_IN2, INVERT_L ? -curL : curL);
   motorWrite(PIN_MR_IN1, PIN_MR_IN2, INVERT_R ? -curR : curR);
 }
+
+// ---------------- 堵轉保護（20 W 行動電源撐不住兩邊同時堵轉） ----------------
+// 指令 > 30% 但編碼器 0.3 s 都沒有脈衝 → 卡住了（或編碼器沒接），兩邊一起斷電。
+constexpr bool     STALL_GUARD = true;     // 編碼器還沒接好時先改成 false
+constexpr uint32_t STALL_MS    = 300;
+constexpr float    STALL_CMD   = 0.30f;
 
 // ---------------- 頭部伺服 SG92R ----------------
 constexpr uint32_t SERVO_FREQ = 50;
@@ -72,11 +83,23 @@ void encoderBegin() {
 // ---------------- 狀態燈（板載 WS2812） ----------------
 void statusLed(uint8_t r, uint8_t g, uint8_t b) { rgbLedWrite(PIN_RGB, r, g, b); }
 
-// ---------------- 電池 ----------------
-float readVbat() {
+bool stalled(float cur, volatile uint32_t &enc, uint32_t &last, uint32_t &t0, uint32_t now) {
+  uint32_t e = enc;
+  if (fabsf(cur) < STALL_CMD || e != last) { last = e; t0 = now; return false; }
+  return now - t0 > STALL_MS;
+}
+
+// ---------------- 9 V 電源 ----------------
+float readV9() {
   uint32_t mv = 0;
-  for (int i = 0; i < 16; i++) mv += analogReadMilliVolts(PIN_VBAT);
-  return mv / 16.0f / 1000.0f * VBAT_RATIO;
+  for (int i = 0; i < 16; i++) mv += analogReadMilliVolts(PIN_V9);
+  return mv / 16.0f / 1000.0f * V9_RATIO;
+}
+void powerReport(float v) {
+  if (v < 3.0f)          Serial.printf("9 V = %.2f V：沒有接行動電源（只有 USB 供電，馬達不會動）\n", v);
+  else if (v < V9_STOP)  Serial.printf("9 V = %.2f V：PD 沒成功！換一條 C-to-C 線，或換支援 PD（9V⎓2A）的行動電源\n", v);
+  else if (v < V9_WARN)  Serial.printf("9 V = %.2f V：偏低，檢查接線或行動電源快沒電了\n", v);
+  else                   Serial.printf("9 V = %.2f V：正常\n", v);
 }
 
 // ---------------- 音訊：I2S0 全雙工（麥克風與功放共用 BCLK/WS） ----------------
@@ -131,13 +154,15 @@ void setup() {
   encoderBegin();
   statusLed(0, 8, 0);
   bool ok = audioBegin();
-  Serial.printf("\nARES-1 上線測試  VBAT=%.2f V  I2S=%s\n", readVbat(), ok ? "OK" : "失敗（檢查腳位）");
-  Serial.println("w/s/a/d 移動、空白停、h 掃頭、c 置中、t 嗶聲、m 麥克風、b 電池、e 編碼器");
+  Serial.printf("\nARES-1 上線測試  I2S=%s\n", ok ? "OK" : "失敗（檢查腳位）");
+  powerReport(readV9());
+  Serial.println("w/s/a/d 移動、空白停、h 掃頭、c 置中、t 嗶聲、m 麥克風、b 9 V 電源、e 編碼器");
   if (ok) beep(1200, 120);
 }
 
 void loop() {
   static uint32_t last = millis(), lastBat = 0;
+  static uint32_t encLastL = 0, encLastR = 0, stallT0L = 0, stallT0R = 0;
   uint32_t now = millis();
   float dt = (now - last) / 1000.0f;
   last = now;
@@ -165,7 +190,7 @@ void loop() {
         }
         Serial.println();
         break;
-      case 'b': Serial.printf("VBAT = %.2f V\n", readVbat()); break;
+      case 'b': powerReport(readV9()); break;
       case 'e':
         for (int i = 0; i < 6; i++) {
           uint32_t l0 = encL, r0 = encR;
@@ -180,15 +205,20 @@ void loop() {
 
   if (now - lastBat > 1000) {
     lastBat = now;
-    float v = readVbat();
-    if (v < VBAT_STOP && v > 3.0f) {           // > 3 V：只接 USB 時不誤判
+    float v = readV9();
+    if (v < V9_STOP && v > 3.0f) {             // > 3 V：只接 USB 時不誤判
       tgtL = tgtR = 0;
       statusLed(16, 0, 0);
-      Serial.printf("電池 %.2f V 過低，已停車，請換電池\n", v);
-    } else if (v < VBAT_WARN && v > 3.0f) {
+      powerReport(v);
+    } else if (v < V9_WARN && v > 3.0f) {
       statusLed(12, 6, 0);
-      Serial.printf("電池 %.2f V 偏低，準備回充\n", v);
+      powerReport(v);
     }
+  }
+  if (STALL_GUARD && (stalled(curL, encL, encLastL, stallT0L, now) | stalled(curR, encR, encLastR, stallT0R, now))) {
+    tgtL = tgtR = curL = curR = 0;
+    statusLed(16, 0, 8);
+    Serial.println("堵轉保護：編碼器 0.3 s 沒有脈衝，已斷電（卡住了？編碼器沒接就把 STALL_GUARD 改 false）");
   }
   updateMotors(dt);
   delay(5);

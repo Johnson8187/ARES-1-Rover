@@ -11,18 +11,19 @@
 // 燒錄請用「TTL」那個 USB-C。OTG 口的 GPIO19/20 已拿去接編碼器。
 #pragma once
 
-// 電池電壓：VBAT —100k— GPIO1 —33k— GND（8.4 V → 2.08 V）
-constexpr int PIN_VBAT     = 1;    // ADC1_CH0（ADC2 在 Wi-Fi 開啟時不能用）
-constexpr float VBAT_RATIO = (100.0f + 33.0f) / 33.0f;
+// 電源：PD 行動電源 → CH224K 誘騙 9 V → 開關 → 9V_SW（馬達）＋ Mini560 5 V（其他全部）
+// 9 V 監測：9V_SW —100k— GPIO1 —33k— GND（9 V → 2.23 V；PD 沒成功只有 5 V → 1.24 V）
+constexpr int PIN_V9      = 1;     // ADC1_CH0（ADC2 在 Wi-Fi 開啟時不能用）
+constexpr float V9_RATIO  = (100.0f + 33.0f) / 33.0f;
 
-// DRV8870 雙路模組（端子朝車身中央、VM 在前端）
+// DRV8870 雙路模組（放底盤右側：端子朝車身中央、VM 在後端；VO 不接、可變電阻轉到最小）
 //   OUT1/2 → 右馬達（車頭）  OUT3/4 → 左馬達（車尾）
 constexpr int PIN_MR_IN1 = 47;     // 模組 IN1
 constexpr int PIN_MR_IN2 = 38;     // 模組 IN2
 constexpr int PIN_ML_IN1 = 14;     // 模組 IN3
 constexpr int PIN_ML_IN2 = 21;     // 模組 IN4
 
-// 霍爾編碼器（VCC 一定要 3.3 V：驅動板 VO 先調到 3.3 V；每條訊號串 1 kΩ）
+// 霍爾編碼器（VCC 一定要 3.3 V：由 AMS1117-3.3 供電，不用驅動板 VO；每條訊號串 1 kΩ）
 constexpr int PIN_ENC_LA = 19;     // 左馬達 A 相（OTG 口 D−）
 constexpr int PIN_ENC_RA = 20;     // 右馬達 A 相（OTG 口 D+）
 constexpr int PIN_ENC_LB = 3;      // 左馬達 B 相（選配；strapping 腳但預設 eFuse 下不影響開機）
@@ -44,5 +45,6 @@ constexpr int PIN_RGB = 48;
 // 機構與安全參數（與 web/index.html、cad/ares1_params.scad 相同）
 constexpr int   HEAD_YAW_MAX_DEG = 45;     // 軟體限位；機械限位 ±55°
 constexpr float ACCEL_LIMIT      = 2.4f;   // m/s²，穩定性計算建議值
-constexpr float VBAT_WARN        = 6.9f;   // 提示回充
-constexpr float VBAT_STOP        = 6.6f;   // 停車（DRV8870 在 6.5 V 以下欠壓）
+constexpr float V9_WARN          = 8.3f;   // 9 V 掉太多：行動電源快沒電、線太細或接觸不良
+constexpr float V9_STOP          = 7.0f;   // 停車：PD 沒成功（只有 5 V）或電壓崩了（DRV8870 在 6.5 V 以下欠壓）
+constexpr float MOTOR_V_RATED    = 6.0f;   // JGA25-370 6 V 版，9 V 供電時 PWM 上限 = 6 / 9 ≈ 0.66

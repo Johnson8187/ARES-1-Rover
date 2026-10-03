@@ -217,9 +217,9 @@ textarea.export{width:100%;min-height:140px;font-family:var(--mono);font-size:12
       <label class="check"><input type="checkbox" id="layChassis" checked> 底盤層</label>
       <label class="check"><input type="checkbox" id="layBody" checked> 身體層</label>
       <label class="check"><input type="checkbox" id="layHead" checked> 頭部層</label>
-      <h3>換電池</h3>
-      <button class="btn primary" id="btnBat">換電池示範</button>
-      <p class="small muted">電池在底盤最低處，從後門整個抽出來換，不拆外殼、不翻車。</p>
+      <h3>換行動電源</h3>
+      <button class="btn primary" id="btnBat">換行動電源示範</button>
+      <p class="small muted">行動電源躺在馬達正上方的電池艙，從車尾整個抽出來，不拆外殼、不翻車。</p>
       <h3>操作</h3>
       <p class="small muted">拖曳旋轉 · 滾輪或雙指縮放 · 右鍵或雙指拖曳平移 · 點零件看規格。</p>
     </div>
@@ -232,6 +232,13 @@ textarea.export{width:100%;min-height:140px;font-family:var(--mono);font-size:12
         <button data-v="C" aria-pressed="false">C 長頸桅杆</button>
       </div>
       <p class="small muted" id="layoutNote"></p>
+      <h3>行動電源（學員自備）</h3>
+      <div class="seg" id="bankSeg"></div>
+      <div class="seg" id="mountSeg" style="margin-top:6px">
+        <button data-v="deck" aria-pressed="true">放電池艙（推薦）</button>
+        <button data-v="back" aria-pressed="false">掛背後（比較用）</button>
+      </div>
+      <p class="small muted" id="bankNote"></p>
       <div id="paramGroups"></div>
       <h3>麥克風位置</h3>
       <div class="seg" id="micSeg">
@@ -330,14 +337,14 @@ const DEFAULTS = {
   // 履帶 / 底盤
   innerW: 110, wheelbase: 111.5, trackW: 30, trackPitch: 12.5, sprocketTeeth: 10,
   plateT: 4, trackGap: 1.5, trackT: 5, grouser: 1.5, floorY: 12, floorT: 2.5,
-  // JGA25-370
+  // JGA25-370（6 V 版）
   motorD: 25, motorCan: 31, encLen: 11, gearLen: 22, shaftD: 4, shaftLen: 12.5, motorHole: 17, motorMass: 85,
-  // 電池（2S 18650 電池盒）
-  batL: 70, batW: 40, batH: 25, batZ: -10,
-  // 模組
-  drvL: 48, drvW: 30, buckL: 45, buckW: 25, buckH: 18, spkD: 40, spkH: 20,
+  // 行動電源（學員自備，預設＝10000 mAh 薄型）與電池艙
+  bankMount: 'deck', bankL: 148, bankW: 70, bankT: 15, bankMass: 215, bankCap: 10000, bankSpacer: 0, bayH: 28,
+  // 模組（buck＝Mini560 5 V）
+  drvL: 48, drvW: 30, buckL: 22, buckW: 17, buckH: 6, spkD: 40, spkH: 20,
   // 身體
-  bodyW: 110, bodyD: 100, bodyH: 96, shellT: 1.6, deckT: 3,
+  bodyW: 110, bodyD: 100, bodyH: 78, shellT: 1.6, deckT: 3,
   // 頭部
   neckExtra: 0, neckZ: 0, headZ: 2, headW: 80, headH: 44, headD: 48,
   camTilt: 10, lensOffset: -20, lensH: 11, eyelid: 8, yawMax: 45, micInHead: true,
@@ -346,12 +353,21 @@ const DEFAULTS = {
 };
 const PRESETS = {
   B: {},
-  A: { layout: 'A', innerW: 134, batZ: 0 },
+  A: { layout: 'A', innerW: 134 },
   C: { layout: 'C', neckExtra: 70 },
 };
+// 常見行動電源（學員自備）；數值是市售品的典型值，實際請量自己那一顆
+const BANKS = {
+  s5k: { label: '5000 小型', bankL: 98, bankW: 63, bankT: 15, bankMass: 120, bankCap: 5000 },
+  c10k: { label: '10000 方塊', bankL: 105, bankW: 66, bankT: 25, bankMass: 200, bankCap: 10000 },
+  t10k: { label: '10000 薄型', bankL: 148, bankW: 70, bankT: 15, bankMass: 215, bankCap: 10000 },
+  b20k: { label: '20000 大容量', bankL: 155, bankW: 74, bankT: 27, bankMass: 420, bankCap: 20000 },
+};
+const AVG_W = 5.8;   // 平常行駛的平均耗電（W）：馬達 2×0.25 A×6 V＋5 V 約 0.45 A
+const runtimeH = P => P.bankCap * 3.7 * 0.85 / 1000 / AVG_W;
 const LAYOUT_NOTE = {
-  B: '兩顆馬達「左後、右前」對角擺放，互不重疊；電池走右側通道從後門抽出。零件最少、重量前後平衡。',
-  A: '兩顆馬達都在後方同軸對頂。110 mm 內寬會互撞，必須加寬到約 134 mm 以上，電池改從前門抽出。',
+  B: '兩顆馬達「左後、右前」對角擺放，互不重疊；行動電源躺在馬達正上方的電池艙，從車尾抽出。零件最少、重量前後平衡。',
+  A: '兩顆馬達都在後方同軸對頂。110 mm 內寬會互撞，必須加寬到約 134 mm 以上；車尾下層被馬達佔滿，CH224K 的 USB-C 只能改到前面。',
   C: '主方案加一根 70 mm 頸部桅杆，鏡頭視角較高，但重心升高、頭部晃動與線束長度都變差。',
 };
 const PARAM_UI = [
@@ -361,16 +377,19 @@ const PARAM_UI = [
     { k: 'trackW', label: '履帶寬', min: 20, max: 40, step: 1, st: 'D' },
     { k: 'gearLen', label: '減速箱長 L', min: 15, max: 32, step: 0.5, st: 'E', hint: '未標示，先估 22 mm；會影響馬達總長與干涉。' },
   ]},
-  { group: '電池空間', items: [
-    { k: 'batL', label: '電池盒長', min: 60, max: 90, step: 1, st: 'E' },
-    { k: 'batW', label: '電池盒寬', min: 30, max: 50, step: 1, st: 'E' },
-    { k: 'batH', label: '電池盒高', min: 18, max: 32, step: 1, st: 'E' },
-    { k: 'batZ', label: '電池前後位置', min: -40, max: 20, step: 1, st: 'D', hint: '負值往後。對角方案電池必須在右前馬達之後。' },
+  { group: '行動電源（學員自備）', items: [
+    { k: 'bankL', label: '行動電源長', min: 60, max: 200, step: 1, st: 'M', hint: '比電池艙長的部分會從車尾露出來（開尾設計），看「檢查」的離去角。' },
+    { k: 'bankW', label: '行動電源寬', min: 40, max: 100, step: 1, st: 'M', hint: '電池艙兩側立柱之間可用 85 mm。' },
+    { k: 'bankT', label: '行動電源厚', min: 8, max: 40, step: 0.5, st: 'M', hint: '比電池艙高度少 0.5 以內都放得進去；薄的用魔鬼氈拉緊。' },
+    { k: 'bankMass', label: '行動電源重量', min: 60, max: 500, step: 5, st: 'M', unit: 'g' },
+    { k: 'bankCap', label: '標示容量', min: 2000, max: 26000, step: 1000, st: 'M', unit: 'mAh', hint: '只用來估算續航。' },
+    { k: 'bankSpacer', label: '前方墊塊', min: 0, max: 60, step: 1, st: 'D', hint: '短的行動電源在前面塞列印墊塊，把重心推回中間。「檢查」會算建議值。' },
+    { k: 'bayH', label: '電池艙高度', min: 16, max: 40, step: 1, st: 'D', hint: '加高能放更厚的行動電源，但整台車跟著變高。' },
   ]},
   { group: '身體', items: [
     { k: 'bodyW', label: '身體寬', min: 90, max: 150, step: 1, st: 'D' },
     { k: 'bodyD', label: '身體深', min: 80, max: 130, step: 1, st: 'D' },
-    { k: 'bodyH', label: '身體高', min: 70, max: 130, step: 1, st: 'D' },
+    { k: 'bodyH', label: '身體高', min: 60, max: 130, step: 1, st: 'D', hint: '電池艙把底盤墊高 18 mm，身體縮成 78 讓總高不變。' },
   ]},
   { group: '頭部', items: [
     { k: 'neckExtra', label: '頸部加高', min: 0, max: 100, step: 1, st: 'D', hint: '0 = 伺服直接裝在身體頂板。' },
@@ -430,14 +449,21 @@ function computeLayout(P) {
   L.tubLen = Math.ceil(P.wheelbase + P.motorD + 2 * (3 + 6));
   L.tubZ0 = -L.tubLen / 2; L.tubZ1 = L.tubLen / 2;
   L.endWallT = 3;
-  L.sledT = 1.6;
-  L.deckY0 = Math.max(L.trackTop + 0.6, L.floorTop + L.sledT + P.batH + 4);
+  // 底盤是「雙層巴士」：下層馬達＋驅動板＋電源區，上層整層是行動電源的電池艙
+  L.bay = P.bankMount !== 'back';
+  L.trayY0 = L.axleY + L.mR + 0.8;               // 托盤底面＝馬達頂 +0.8
+  L.trayT = 1.6; L.trayTop = L.trayY0 + L.trayT;
+  L.deckY0 = L.bay ? L.trayTop + P.bayH : Math.max(L.trackTop + 0.6, L.trayY0);
   L.deckY1 = L.deckY0 + P.deckT;
 
   const mk = (side, sign, z) => {
     const flangeX = sign * L.hw;
     const innerX = flangeX - sign * L.motorTotal;
-    return { side, sign, z, flangeX, innerX,
+    const fz = z > 0 ? -1 : 1;                    // 編碼器 6P 接頭水平朝車身中央（上面有托盤）
+    const ca = innerX + sign * 1.5, cb = innerX + sign * 9.5, za = z + fz * (L.mR - 1.5), zb = z + fz * (L.mR + 10);
+    return { side, sign, z, flangeX, innerX, fz,
+      conn: { x: innerX + sign * 5.5, y: L.axleY, z: z + fz * (L.mR + 6) },
+      connBox: { x0: Math.min(ca, cb), x1: Math.max(ca, cb), y0: L.axleY - 4.5, y1: L.axleY + 4.5, z0: Math.min(za, zb), z1: Math.max(za, zb) },
       box: { x0: Math.min(flangeX, innerX), x1: Math.max(flangeX, innerX), y0: L.axleY - L.mR, y1: L.axleY + L.mR, z0: z - L.mR, z1: z + L.mR } };
   };
   L.mL = mk('L', +1, -L.zS);
@@ -449,31 +475,68 @@ function computeLayout(P) {
     { id: 'idlR', side: 'R', x: -L.trackCx, z: -L.mR_.z, drive: false },
   ];
 
-  // 電池
-  const b = {};
-  if (coax) {
-    b.x = 0; b.drawer = 'front';
-    b.z = clamp(P.batZ + 35, -10, L.tubZ1 - L.endWallT - 2 - P.batL / 2);
-  } else {
-    b.x = -(L.hw - 2 - P.batW / 2); b.drawer = 'rear';
-    b.z = P.batZ;
+  // 馬達尾端托架（束線帶綁住馬達）
+  L.cradles = [];
+  for (const mo of [L.mL, L.mR_]) {
+    const cx = mo.innerX + mo.sign * (P.encLen + 6);
+    for (const s of [-1, 1]) { const za = mo.z + s * 12.9, zb = mo.z + s * 16.4; L.cradles.push({ cx, mz: mo.z, x0: cx - 3, x1: cx + 3, y0: L.floorTop, y1: L.axleY, z0: Math.min(za, zb), z1: Math.max(za, zb) }); }
   }
-  b.y0 = L.floorTop + L.sledT; b.y1 = b.y0 + P.batH;
-  b.box = { x0: b.x - P.batW / 2, x1: b.x + P.batW / 2, y0: b.y0, y1: b.y1, z0: b.z - P.batL / 2, z1: b.z + P.batL / 2 };
-  L.bat = b;
 
-  // 馬達驅動板（DRV8870 雙路，48×30，長邊沿車身前後）
+  // 右側線材通道（地板直通上身底板）與電池艙
+  L.chX0 = -L.hw; L.chX1 = -L.hw + 16;
+  L.lipX0 = L.chX1; L.lipX1 = L.chX1 + 2;          // 托盤右緣立邊：兼通道牆與行動電源導軌
+  L.pillarW = 7;
+  L.bayX0 = L.lipX1; L.bayX1 = L.hw - L.pillarW;   // 可用寬（預設 85）
+  L.bayZ1 = L.tubZ1 - L.endWallT;                  // 前壁就是擋塊，後方整個打開
+  L.pillars = [
+    { x0: L.hw - L.pillarW, x1: L.hw, z0: -33.5, z1: -26.5 },
+    { x0: L.hw - L.pillarW, x1: L.hw, z0: 26.5, z1: 33.5 },
+    { x0: -L.hw, x1: -L.hw + L.pillarW, z0: 18.5, z1: 25.5 },
+    { x0: -L.hw, x1: -L.hw + L.pillarW, z0: L.tubZ0 + L.endWallT, z1: L.tubZ0 + L.endWallT + 6 },
+  ].map(p => ({ ...p, y0: L.floorTop, y1: L.deckY0 }));
+  L.trayPost = { x0: L.lipX0 - 2, x1: L.lipX1, y0: L.floorTop, y1: L.trayY0, z0: 20, z1: 26 };
+  L.strapSlots = [-55, -10, 35];                   // 魔鬼氈扣孔（每側兩個一組）
+  L.slotX = [L.lipX1 + 2.5, L.lipX1 + 10.5, L.bayX1 - 10.5, L.bayX1 - 2.5];
+  {
+    const zs = [L.tubZ0 + 6, ...L.strapSlots.flatMap(z => [z - 13, z + 13]), L.bayZ1 - 6];
+    L.trayWins = [];
+    for (let i = 0; i < zs.length; i += 2) if (zs[i + 1] - zs[i] > 10) L.trayWins.push([L.lipX1 + 16, zs[i], L.bayX1 - 16, zs[i + 1]]);
+  }
+
+  // 馬達驅動板（DRV8870 雙路，48×30）：放右側，排針那一長邊在線材通道正下方
   const d = {};
-  d.x = +(L.hw - 4 - P.drvW / 2);
-  d.z = coax ? 12 : 30;
+  d.x = -(L.hw - 4 - P.drvW / 2);
+  d.z = -12;
   d.y0 = L.floorTop + 4; d.y1 = d.y0 + 12;
   d.hole = [11.4, 20.4];                          // 孔距 22.8 × 40.8（由 R3.6 圓角推得）
-  d.tz = i => d.box ? d.box.z1 - 9 - i * 5.08 : 0; // 端子：0 VM、1 G、2 OUT1 … 5 OUT4（面向車身中央，VM 在前）
   d.box = { x0: d.x - P.drvW / 2, x1: d.x + P.drvW / 2, y0: d.y0, y1: d.y1, z0: d.z - P.drvL / 2, z1: d.z + P.drvL / 2 };
+  d.tz = i => d.box.z0 + 9 + i * 5.08;            // 端子：0 VM、1 G、2 OUT1 … 5 OUT4（朝車身中央，VM 在後端）
+  d.hdrX = d.box.x0 + 2.5;                        // 排針：IN1 IN2 IN3 IN4 VO G S1 G S2 G（IN1 在後端）
+  d.hdrZ = i => d.box.z0 + 8 + i * 2.54;
+  d.hdrTop = d.y0 + 1.6 + 16.5;                   // 杜邦頭頂
   L.drv = d;
 
-  // 底盤↔上身接頭與線孔
-  L.deckHole = { x: 0, z: coax ? 30 : -28 };
+  // 電源區（下層右後角）：CH224K 誘騙板、Mini560、AMS1117；USB-C 從後壁伸出
+  // 同軸方案車尾被馬達佔滿，改到右前、USB-C 從前壁伸出
+  {
+    const front = coax, s = front ? -1 : 1;
+    const zi = front ? L.tubZ1 - L.endWallT : L.tubZ0 + L.endWallT;   // 牆內面
+    const zr = (a, b) => ({ z0: Math.min(zi + s * a, zi + s * b), z1: Math.max(zi + s * a, zi + s * b) });
+    const pw = { front, s, wallZ: front ? L.tubZ1 : L.tubZ0 };
+    const y0 = L.floorTop + 3;
+    pw.pd = { x0: -L.hw + 15, x1: -L.hw + 27, y0, y1: y0 + 4.8, ...zr(-2.5, 22) };   // PCB 穿過牆孔，母座和外牆面齊
+    pw.usbX = (pw.pd.x0 + pw.pd.x1) / 2;
+    pw.buck = { x0: -L.hw + 28.5, x1: -L.hw + 28.5 + P.buckW, y0, y1: y0 + P.buckH, ...zr(0.5, 0.5 + P.buckL) };
+    pw.ldo = { x0: -L.hw + 1, x1: -L.hw + 12, y0, y1: y0 + 4, ...zr(8, 30) };
+    const cx = d.box.x1 + 6.5, cz = d.tz(0);       // C1 躺在端子旁，腳朝後（靠 VM 與電源區）
+    pw.cap = { x: cx, y: L.floorTop + 5, r: 5, z0: cz - 5, z1: cz + 15, x0: cx - 5, x1: cx + 5, y0: L.floorTop, y1: L.floorTop + 10 };
+    L.pwr = pw;
+    L.usbY = y0 + 1.6 + 1.6;
+  }
+
+  // 上身線孔（對準通道）與 J1/J2
+  L.deckHole = { x0: L.chX0 + 7, x1: L.chX1 - 1, z0: -36, z1: -10 };
+  L.conn = { x0: L.chX0 + 6.5, x1: L.chX0 + 12.5, y0: L.deckY0 - 9, y1: L.deckY0 - 2, j1: [L.deckHole.z0 + 2, L.deckHole.z0 + 19.5], j2: [L.deckHole.z1 - 2, L.deckHole.z1 + 20.5] };
 
   // 身體
   L.bodyY0 = L.deckY1; L.bodyY1 = L.bodyY0 + P.bodyH;
@@ -490,11 +553,8 @@ function computeLayout(P) {
   L.spk.y = L.bodyY0 + clamp(P.bodyH * 0.5, 26, 52);
   // 功放 MAX98357A：骨架前面、喇叭旁
   L.amp = { x: clamp(L.spk.r + 14, 20, L.wingX0 - 10), y: L.bodyY0 + 14, z: L.spineZ1 + 3 };
-  // 降壓模組：左翼內側
-  L.buck = { x1: L.wingX0, x0: L.wingX0 - P.buckH, y0: Math.min(L.bodyY0 + 44, L.bodyY1 - 20 - P.buckW), z1: L.spineZ0 - 3 };
-  L.buck.y1 = L.buck.y0 + P.buckW; L.buck.z0 = L.buck.z1 - P.buckL;
-  // 配電洞洞板：右翼內側
-  L.perf = { x0: -L.wingX0, x1: -L.wingX0 + 12, y0: L.bodyY0 + 43, z1: L.spineZ0 - 3 };
+  // 配電洞洞板：右翼內側（降壓模組已搬到底盤電源區）
+  L.perf = { x0: -L.wingX0, x1: -L.wingX0 + 12, y0: Math.min(L.bodyY0 + 43, L.topY0 - 31), z1: L.spineZ0 - 3 };
   L.perf.x0 = -L.wingX0; L.perf.x1 = -L.wingX0 + 12; L.perf.y1 = L.perf.y0 + 30; L.perf.z0 = L.perf.z1 - 50;
   // 船型開關（身體頂板左後角，朝上）
   L.sw = { x: L.bw - 22, z: L.bodyZ0 + 16, y1: L.topY1, y0: L.topY1 - 18 };
@@ -529,9 +589,36 @@ function computeLayout(P) {
   L.head = h;
   L.pivot = new THREE.Vector3(0, L.pivotY, P.neckZ);
 
+  // 行動電源
+  {
+    const B = {};
+    if (L.bay) {
+      B.x = (L.bayX0 + L.bayX1) / 2;
+      B.x0 = B.x - P.bankW / 2; B.x1 = B.x + P.bankW / 2;
+      B.y0 = L.trayTop; B.y1 = B.y0 + P.bankT;
+      B.z1 = L.bayZ1 - P.bankSpacer; B.z0 = B.z1 - P.bankL;
+      B.protrude = Math.max(0, L.tubZ0 - B.z0);
+      B.port = { x: B.x + P.bankW * 0.2, y: B.y0 + P.bankT / 2, z: B.z0 };     // 輸出 C 孔朝後
+    } else {                                                                   // 背包式：長邊橫放貼在身體背面
+      const yc = (L.bodyY0 + L.bodyY1) / 2;
+      B.x = 0; B.x0 = -P.bankL / 2; B.x1 = P.bankL / 2;
+      B.y0 = yc - P.bankW / 2; B.y1 = yc + P.bankW / 2;
+      B.z1 = L.bodyZ0 - 3; B.z0 = B.z1 - P.bankT;
+      B.protrude = 0;
+      B.port = { x: B.x1, y: yc, z: (B.z0 + B.z1) / 2 };
+    }
+    B.y = (B.y0 + B.y1) / 2; B.z = (B.z0 + B.z1) / 2;
+    B.box = { x0: B.x0, x1: B.x1, y0: B.y0, y1: B.y1, z0: B.z0, z1: B.z1 };
+    L.bank = B;
+    const inZ = L.strapSlots.filter(z => z > B.z0 + 12 && z < B.z1 - 12);
+    L.strapZ = L.bay ? [...new Set([inZ[0], inZ[inZ.length - 1]])].filter(z => z !== undefined) : [-30, 30];
+  }
+
   // 整體尺寸
-  L.overallW = Math.max(2 * L.trackOut, P.bodyW, P.headW);
+  L.overallW = Math.max(2 * L.trackOut, P.bodyW, P.headW, L.bay ? 0 : P.bankL);
   L.overallL = Math.max(L.tubLen, 2 * L.zS + 2 * (L.R + P.trackT / 2 + P.grouser), P.bodyD);
+  L.zMax = L.overallL / 2; L.zMin = Math.min(-L.overallL / 2, L.bank.z0);
+  L.overallL = L.zMax - L.zMin;
   L.overallH = L.pivotY + P.headH;
   return L;
 }
@@ -558,10 +645,21 @@ function massItems(P, L, yaw) {
   const linkM = 1.5 * (P.trackPitch * P.trackW) / (12.5 * 30) + 0.08;
   add('trackL', '左履帶', L.links * linkM, L.trackCx, L.axleY, 0);
   add('trackR', '右履帶', L.links * linkM, -L.trackCx, L.axleY, 0);
-  add('battery', '電池（2×18650＋盒）', 104 * (P.batL * P.batW * P.batH) / (70 * 40 * 25), L.bat.x, (L.bat.y0 + L.bat.y1) / 2, L.bat.z);
-  add('sled', '電池抽屜', 12, L.bat.x, L.floorTop + 2, L.bat.z - 10);
+  const B = L.bank;
+  add('bank', '行動電源', P.bankMass, B.x, B.y, B.z);
+  add('strap', '魔鬼氈綁帶', 6, B.x, L.bay ? B.y1 : B.y, B.z);
+  if (L.bay) {
+    const trayVol = (L.hw - L.lipX0) * L.tubLen * L.trayT * 0.65 + 2 * 8 * L.tubLen;
+    add('tray', '電池艙托盤（列印）', trayVol * PLA, (L.lipX0 + L.hw) / 2, L.trayY0 + 2, 0);
+    if (P.bankSpacer > 0) add('spacer', '前方墊塊（列印）', P.bankSpacer * (P.bankW - 6) * Math.min(P.bankT, P.bayH - 1) * 0.8 * 0.3 * PLA, B.x, L.trayTop + 5, (B.z1 + L.bayZ1) / 2);
+  } else add('backpack', '背包支架（列印）', 18, 0, B.y, L.bodyZ0 - 2);
+  const pw = L.pwr, mid = o => [(o.x0 + o.x1) / 2, (o.y0 + o.y1) / 2, (o.z0 + o.z1) / 2];
+  add('pd', 'CH224K 誘騙板', 3, ...mid(pw.pd));
+  add('buck', 'Mini560 5 V', 5, ...mid(pw.buck));
+  add('ldo', 'AMS1117-3.3', 2, ...mid(pw.ldo));
+  add('cap', 'C1 1000 µF', 4, pw.cap.x, pw.cap.y, (pw.cap.z0 + pw.cap.z1) / 2);
   add('driver', 'DRV8870 驅動板', 15, L.drv.x, L.drv.y0 + 5, L.drv.z);
-  add('fuse', '保險絲＋接頭', 6, 0, L.deckY0 - 4, L.deckHole.z);
+  add('conn', 'J1／J2 接頭', 5, (L.conn.x0 + L.conn.x1) / 2, (L.conn.y0 + L.conn.y1) / 2, L.deckHole.z0 + 10);
   add('wiresC', '底盤線材', 15, 0, (L.floorTop + L.deckY0) / 2, 0);
   const deckVol = L.tubLen * (P.innerW + 2 * P.plateT) * P.deckT * 0.5;
   const fh = L.frameTop - L.bodyY0;
@@ -574,7 +672,6 @@ function massItems(P, L, yaw) {
   add('shell', '身體外殼（列印）', shellVol * PLA, 0, (L.bodyY0 + L.bodyY1) / 2, 0);
   add('speaker', '喇叭＋墊環', 29, 0, L.spk.y, (L.spk.zF + L.spk.zB) / 2);
   add('amp', 'MAX98357A', 2, L.amp.x, L.amp.y, L.amp.z);
-  add('buck', '降壓模組', 15, (L.buck.x0 + L.buck.x1) / 2, (L.buck.y0 + L.buck.y1) / 2, (L.buck.z0 + L.buck.z1) / 2);
   add('perf', '配電洞洞板', 10, (L.perf.x0 + L.perf.x1) / 2, (L.perf.y0 + L.perf.y1) / 2, (L.perf.z0 + L.perf.z1) / 2);
   add('switch', '電源開關', 6, L.sw.x, L.sw.y0 + 8, L.sw.z);
   add('servo', 'SG92R', 13, (L.servoBox.x0 + L.servoBox.x1) / 2, (L.servoY0 + L.servoTop) / 2, P.neckZ);
@@ -651,6 +748,7 @@ function runChecks(P, L) {
   const C = [];
   const add = (grp, title, status, value, detail, parts = []) => C.push({ grp, title, status, value, detail, parts });
   const mL = L.mL.box, mR = L.mR_.box;
+  const st = stability(P, L, 0);
 
   // 1 兩顆馬達
   const mm = overlap(mL, mR);
@@ -670,25 +768,70 @@ function runChecks(P, L) {
   add('機構干涉', '輸出軸插入驅動輪深度', engage < 4 ? 'fail' : engage < 6 ? 'warn' : 'pass', `${fx(engage)} mm`,
     `軸突出 12.5 − 側壁 ${P.plateT} − 間隙 0.5。D 形孔＋M3 止付螺絲固定。履帶中心在軸端外 ${fx(overhang)} mm（懸臂），${overhang > 10 ? '偏大，建議縮窄履帶或減少側壁厚。' : '在可接受範圍。'}前端凸台尺寸待量測，凸台若比側壁孔大會吃掉咬合長度。`, ['sprL', 'sprR', 'motorL', 'motorR']);
 
-  // 4 電池 vs 馬達、抽出路徑
-  const bm1 = overlap(L.bat.box, mL), bm2 = overlap(L.bat.box, mR);
-  const sweep = { ...L.bat.box };
-  if (L.bat.drawer === 'rear') sweep.z0 = L.tubZ0; else sweep.z1 = L.tubZ1;
-  const sw1 = overlap(sweep, mL), sw2 = overlap(sweep, mR), sw3 = overlap(sweep, L.drv.box);
-  if (bm1.hit || bm2.hit) add('機構干涉', '電池與馬達', 'fail', '重疊', '電池位置和馬達重疊，請調整「電池前後位置」。', ['battery', 'motorL', 'motorR']);
-  else add('機構干涉', '電池與馬達', 'pass', `最近 ${fx(Math.min(bm1.gap, bm2.gap))} mm`, '電池平放在底盤最低處。', ['battery']);
-  const swHit = sw1.hit || sw2.hit || sw3.hit;
-  add('機構干涉', `電池抽屜${L.bat.drawer === 'rear' ? '往後' : '往前'}抽出路徑`, swHit ? 'fail' : 'pass', swHit ? '被擋住' : '暢通',
-    swHit ? '抽出路徑上有馬達或驅動板，換電池時需要拆上身。' : `電池沿${L.bat.x < -1 ? '右側' : '中央'}通道從${L.bat.drawer === 'rear' ? '後' : '前'}門直接抽出，不用拆外殼、不用翻車。`, ['battery', 'sled']);
+  // 4 下層擺放：驅動板、電源區、立柱、托架、馬達插頭
+  const pw = L.pwr;
+  const lower = [['DRV8870', L.drv.box], ['CH224K', pw.pd], ['Mini560', pw.buck], ['AMS1117', pw.ldo], ['C1', pw.cap],
+    ...L.pillars.map((p, i) => [`立柱 ${i + 1}`, p]), ...(L.bay ? [['托盤小立柱', L.trayPost]] : []), ...L.cradles.map(c => ['馬達托架', c])];
+  const movers = [['左馬達', mL], ['右馬達', mR], ['左馬達 6P 插頭', L.mL.connBox], ['右馬達 6P 插頭', L.mR_.connBox]];
+  const hitsL = [];
+  for (let i = 0; i < lower.length; i++) {
+    for (let j = i + 1; j < lower.length; j++) if (overlap(lower[i][1], lower[j][1]).hit) hitsL.push(`${lower[i][0]}／${lower[j][0]}`);
+    for (const [n, b] of movers) if (overlap(lower[i][1], b).hit) hitsL.push(`${lower[i][0]}／${n}`);
+  }
+  const trayGap = L.trayY0 - (L.axleY + L.mR);
+  add('機構干涉', '下層：驅動板、電源區、立柱', hitsL.length ? 'fail' : 'pass', hitsL.length ? `撞到 ${hitsL.slice(0, 3).join('、')}` : `托盤離馬達頂 ${fx(trayGap)} mm`,
+    hitsL.length ? '下層零件互相重疊，請調整內寬或驅動板位置。' : `DRV8870 在右側（端子朝中央、VM 在後），右${pw.front ? '前' : '後'}角是電源區（CH224K、Mini560、AMS1117），C1 躺在 VM 端子旁。馬達 6P 接頭水平朝車身中央，不會頂到上面的托盤。四根立柱讓上身鎖在底盤上，也決定電池艙寬度。`,
+    ['driver', 'pd', 'buck', 'ldo', 'cap', 'motorL', 'motorR', 'tub']);
 
-  // 5 驅動板
-  const dm = [overlap(L.drv.box, mL), overlap(L.drv.box, mR), overlap(L.drv.box, L.bat.box)];
-  add('機構干涉', 'DRV8870 驅動板與馬達、電池', dm.some(o => o.hit) ? 'fail' : 'pass', dm.some(o => o.hit) ? '重疊' : `最近 ${fx(Math.min(...dm.map(o => o.gap)))} mm`,
-    '板子鎖在底板一起印出的 4 個 4 mm 螺絲座上（M3 自攻），孔位待量測。', ['driver']);
+  // 5 驅動板杜邦頭上方
+  const hdrInCh = L.drv.hdrX >= L.chX0 && L.drv.hdrX <= L.chX1;
+  const room = (hdrInCh ? L.deckY0 : Math.min(L.trayY0, L.deckY0)) - L.drv.hdrTop;
+  add('機構干涉', 'DRV8870 杜邦頭上方彎線空間', room < 4 ? 'fail' : room < 8 ? 'warn' : 'pass', `${fx(room)} mm`,
+    hdrInCh ? '排針那一長邊剛好在右側線材通道正下方，通道從地板通到上身，杜邦線可以直接往上彎進通道接 J2。' : '排針上方被托盤蓋住，杜邦線沒地方彎。', ['driver']);
 
-  // 6 電池高度
-  const headroom = L.deckY0 - L.bat.y1;
-  add('機構干涉', '電池上方空間', headroom < 1 ? 'fail' : headroom < 3 ? 'warn' : 'pass', `${fx(headroom)} mm`, '電池頂面到上身底板的距離，留給導線與抽屜滑動。', ['battery']);
+  // 6 上身線孔
+  const hz = L.deckHole;
+  const holeOk = hz.x0 >= -L.inW + 0.5 && hz.x1 <= L.inW - 0.5 && hz.x0 >= -L.wingX0 && hz.z0 >= L.inZ0 && hz.z1 <= L.inZ1;
+  add('機構干涉', '上身線孔對準通道', holeOk ? 'pass' : 'warn', holeOk ? '在身體內' : '落在身體外',
+    holeOk ? `上身底板右後方 ${fx(hz.x1 - hz.x0, 0)} × ${fx(hz.z1 - hz.z0, 0)} 長孔在通道正上方、右翼內側，J1／J2 從這裡上來。` : '底盤比身體寬，線孔落在外殼外面，需要另外做線槽蓋。', ['frame', 'conn']);
+
+  // 電池艙
+  const B = L.bank;
+  const cmpLayout = mount => {           // 另一種擺法、總高相同時的穩定性（比較用）
+    const P0 = { ...P, bankMount: mount };
+    const P1 = { ...P0, bodyH: P.bodyH - (computeLayout(P0).bodyY1 - L.bodyY1) };
+    const L1 = computeLayout(P1);
+    return stability(P1, L1, 0);
+  };
+  if (L.bay) {
+    const wAvail = L.bayX1 - L.bayX0, tAvail = P.bayH - 0.5;
+    const fitW = P.bankW <= wAvail, fitT = P.bankT <= tAvail;
+    add('電池艙', '行動電源放得進電池艙', fitW && fitT ? 'pass' : 'fail', `${fx(P.bankW, 0)}×${fx(P.bankT, 1)}／可用 ${fx(wAvail, 0)}×${fx(tAvail, 1)}`,
+      fitW && fitT ? `寬度還剩 ${fx(wAvail - P.bankW, 0)} mm、厚度還剩 ${fx(tAvail - P.bankT, 1)} mm。${tAvail - P.bankT > 6 ? '比較薄：魔鬼氈要拉緊，或在上面墊一片泡棉。' : ''}`
+        : (!fitT ? `太厚了。「電池艙高度」要加到 ${Math.ceil(P.bankT + 0.5)} mm（整台車會跟著變高），或換一顆薄一點的。` : `太寬了。寬度上限是兩側立柱之間的 ${fx(wAvail, 0)} mm，請換一顆窄一點的。`), ['bank', 'tray']);
+    const corners = [[L.tubZ0, P.floorY], [Math.min(B.z0, L.tubZ0), L.trayTop]];
+    const Cz = -L.zS, Cy = L.axleY, r = L.axleY;      // 車尾履帶繞輪外緣（貼地）
+    const dep = Math.min(...corners.map(([z, y]) => { const u = Cz - z, v = y - Cy, dd = Math.hypot(u, v); return dd <= r ? 0 : (Math.atan2(v, u) + Math.asin(r / dd)) / D2R; }));
+    const p = B.protrude;
+    add('電池艙', '尾巴露出與離去角', dep < 20 ? 'fail' : (dep < 30 || p > 40) ? 'warn' : 'pass', `露出 ${fx(p, 0)} mm／離去角 ${fx(dep, 0)}°`,
+      `電池艙長 ${fx(L.bayZ1 - L.tubZ0, 0)} mm，後面整個打開，比較長的行動電源直接從車尾露出來。離去角是倒車下坡時車尾不會先撞地的最大坡度，營隊坡道 ≤ 20° 就夠。${p > 20 ? '露出的部分倒車時會先撞到牆。' : ''}`, ['bank', 'tray', 'trackL', 'trackR']);
+    const mb = P.bankMass;
+    const zbIdeal = -(st.mass * st.cg.z - mb * B.z) / mb;
+    const spMax = Math.max(0, (L.bayZ1 - L.tubZ0) - P.bankL);
+    const spIdeal = clamp(L.bayZ1 - P.bankL / 2 - zbIdeal, 0, spMax);
+    const worstA = Math.min(st.aFront, st.aRear);
+    const sugg = Math.abs(spIdeal - P.bankSpacer) >= 5 ? `建議前方墊塊 ≈ ${fx(Math.round(spIdeal / 5) * 5, 0)} mm（可以疊 10 mm 的墊片）。` : '目前位置已經接近最佳。';
+    add('電池艙', '行動電源前後位置（配重）', worstA < st.aTraction ? 'warn' : 'pass', `重心${st.cg.z >= 0 ? '偏前' : '偏後'} ${fx(Math.abs(st.cg.z))} mm`,
+      `行動電源頂著前壁放${P.bankSpacer > 0 ? `（前面墊 ${P.bankSpacer} mm）` : ''}，中心在 z = ${fx(B.z, 0)}。${sugg}重心越接近兩軸中間，急煞前翻與急加速後仰的餘裕越平均。`, ['bank', 'spacer']);
+    if (!L.strapZ.length) add('電池艙', '魔鬼氈綁得到', 'warn', '綁帶扣孔不在行動電源範圍內', '行動電源太短，前後兩組扣孔都碰不到；在前面加墊塊或用彈性繩。', ['bank', 'tray']);
+    const sb = cmpLayout('back');
+    add('電池艙', '為什麼不掛在外面', 'info', `背後 ${fx(sb.cg.y, 0)} mm vs 艙內 ${fx(st.cg.y, 0)} mm`,
+      `同一顆行動電源、總高相同：掛在身體背後重心會升高 ${fx(sb.cg.y - st.cg.y, 0)} mm、往後移 ${fx(st.cg.z - sb.cg.z, 0)} mm，後仰門檻從 ${fx(st.aRear, 1)} 掉到 ${fx(sb.aRear, 1)} m/s²（履帶抓地 ${fx(st.aTraction, 1)}${sb.aRear < st.aTraction ? '，猛加速就會往後翻' : ''}）。放在馬達正上方，行動電源本身就是最好的配重。到「參數 → 行動電源」切換「掛背後」可以直接看。`, ['bank']);
+  } else {
+    const sd = cmpLayout('deck');
+    add('電池艙', '行動電源掛在背後（比較）', st.aRear < st.aTraction ? 'fail' : 'warn', `重心 ${fx(st.cg.y, 0)} mm（艙內 ${fx(sd.cg.y, 0)}）`,
+      `掛背後重心升高 ${fx(st.cg.y - sd.cg.y, 0)} mm、往後移 ${fx(sd.cg.z - st.cg.z, 0)} mm。後仰門檻 ${fx(st.aRear, 1)} m/s²（放電池艙 ${fx(sd.aRear, 1)}），履帶抓地 ${fx(st.aTraction, 1)}：${st.aRear < st.aTraction ? '猛加速或爬坡時會往後翻。' : '還不會翻，但餘裕變小。'}另外背包擋住外殼拆裝、線要繞一大圈。建議放回電池艙。`, ['bank', 'backpack']);
+  }
 
   // 7 離地間隙
   add('機構干涉', '離地間隙', L.clearance < 6 ? 'fail' : L.clearance < 10 ? 'warn' : 'info', `${fx(L.clearance)} mm`,
@@ -703,22 +846,21 @@ function runChecks(P, L) {
   // 9 伺服機在身體內
   const sb = L.servoBox;
   const spkBox = { x0: -L.spk.r, x1: L.spk.r, y0: L.spk.y - L.spk.r, y1: L.spk.y + L.spk.r, z0: L.spineZ1, z1: L.spk.zF };
-  const buckBox = { x0: L.buck.x0, x1: L.buck.x1, y0: L.buck.y0, y1: L.buck.y1, z0: L.buck.z0, z1: L.buck.z1 };
   const perfBox = { x0: L.perf.x0, x1: L.perf.x1, y0: L.perf.y0, y1: L.perf.y1, z0: L.perf.z0, z1: L.perf.z1 };
   const spineBox = { x0: -L.wingX1, x1: L.wingX1, y0: L.bodyY0, y1: L.frameTop, z0: L.spineZ0, z1: L.spineZ1 };
   const swBox = { x0: L.sw.x - 7.5, x1: L.sw.x + 7.5, y0: L.sw.y0, y1: L.sw.y1, z0: L.sw.z - 10.5, z1: L.sw.z + 10.5 };
-  const sHits = [['喇叭', spkBox], ['降壓模組', buckBox], ['配電板', perfBox], ['骨架', spineBox], ['開關', swBox]].filter(([, b]) => overlap(sb, b).hit).map(([n]) => n);
+  const sHits = [['喇叭', spkBox], ['配電板', perfBox], ['骨架', spineBox], ['開關', swBox]].filter(([, b]) => overlap(sb, b).hit).map(([n]) => n);
   add('機構干涉', 'SG92R 與身體內部元件', sHits.length ? 'fail' : 'pass', sHits.length ? `撞到 ${sHits.join('、')}` : '無干涉',
     '伺服機倒吊在頂板下方，耳片鎖在頂板底面。', ['servo', 'topPlate']);
-  const others = [['降壓模組', buckBox], ['配電板', perfBox], ['開關', swBox]];
+  const others = [['配電板', perfBox], ['開關', swBox]];
   const bodyInner = { x0: -L.inW, x1: L.inW, y0: L.bodyY0, y1: L.bodyY1, z0: L.inZ0, z1: L.inZ1 };
-  const outside = others.filter(([, b]) => b.x0 < bodyInner.x0 - 0.01 || b.x1 > bodyInner.x1 + 0.01 || b.z0 < bodyInner.z0 - 0.01 || b.z1 > bodyInner.z1 + 0.01 || b.y0 < bodyInner.y0 - 0.01).map(([n]) => n);
+  const outside = others.filter(([, b]) => b.x0 < bodyInner.x0 - 0.01 || b.x1 > bodyInner.x1 + 0.01 || b.z0 < bodyInner.z0 - 0.01 || b.z1 > bodyInner.z1 + 0.01 || b.y0 < bodyInner.y0 - 0.01 || (b !== swBox && b.y1 > L.topY0 + 0.01)).map(([n]) => n);
   const spkOk = L.spk.zB >= L.spineZ1 - 0.01;
-  const pairHit = overlap(buckBox, swBox).hit || overlap(perfBox, swBox).hit || overlap(buckBox, spineBox).hit || overlap(perfBox, spineBox).hit;
+  const pairHit = overlap(perfBox, swBox).hit || overlap(perfBox, spineBox).hit;
   add('機構干涉', '身體內部模組擺放', (outside.length || !spkOk || pairHit) ? 'fail' : 'pass',
     (outside.length || !spkOk || pairHit) ? '空間不足' : 'OK',
-    !spkOk ? '身體太淺，喇叭會撞到骨架，請加深身體。' : outside.length ? `${outside.join('、')} 超出外殼。` : pairHit ? '降壓／配電板與開關或骨架重疊。' : '喇叭貼前格柵、功放在旁、降壓在左翼、配電板在右翼，後方留給線束。',
-    ['speaker', 'amp', 'buck', 'perf', 'switch']);
+    !spkOk ? '身體太淺，喇叭會撞到骨架，請加深身體。' : outside.length ? `${outside.join('、')} 超出外殼或撞到頂板。` : pairHit ? '配電板與開關或骨架重疊。' : '喇叭貼前格柵、功放在旁、配電板在右翼，後方留給線束。降壓模組已經搬到底盤電源區，身體可以縮短。',
+    ['speaker', 'amp', 'perf', 'switch']);
 
   // 10 頭部旋轉掃掠
   const hr = Math.hypot(P.headW / 2, Math.max(Math.abs(L.head.z0), Math.abs(L.head.z1)));
@@ -762,7 +904,6 @@ function runChecks(P, L) {
     `垂直視角約 ${fx(o0.vfov, 0)}°、俯角 ${P.camTilt}°。正前方地面最近可看到 ${isFinite(o0.groundNear) ? fx(o0.groundNear, 0) + ' mm' : '看不到地面'}。遮擋比例是畫面下緣被身體頂板擋住的高度比例。`, ['esp32', 'shell']);
 
   // 15 麥克風距離
-  const st = stability(P, L, 0);
   const micP = st.items.find(i => i.id === 'mic').p;
   const spkP = new THREE.Vector3(0, L.spk.y, L.spk.zF);
   const dSpk = micP.distanceTo(spkP);
@@ -772,8 +913,9 @@ function runChecks(P, L) {
 
   // 16 穩定性
   const worst = Math.min(st.aFront, st.aRear);
-  add('穩定性', '急煞／急加速前後翻覆', worst < st.aTraction ? 'warn' : 'pass', `翻覆門檻 ${fx(worst)} m/s²`,
-    `重心高 ${fx(st.cg.y)} mm。履帶最大抓地 μg ≈ ${fx(st.aTraction)} m/s²。${worst < st.aTraction ? '抓地力大於翻覆門檻，硬煞車可能前翻！' : '抓地力先打滑，理論上不會前翻。'}韌體建議加速度限制 ${fx(st.aRamp, 1)} m/s²（約 0.3 s 從 0 加速到 ${fx(st.aRamp * 0.3, 2)} m/s）。`, ['battery', 'motorL', 'motorR']);
+  const fwd = st.aFront < st.aRear;
+  add('穩定性', '急煞／急加速前後翻覆', worst < st.aTraction ? 'warn' : 'pass', `翻覆門檻 ${fx(worst)} m/s²（${fwd ? '前翻' : '後仰'}先到）`,
+    `重心高 ${fx(st.cg.y)} mm、${st.cg.z >= 0 ? '偏前' : '偏後'} ${fx(Math.abs(st.cg.z))} mm。急煞前翻門檻 ${fx(st.aFront, 1)}、急加速後仰門檻 ${fx(st.aRear, 1)} m/s²；履帶最大抓地 μg ≈ ${fx(st.aTraction)} m/s²。${worst < st.aTraction ? (fwd ? '抓地力大於翻覆門檻，硬煞車可能前翻！' : '抓地力大於翻覆門檻，猛加速可能往後翻！') : '抓地力先打滑，理論上不會翻。'}韌體建議加速度限制 ${fx(st.aRamp, 1)} m/s²（約 0.3 s 從 0 加速到 ${fx(st.aRamp * 0.3, 2)} m/s）。`, ['bank', 'motorL', 'motorR']);
   add('穩定性', '轉彎側翻', st.aSide < st.aTraction ? 'warn' : 'pass', `側翻角 ${fx(st.sideDeg)}°`,
     `履帶外緣半寬 ${fx(L.trackOut)} mm，重心高 ${fx(st.cg.y)} mm。側向要 ${fx(st.aSide)} m/s² 才翻，原地旋轉遠小於這個值。`, ['trackL', 'trackR']);
   add('穩定性', '爬坡／下坡', Math.min(st.frontDeg, st.rearDeg) < st.slideDeg ? 'warn' : 'pass', `翻覆 ${fx(Math.min(st.frontDeg, st.rearDeg))}° / 打滑 ${fx(st.slideDeg)}°`,
@@ -788,20 +930,35 @@ function runChecks(P, L) {
   add('穩定性', 'SG92R 轉頭扭力', need > torque * 0.5 ? 'warn' : 'pass', `安全係數 ${fx(torque / need, 0)}×`,
     `頭部 ${fx(hm * 1000, 0)} g，轉動慣量 ${fx(I * 1e6, 1)} kg·mm²。以 0.1 s/60° 全速啟停估算需要 ${fx(need * 1000, 1)} mN·m，SG92R 約 245 mN·m（4.8 V）。側向力由頸座軸環承受，不壓在伺服軸上。`, ['servo', 'headFloor']);
 
-  // 18 電源
-  add('電源與腳位', 'DRV8870 最低工作電壓', 'warn', 'VM ≥ 6.5 V',
-    '2S 鋰電滿電 8.4 V、標稱 7.4 V、放電終止約 6.0 V。電壓低於 6.5 V 時驅動晶片欠壓保護，馬達會斷斷續續。韌體在 6.9 V 提示回充、6.6 V 停車。', ['driver', 'battery']);
-  add('電源與腳位', '編碼器電壓', 'warn', '必須 3.3 V',
-    'ESP32-S3 的 GPIO 不耐 5 V。編碼器 VCC 接驅動板 LM317M 的 VO，先用三用電表把 VO 調到 3.3 V 再接；每條訊號線再串 1 kΩ 保護。', ['driver', 'motorL', 'motorR']);
+  // 18 電源（PD 行動電源 → CH224K 9 V）
+  const iLim = 1.25, duty = 0.66;
+  const wWorst = 2 * duty * iLim * 9 + 1.8 * 5 / 0.88;
+  add('電源與腳位', 'CH224K 輸出電壓', 'warn', '上車前先量到 9.0 V',
+    '很多 CH224K 誘騙板出廠預設 20 V 或 12 V，要用板上的跳線／電阻／撥碼設成 9 V。第一次先單獨接行動電源，用三用電表量到 9.0 V 才接上車。（板子的設定方式待拍照確認）', ['pd']);
+  add('電源與腳位', 'PD 沒成功時只有 5 V', 'warn', 'GPIO1 監測 9 V',
+    '行動電源不支援 PD、或用了 A-to-C 線時，CH224K 只會輸出 5 V：DRV8870 要 ≥ 6.5 V 才會動，Mini560 的 5 V 也會掉。韌體用 GPIO1 量 9 V 匯流排，低於 7 V 就停車、亮紅燈、序列埠提示「PD 沒成功」。', ['pd', 'bank']);
+  add('電源與腳位', '20 W 功率預算', wWorst > 20 ? 'warn' : 'pass', `平常 ≈ ${fx(AVG_W, 0)} W／最壞 ≈ ${fx(wWorst, 0)} W`,
+    `20 W 行動電源在 9 V 最多 2.2 A。最壞情況是兩顆馬達同時堵轉（驅動板限流 ${iLim} A × PWM ${duty * 100}%）＋伺服堵轉＋喇叭大聲。韌體堵轉保護：PWM > 30% 但編碼器 0.3 s 沒有脈衝就斷電，就不會撞到上限。`, ['bank', 'driver']);
+  add('電源與腳位', '行動電源自動關機', 'warn', '待機電流不要太低',
+    '很多行動電源輸出低於約 50–100 mA 會在 30 秒內自動關機。ESP32＋相機平常約 0.15–0.25 A（5 V），換算 9 V 端約 0.1 A，勉強在門檻上。韌體不要用 deep sleep；真的被關掉就按一下行動電源按鈕。', ['bank']);
+  add('電源與腳位', 'DRV8870 的 VO 與限流', 'warn', 'VO 不接；可變電阻轉最小',
+    '這塊模組的 VO 很可能就是 DRV8870 的 VREF：R100（0.1 Ω）取樣下限流 ≈ VO ÷ 1 Ω，LM317M 最低 1.25 V → 最低限流約 1.25 A。可變電阻轉到最小就是最安全的設定，VO 不要拿去接任何東西。（待量測：板子回來後量 VO 是否從 1.25 V 起跳）', ['driver']);
+  add('電源與腳位', '6 V 馬達接 9 V', 'warn', `PWM 上限 ${duty * 100}%`,
+    `平均電壓 9 × ${duty} ≈ 6 V。韌體 MOTOR_MAX = ${duty}、0.25 s 軟啟動。不要把上限拿掉，馬達會過熱、碳刷壽命變短。`, ['motorL', 'motorR', 'driver']);
+  add('電源與腳位', '編碼器電壓', 'pass', '3.3 V（AMS1117）',
+    'ESP32-S3 的 GPIO 不耐 5 V。兩顆編碼器的 VCC 由 Mini560 的 5 V 經 AMS1117-3.3 供應（不用驅動板 VO），每條訊號線串 1 kΩ。', ['ldo', 'motorL', 'motorR']);
   add('電源與腳位', '5 V 電流預算', 'pass', '峰值約 1.8 A',
-    'ESP32-S3＋相機＋Wi-Fi 約 0.5 A 峰值、SG92R 堵轉約 0.65 A、MAX98357A 3 W 峰值約 0.65 A。降壓模組需 ≥ 3 A 標示（LM2596 實際連續約 2 A）。伺服與功放旁各加 470 µF。', ['buck', 'perf']);
+    'ESP32-S3＋相機＋Wi-Fi 約 0.5 A 峰值、SG92R 堵轉約 0.65 A、MAX98357A 3 W 峰值約 0.65 A。Mini560 標示 5 A（實際連續電流待確認）。伺服與功放旁各加 470 µF。', ['buck', 'perf']);
+  add('電源與腳位', '續航（估）', 'info', `約 ${fx(runtimeH(P), 1)} 小時`,
+    `${P.bankCap} mAh × 3.7 V × 85% 轉換效率 ÷ 平均 ${AVG_W} W。一直原地打轉或喇叭大聲會短很多。`, ['bank']);
   add('電源與腳位', 'GPIO 數量（含編碼器）', 'pass', '用 12＋選配 2／可用 14',
-    '依 GOOUUU 排針：相機佔 4–13、15–18，35/36/37 雖然有拉出來但被 Octal PSRAM 佔用。馬達 4、伺服 1、I2S 4（麥克風與功放共用 BCLK/WS）、電池 1、編碼器 A 相 2（GPIO19/20，改用 TTL 口燒錄）。編碼器 B 相選配 GPIO3/46（46 會影響燒錄模式）。', ['esp32']);
+    '依 GOOUUU 排針：相機佔 4–13、15–18，35/36/37 雖然有拉出來但被 Octal PSRAM 佔用。馬達 4、伺服 1、I2S 4（麥克風與功放共用 BCLK/WS）、9 V 監測 1、編碼器 A 相 2（GPIO19/20，改用 TTL 口燒錄）。編碼器 B 相選配 GPIO3/46（46 會影響燒錄模式）。', ['esp32']);
 
   // 19 列印尺寸
   const bed = P.bed;
   const printParts = [
     ['底盤槽', L.tubLen, P.innerW + 2 * P.plateT, L.deckY0 - P.floorY],
+    ...(L.bay ? [['電池艙托盤', L.tubLen, L.hw - L.lipX0, L.trayT + 8]] : []),
     ['上身骨架', L.tubLen, P.innerW + 2 * P.plateT, L.frameTop - L.deckY0],
     ['身體外殼', P.bodyW, P.bodyD, P.bodyH],
     ['頂板／頸座', 2 * L.inW, L.inZ1 - L.inZ0, L.topT + 7 + L.riserH],
@@ -821,36 +978,63 @@ function partInfo(id, P, L) {
   const I = {
     tub: { name: '底盤槽', kind: '列印件', layer: '底盤層', mat: 'PETG 或 PLA，20% 格狀填充，3 層牆',
       dims: [m('外形', `${L.tubLen} × ${P.innerW + 2 * P.plateT} × ${fx(L.deckY0 - P.floorY)}`, 'D'), m('側壁（兼馬達座）厚', P.plateT, 'D'), m('底板厚', P.floorT, 'D'), m('離地', fx(L.clearance), 'D')],
-      spec: '一體式「浴缸」底盤：左右側壁就是馬達座與惰輪軸座，前壁有任務模組介面，後壁有電池門。',
-      use: '承載馬達、電池、驅動板，並把履帶力量傳到上身。',
-      notes: ['底板在馬達正下方開槽，讓馬達外殼可以低到軸高減半徑。', '四角有 M3 熱熔螺母柱，上身骨架從上方鎖入。', '惰輪軸孔是長槽，用來調履帶張力（±4 mm）。'] },
+      spec: '兩層樓的一體式「浴缸」底盤：下層放馬達、驅動板和電源區，上層是行動電源的電池艙（後面整個打開）。右側 16 mm 線材通道從地板直通上身。左右側壁就是馬達座與惰輪軸座。',
+      use: '承載馬達、行動電源、驅動板與電源模組，並把履帶力量傳到上身。',
+      notes: ['底板在馬達正下方開槽，讓馬達外殼可以低到軸高減半徑。', '四根 M3 立柱（左壁兩根、右側兩根）讓上身底板從上方鎖入；左邊兩根之間就是電池艙可用寬 ' + fx(L.bayX1 - L.bayX0, 0) + ' mm。', '後壁上半部打開讓行動電源抽出；下半部有 USB-C 孔（CH224K），桌上測試也能直接插 PD 充電頭。', '惰輪軸孔是長槽，用來調履帶張力（±4 mm）。'] },
     motorL: motorInfo('左', L.mL), motorR: motorInfo('右', L.mR_),
     sprL: wheelInfo(true), sprR: wheelInfo(true), idlL: wheelInfo(false), idlR: wheelInfo(false),
     trackL: trackInfo(), trackR: trackInfo(),
-    battery: { name: '電池（2S 18650）', kind: '採購件', layer: '底盤層', mat: '2 顆 18650 串聯，7.4 V 標稱',
-      dims: [m('電池盒（暫定）', `${P.batL} × ${P.batW} × ${P.batH}`, 'E'), m('18650 單顆', 'Ø18.3 × 65（含保護板約 69）', 'M'), m('重量', '約 104 g', 'E')],
-      spec: '滿電 8.4 V、標稱 7.4 V、終止 6.0 V。建議用有保護板的電芯或 2S BMS。',
-      use: '全車電源。放在底盤最低處，是降低重心最有效的配重。',
-      notes: ['營隊請統一用同廠牌同批次電芯，禁止混用新舊電池。', '電池盒反插會直接短路驅動板：接頭一定要用有方向性的 JST／XT30。'] },
-    sled: { name: '電池抽屜', kind: '列印件', layer: '底盤層', mat: 'PLA',
-      dims: [m('滑軌寬', P.batW + 4, 'D'), m('後門', `${P.batW + 4} × ${fx(L.deckY0 - L.floorTop - 3)}`, 'D')],
-      spec: '電池盒黏或鎖在抽屜底板上，沿右側通道從後門滑出。後門用兩顆 Ø6×2 釹磁鐵吸在後壁上。',
-      use: '換電池不用拆外殼，也不用把車翻過來（直立式車翻面容易壓壞頭）。',
-      notes: ['電池線留 120 mm 餘長，抽屜拉出 80 mm 仍連著。', '想完全拔下來充電時，拔 JST 接頭即可。'] },
+    bank: { name: '行動電源（學員自備）', kind: '採購件（自備）', layer: L.bay ? '底盤層' : '身體層（掛背後，比較用）', mat: '',
+      dims: [m('外形', `${P.bankL} × ${P.bankW} × ${P.bankT}`, 'M'), m('重量', `${P.bankMass} g`, 'M'), m('容量', `${P.bankCap} mAh`, 'M'), m('電池艙可用（寬×高）', `${fx(L.bayX1 - L.bayX0, 0)} × ${fx(P.bayH - 0.5, 1)}`, 'D'), m('電池艙長（尾端開放）', fx(L.bayZ1 - L.tubZ0, 0), 'D')],
+      spec: '一定要支援 USB PD 9 V（背面標示 9V⎓2A、18 W／20 W 以上），有 C 孔輸出。用 C-to-C 短線接到後壁的 CH224K。',
+      use: L.bay ? '全車電源。躺在馬達正上方，本身就是降低重心的配重。' : '比較模式：掛在身體背後。重心高又偏後，請看「檢查 → 電池艙」。',
+      notes: ['只有 A 孔、或只有 5 V 的行動電源不能用：CH224K 會停在 5 V，馬達不會動。', '輸出 C 孔朝後放；輸入孔也朝後的話，不用拆就能直接在車上充電。', '電量燈或按鈕在側邊、尾端最好，放進去還看得到、按得到。', '太薄就把魔鬼氈拉緊；太短就在前面放列印墊塊（參數「前方墊塊」）；太長就讓它從車尾露出來。'] },
+    tray: { name: '電池艙托盤', kind: '列印件', layer: '底盤層', mat: 'PLA，平放列印，免支撐',
+      dims: [m('外形', `${L.tubLen} × ${fx(L.hw - L.lipX0, 0)} × ${L.trayT}`, 'D'), m('右緣立邊', '高 8（行動電源導軌）', 'D'), m('魔鬼氈扣孔', `3 組 × 兩側（z = ${L.strapSlots.join('、')}）`, 'D'), m('離馬達頂', fx(L.trayY0 - L.axleY - L.mR), 'D')],
+      spec: '架在左壁凸緣、前壁凸緣、後壁開口下緣和一根小立柱上，4 顆 M3 鎖住。右緣立邊兼行動電源導軌與線材通道的牆。',
+      use: '把行動電源和下層電路隔開，抽換時不會刮到線。',
+      notes: ['托盤下面就是馬達和驅動板：鎖托盤前先把下層的線壓低、整理到兩側。', '驅動板端子要鎖線時先拆托盤（4 顆螺絲）。', '挖空減重，但行動電源底下仍有整面支撐。'] },
+    strap: { name: '魔鬼氈綁帶 ×2', kind: '採購件', layer: L.bay ? '底盤層' : '身體層', mat: '',
+      dims: [m('寬', '20', 'D'), m('長', '約 250（剪成需要長度）', 'D')],
+      spec: '「背對背」魔鬼氈（一面毛一面鉤），穿過托盤兩側扣孔、繞過行動電源拉緊。', use: '不同厚度的行動電源都能綁緊，急煞時不會往前衝。',
+      notes: ['扣孔有 3 組，行動電源短的時候用前面兩組。'] },
+    spacer: { name: '前方墊塊', kind: '列印件', layer: '底盤層', mat: 'PLA，可疊（10 mm 一片）',
+      dims: [m('長', P.bankSpacer, 'D'), m('寬', fx(P.bankW - 6, 0), 'D')],
+      spec: '短的行動電源在前面塞墊塊，把它往後推、讓重心回到兩軸中間。', use: '配重微調。', notes: ['「檢查 → 行動電源前後位置」會算建議長度。'] },
+    backpack: { name: '背包支架（比較用）', kind: '列印件', layer: '身體層', mat: 'PLA',
+      dims: [m('底托', `${fx(P.bankL - 12, 0)} 寬`, 'D')],
+      spec: '只是為了比較「掛在外面」的效果，不建議使用。', use: '把行動電源掛在身體背後。', notes: ['重心升高又往後，急加速容易後仰；也擋住外殼拆裝。'] },
+    pd: { name: 'CH224K PD 誘騙板（設 9 V）', kind: '採購件', layer: '底盤層', mat: '',
+      dims: [m('PCB（暫定）', '12 × 25', 'M'), m('輸出', '9 V（行動電源 20 W → 最多 2.2 A）', 'D'), m('電壓設定方式', '跳線／電阻／撥碼', 'M'), m('後壁開孔', '13.5 × 7.6（C 公頭的外殼要進得去）', 'D')],
+      spec: '跟行動電源「談判」要 9 V。輸出經 J1 上到頂板開關，再回來給驅動板與 Mini560。',
+      use: '讓一般 PD 行動電源變成 9 V 電源。',
+      notes: ['⚠ 出廠預設常是 20 V 或 12 V：第一次先單獨接行動電源，量到 9.0 V 才接上車。', 'USB-C 母座從後壁小孔伸出，行動電源用 C-to-C 短線接過來；桌上測試可以直接插 PD 充電頭（20 W 以上）。', 'PD 沒成功只會有 5 V，車子不會動：先換線（一定要 C-to-C），再換行動電源。'] },
+    buck: { name: 'Mini560 降壓模組（5 V）', kind: '採購件', layer: '底盤層', mat: '',
+      dims: [m('PCB', `${P.buckL} × ${P.buckW}`, 'E'), m('輸入／輸出', '9 V → 5 V，標示 5 A', 'E')],
+      spec: '輸出經 J1（5 V 兩支 pin 並聯）上到配電板，同時給 AMS1117。', use: '供應 ESP32、伺服、功放的 5 V。',
+      notes: ['固定 5 V 版本不用調；可調版要先調到 5.1 V 再接負載。', '輸入端和 DRV8870 共用 9V_SW，C1 1000 µF 就在旁邊。'] },
+    ldo: { name: 'AMS1117-3.3 模組', kind: '採購件', layer: '底盤層', mat: '',
+      dims: [m('PCB', '22 × 11', 'E')],
+      spec: '5 V → 3.3 V，只給兩顆馬達的霍爾編碼器（< 20 mA）。', use: '編碼器電源。',
+      notes: ['ESP32-S3 的 GPIO 不耐 5 V，編碼器一定要 3.3 V 供電。', '不用驅動板的 VO：VO 很可能是限流電壓。'] },
+    cap: { name: 'C1 1000 µF／25 V 電解電容', kind: '採購件', layer: '底盤層', mat: '',
+      dims: [m('尺寸', 'Ø10 × 20（躺著放）', 'E')],
+      spec: '並在 DRV8870 的 VM 與 G 端子上，腳越短越好。', use: '吸收馬達啟動、反轉時的電流尖峰，避免行動電源以為短路而斷電。',
+      notes: ['注意極性：灰色條紋那腳是負極，接 G。', '耐壓至少 16 V，用 25 V 更安心（留兩倍以上餘裕）。'] },
     driver: { name: 'DRV8870 雙路馬達驅動板', kind: '採購件', layer: '底盤層', mat: '',
-      dims: [m('PCB', `${P.drvL} × ${P.drvW}`, 'C'), m('安裝孔', 'Ø3 ×4', 'C'), m('孔距', '40.8 × 22.8（由 R3.6 圓角推得）', 'E'), m('端子台', 'VM G OUT1–4，高約 10', 'C'), m('排針', 'IN1–4 VO G S1 G S2 G', 'C'), m('螺絲座', '底板一起印出，高 4', 'D')],
-      spec: '兩顆 DRV8870（VM 6.5–45 V、峰值 3.6 A），R100（0.1 Ω）取樣電阻限流。板上 LM317M＋可變電阻輸出 VO（可調電壓，最多約 0.5 A）。',
-      use: '把 ESP32 的 4 支 PWM 轉成馬達電流；VO 順便調成 3.3 V 給兩顆馬達的霍爾編碼器。',
-      notes: ['擺法：藍色端子朝車身中央（外側只剩 4 mm 插不了線），VM 在前端。前（右）馬達接 OUT1/2＝IN1/IN2，後（左）馬達接 OUT3/4＝IN3/IN4。', 'IN1=PWM、IN2=0 前進；IN1=0、IN2=PWM 後退；兩腳都 1 煞車、都 0 滑行。', '⚠ VO 接編碼器前，先用三用電表把可變電阻調到 3.3 V。', 'S1／S2 用途待確認（可能是電流取樣輸出），第一版不接。', '晶片欠壓約 6.3 V：2S 快沒電時馬達會先停。'] },
-    fuse: { name: '保險絲＋底盤接頭 J1/J2', kind: '採購件', layer: '底盤層', mat: '',
-      dims: [m('保險絲', '5 A 迷你刀片＋線上座', 'D'), m('J1', 'JST-XH 6P：BAT×2、SW×2、GND×2', 'D'), m('J2', 'JST-XH 8P：PWM×4＋編碼器 A/B×4', 'D')],
-      spec: '保險絲緊貼電池正極；J1/J2 讓上身可以整組拔下來。',
-      use: '短路保護，以及上身與底盤快速分離。', notes: ['兩顆馬達同時堵轉＋5 V 負載最壞約 5.5 A，3 A 保險絲會誤熔，所以用 5 A。', 'XH 端子每 pin 約 3 A：J1 的 BAT、SW、GND 各用兩個 pin 並聯（JST-XH 6P），線徑 20 AWG。'] },
+      dims: [m('PCB', `${P.drvL} × ${P.drvW}`, 'C'), m('安裝孔', 'Ø3 ×4', 'C'), m('孔距', '40.8 × 22.8（由 R3.6 圓角推得）', 'E'), m('端子台', 'VM G OUT1–4，高約 10', 'C'), m('排針', 'IN1–4 VO G S1 G S2 G', 'C'), m('VO 是否＝VREF（限流）', '—', 'M')],
+      spec: '兩顆 DRV8870（VM 6.5–45 V、峰值 3.6 A），R100（0.1 Ω）取樣電阻限流。板上 LM317M＋可變電阻輸出 VO，很可能就是限流設定電壓。',
+      use: '把 ESP32 的 4 支 PWM 轉成馬達電流。',
+      notes: ['擺法：放底盤右側，藍色端子朝車身中央、VM 在後端（靠電源區），排針那一邊在線材通道正下方，杜邦頭上方有整條通道可以彎線。前（右）馬達接 OUT1/2＝IN1/IN2，後（左）馬達接 OUT3/4＝IN3/IN4。', 'IN1=PWM、IN2=0 前進；IN1=0、IN2=PWM 後退；兩腳都 1 煞車、都 0 滑行。', '⚠ VO 先不要接任何東西，可變電阻轉到最小（限流約 1.25 A，待量測）。', 'VM／G 端子並 C1 1000 µF。', 'S1／S2 用途待確認（可能是電流取樣輸出），第一版不接。'] },
+    conn: { name: 'J1／J2 上下身接頭', kind: '採購件', layer: '底盤層', mat: '',
+      dims: [m('J1', 'JST-XH 6P：9V_RAW、9V_SW、GND×2、5V×2', 'D'), m('J2', 'JST-XH 8P：IN1–4＋編碼器 A/B×4', 'D')],
+      spec: '放在右側線材通道裡、上身線孔正下方。拆 4 顆螺絲、上身抬起一點就能拔。',
+      use: '上身與底盤快速分離。', notes: ['XH 每 pin 約 3 A：9 V 最多 2.2 A 用單 pin；GND 與 5 V 各兩 pin 並聯。', '保險絲選配：行動電源本身有過流保護；想加就在 CH224K 輸出串 3 A 自恢復保險絲。'] },
     frame: { name: '上身骨架', kind: '列印件', layer: '身體層', mat: 'PLA，直立列印（底板貼平台），免支撐',
       dims: [m('底板', `${L.tubLen} × ${P.innerW + 2 * P.plateT} × ${P.deckT}`, 'D'), m('脊板', `${fx(2 * L.wingX1)} × ${fx(L.frameTop - L.bodyY0)} × 3`, 'D'), m('側翼', `${fx(L.spineZ1 - L.inZ0 - 2)} 深`, 'D')],
       spec: '底板兼底盤上蓋；ㄇ字形脊板＋兩片側翼撐起頂板。後方開放，方便理線。',
       use: '身體層所有模組都鎖在這裡。4 顆 M3 拆下後，上身（含頭）可以整組拿起。',
-      notes: ['底板前緣兩個 M3 孔是任務模組介面。', '脊板中下方有穿線孔，讓功放的電源與 I2S 過到前面。'] },
+      notes: ['底板右後方的長孔對準線材通道，J1／J2 從這裡上來；右邊斜撐在這裡斷開。', '底板四個角的 M3 孔對準底盤立柱。', '底板前緣兩個 M3 孔是任務模組介面。', '脊板中下方有穿線孔，讓功放的電源與 I2S 過到前面。'] },
     topPlate: { name: '頂板／頸座', kind: '列印件', layer: '身體層', mat: 'PETG 較耐磨（軸環會和頭部裙邊摩擦）',
       dims: [m('板厚', L.topT, 'D'), m('軸環', `ID ${L.collar.r0 * 2} / OD ${L.collar.r1 * 2} × 7 高`, 'D'), m('伺服開孔', `${fx(SERVO.l + 0.4)} × ${fx(SERVO.w + 0.4)}`, 'D'), m('機械限位', `±${L.stopAng}°`, 'D'), m('頸部加高', P.neckExtra, 'D')],
       spec: '伺服機從下方塞入，耳片貼頂板底面，2 顆 M2 自攻鎖上。頂面軸環套進頭部裙邊，承受頭部側向力。後方腎形窗口讓線束通過。',
@@ -869,18 +1053,14 @@ function partInfo(id, P, L) {
       dims: [m('PCB', '17.7 × 19.1', 'C'), m('上方兩孔距', '12.6（孔心距底邊 16.7）', 'C'), m('腳位', 'LRC BCLK DIN GAIN SD GND Vin（2.54）', 'C')],
       spec: 'I2S 數位輸入、D 類 3 W。VIN 接 5 V。GAIN 預設 9 dB。', use: '把 ESP32 的 I2S 音訊直接推喇叭。',
       notes: ['放在喇叭旁邊，喇叭線 < 8 cm，減少 D 類輸出干擾。', 'SD 腳預設（未接）＝左右聲道平均輸出。'] },
-    buck: { name: '降壓模組 5 V', kind: '採購件', layer: '身體層', mat: '',
-      dims: [m('尺寸', `${P.buckL} × ${P.buckW} × ${P.buckH}`, 'E'), m('型號與孔位', 'LM2596／MP1584 等', 'M')],
-      spec: '輸入 6–8.4 V，輸出調到 5.1 V，標示 ≥ 3 A。', use: '供應 ESP32、伺服、功放的 5 V。',
-      notes: ['第一次通電前，先不接負載把輸出調到 5.1 V！', 'LM2596 壓降約 1.5 V，電池 6.6 V 以下輸出會掉，MP1584 較好。'] },
     perf: { name: '配電洞洞板', kind: '自製', layer: '身體層', mat: '5×7 cm 洞洞板裁半',
       dims: [m('尺寸', '50 × 30', 'D')],
-      spec: '5 V 與 GND 匯流排、SS34 二極體、470 µF×2、100k/33k 分壓、伺服 3P 排針、頸部線束排針。',
+      spec: '5 V 與 GND 匯流排、SS34 二極體、470 µF×2、9 V 監測分壓 100k/33k、伺服 3P 排針、頸部線束排針。',
       use: '所有 5 V 負載從這裡分出去，GND 在此單點匯集。',
-      notes: ['SS34 串在「降壓 5 V → ESP32 5 V」這條，接 USB 燒錄時不會倒灌到降壓模組。', '分壓：VBAT—100k—(GPIO1)—33k—GND，8.4 V 時 ADC 端 2.08 V。'] },
+      notes: ['SS34 串在「Mini560 5 V → ESP32 5 V」這條，接 USB 燒錄時不會倒灌。', '分壓：9V_SW—100k—(GPIO1)—33k—GND，9 V 時 ADC 端 2.23 V；PD 沒成功（5 V）時只有 1.24 V，韌體就知道。'] },
     switch: { name: '電源開關', kind: '採購件', layer: '身體層', mat: '',
       dims: [m('型號', 'KCD1 船型開關', 'E'), m('開孔', '19 × 13', 'E')],
-      spec: '6 A／250 VAC 等級，直流 8.4 V 用得起。', use: '總電源。放在身體頂部左後角，外殼拔起時不會卡到。',
+      spec: '6 A／250 VAC 等級，切 9 V（≤ 2.2 A）綽綽有餘。', use: '總電源：串在 CH224K 輸出和所有負載之間。放在身體頂部左後角，外殼拔起時不會卡到。',
       notes: ['按鈕高度低於頭部底面，轉頭不會碰到。'] },
     servo: { name: 'SG92R 伺服機（頭部 Yaw）', kind: '採購件', layer: '身體層', mat: '',
       dims: [m('本體', `${SERVO.l} × ${SERVO.w} × ${SERVO.h}`, 'C'), m('耳片跨距', SERVO.tabSpan, 'C'), m('含軸總高', '30.5', 'C'), m('重量（含線）', '約 13 g', 'C'), m('耳片孔距', SERVO.holeSp, 'E'), m('耳片下緣距底', SERVO.tabZ, 'E'), m('軸心距本體端', SERVO.shaftOff, 'E'), m('圓舵盤', 'Ø20', 'E')],
@@ -921,10 +1101,10 @@ function partInfo(id, P, L) {
 
   function motorInfo(side, mo) {
     return { name: `${side}馬達 JGA25-370`, kind: '採購件', layer: '底盤層', mat: '',
-      dims: [m('本體直徑', 'Ø25', 'C'), m('馬達段', '31', 'C'), m('編碼器蓋', '11', 'C'), m('減速箱長 L', P.gearLen, 'E'), m('總長（不含軸）', fx(L.motorTotal), 'E'), m('輸出軸', 'Ø4，突出 12.5', 'C'), m('前端安裝孔', '2×M3，中心距 17', 'C'), m('D 切面', '3.5（圖面）', 'C'), m('軸根銅套凸台', 'Ø7，高約 2.5', 'E'), m('電壓／轉速／減速比', '—', 'M')],
-      spec: `${side === '左' ? '裝在左側壁、靠車尾，接 OUT3/4' : '裝在右側壁、靠車頭，接 OUT1/2'}，軸心高 ${fx(L.axleY)} mm。前端 2 顆 M3 從側壁外面鎖入（兩孔上下排列），尾端放在底板托架上並用束線帶固定。`,
+      dims: [m('本體直徑', 'Ø25', 'C'), m('馬達段', '31', 'C'), m('編碼器蓋', '11', 'C'), m('減速箱長 L', P.gearLen, 'E'), m('總長（不含軸）', fx(L.motorTotal), 'E'), m('輸出軸', 'Ø4，突出 12.5', 'C'), m('前端安裝孔', '2×M3，中心距 17', 'C'), m('D 切面', '3.5（圖面）', 'C'), m('軸根銅套凸台', 'Ø7，高約 2.5', 'E'), m('額定電壓', '6 V', 'C'), m('轉速／減速比', '—', 'M')],
+      spec: `${side === '左' ? '裝在左側壁、靠車尾，接 OUT3/4' : '裝在右側壁、靠車頭，接 OUT1/2'}，軸心高 ${fx(L.axleY)} mm。前端 2 顆 M3 從側壁外面鎖入（兩孔左右排列），尾端放在底板托架上並用束線帶固定。額定 6 V，接 9 V 時 PWM 上限 66 %。`,
       use: '直接驅動履帶驅動輪；霍爾編碼器回授速度，讓兩邊履帶跑一樣快、車子走得直。',
-      notes: ['兩個 M3 孔轉成上下排列，編碼器 6P 白色接頭就會朝上，插線不卡底板。', 'M3 用圓頭（ISO 7380）× 6 mm，頭高 1.65 剛好藏進 2 mm 沉孔，不碰驅動輪；進入減速箱不超過 4 mm。', '6P 線的腳位（M+、M−、VCC、GND、A、B）每家不同，請拍線材顏色或絲印給我。', '若是 6 V 版本，7.4–8.4 V 屬超壓，韌體 PWM 上限設 70%。'] };
+      notes: ['兩個 M3 孔左右（水平）排列，編碼器 6P 白色接頭就水平朝車身中央，不會頂到上面的電池艙托盤。', 'M3 用圓頭（ISO 7380）× 6 mm，頭高 1.65 剛好藏進 2 mm 沉孔，不碰驅動輪；進入減速箱不超過 4 mm。', '6P 線的腳位（M+、M−、VCC、GND、A、B）每家不同，請拍線材顏色或絲印給我。', '6 V 版本接 9 V：韌體 PWM 上限 66 %（平均約 6 V），加 0.25 s 軟啟動。'] };
   }
   function wheelInfo(drive) {
     return { name: drive ? '驅動輪（鏈輪）' : '惰輪', kind: '列印件', layer: '底盤層', mat: 'PETG，100% 填充的輪轂',
@@ -1064,22 +1244,23 @@ Object.values(overlays).forEach(g => scene.add(g));
 
 const LAYER_OF = {
   tub: 'chassis', motorL: 'chassis', motorR: 'chassis', sprL: 'chassis', sprR: 'chassis', idlL: 'chassis', idlR: 'chassis', trackL: 'chassis', trackR: 'chassis',
-  driver: 'chassis', sled: 'chassis', battery: 'chassis', fuse: 'chassis', mission: 'chassis',
-  frame: 'body', topPlate: 'body', shell: 'body', speaker: 'body', spkRing: 'body', amp: 'body', buck: 'body', perf: 'body', switch: 'body', servo: 'body',
+  driver: 'chassis', tray: 'chassis', bank: 'chassis', strap: 'chassis', spacer: 'chassis', pd: 'chassis', buck: 'chassis', ldo: 'chassis', cap: 'chassis', conn: 'chassis', mission: 'chassis',
+  frame: 'body', topPlate: 'body', shell: 'body', speaker: 'body', spkRing: 'body', amp: 'body', perf: 'body', switch: 'body', servo: 'body', backpack: 'body',
   headFloor: 'head', headHood: 'head', headBack: 'head', esp32: 'head', mic: 'head',
 };
 const SHELLS = new Set(['shell', 'headHood', 'headBack']);
-const STRUCT = new Set(['tub', 'frame', 'topPlate', 'shell', 'headHood', 'headBack', 'headFloor', 'sled', 'spkRing', 'trackL', 'trackR', 'sprL', 'sprR', 'idlL', 'idlR', 'mission']);
+const STRUCT = new Set(['tub', 'frame', 'topPlate', 'shell', 'headHood', 'headBack', 'headFloor', 'tray', 'spacer', 'backpack', 'bank', 'strap', 'spkRing', 'trackL', 'trackR', 'sprL', 'sprR', 'idlL', 'idlR', 'mission']);
 
 function explodeVec(id) {
   const v = {
     tub: [0, 0, 0], motorL: [0, 55, 0], motorR: [0, 55, 0], sprL: [45, 0, 0], idlL: [45, 0, 0], sprR: [-45, 0, 0], idlR: [-45, 0, 0],
-    trackL: [85, 0, 0], trackR: [-85, 0, 0], driver: [0, 45, 0], sled: [0, 0, 0], battery: [0, 0, 0], fuse: [0, 30, 0], mission: [0, 0, 60],
-    frame: [0, 95, 0], spkRing: [0, 95, 40], speaker: [0, 95, 70], amp: [0, 95, 40], buck: [45, 95, 0], perf: [-45, 95, 0],
+    trackL: [85, 0, 0], trackR: [-85, 0, 0], driver: [0, 45, 0], mission: [0, 0, 60],
+    tray: [0, 40, 0], bank: [0, 62, -150], strap: [0, 75, -150], spacer: [0, 62, 30], pd: [0, 22, -40], buck: [0, 22, -25], ldo: [-25, 22, -25], cap: [0, 30, 0], conn: [-30, 70, 0],
+    frame: [0, 95, 0], spkRing: [0, 95, 40], speaker: [0, 95, 70], amp: [0, 95, 40], perf: [-45, 95, 0], backpack: [0, 95, -40],
     topPlate: [0, 175, 0], servo: [0, 150, 0], switch: [0, 190, 0], shell: [0, 120, 0],
     headFloor: [0, 245, 0], headHood: [0, 300, 0], headBack: [0, 270, -60], esp32: [0, 275, 40], mic: [0, 320, 0],
   }[id] || [0, 0, 0];
-  if (id === 'battery' || id === 'sled') v[2] = (L.bat.drawer === 'rear' ? -1 : 1) * 110;
+  if ((id === 'bank' || id === 'strap') && !L.bay) return [0, 95, -70];
   if (id === 'mic' && !P.micInHead) return [0, 200, 0];
   return v;
 }
@@ -1096,6 +1277,7 @@ function build() {
 
   buildChassis(); buildBody(); buildHead(); buildMission();
   if (parts.mic) parts.mic.layer = P.micInHead ? 'head' : 'body';
+  if (!L.bay) for (const id of ['bank', 'strap']) if (parts[id]) parts[id].layer = 'body';
   for (const [id, p] of Object.entries(parts)) {
     p.base = p.obj.position.clone();
     p.vec = new THREE.Vector3(...explodeVec(id));
@@ -1117,49 +1299,54 @@ function part(id, parent = root) { const g = new THREE.Group(); g.name = id; par
 
 /* ---------- 底盤 ---------- */
 function buildChassis() {
-  const mPrint = mat(COL.print1), mPrintDk = mat(0x6f777e);
+  const mPrint = mat(COL.print1), mPrintDk = mat(0x6f777e), mBrass = mat(COL.copper, { m: 0.7, r: 0.35 });
   const t = part('tub');
-  const xo = L.wallOut, z0 = L.tubZ0, z1 = L.tubZ1;
-  // 底板（馬達下方開槽、中央線孔）
+  const xo = L.wallOut, z0 = L.tubZ0, z1 = L.tubZ1, E = L.endWallT, pw = L.pwr;
+  // 底板（馬達下方開槽）
   const holes = [];
   for (const mo of [L.mL, L.mR_]) {
     const xa = Math.min(mo.flangeX, mo.innerX) - 1, xb = Math.max(mo.flangeX, mo.innerX) + 1;
     holes.push(rrect(Math.max(xa, -L.hw + 0.5), mo.z - 9, Math.min(xb, L.hw - 0.5), mo.z + 9, 3));
   }
   t.add(plateXZ(rrect(-xo, z0, xo, z1, 6), holes, P.floorY, P.floorT, mPrint));
-  // 側壁（兼馬達座）：馬達軸孔、2×M3、惰輪長槽
+  // 側壁（兼馬達座）：馬達軸孔、2×M3（左右排列）、惰輪長槽
   const wallOutline = rrect(z0, P.floorY, z1, L.deckY0, 6);
   for (const mo of [L.mL, L.mR_]) {
     const sx = mo.sign > 0 ? L.hw : -L.hw - P.plateT;
     const idz = -mo.z;
-    const hs = [circ(mo.z, L.axleY, 4.2, 20), circ(mo.z, L.axleY + P.motorHole / 2, 1.7, 12), circ(mo.z, L.axleY - P.motorHole / 2, 1.7, 12),
+    const hs = [circ(mo.z, L.axleY, 4.2, 20), circ(mo.z + P.motorHole / 2, L.axleY, 1.7, 12), circ(mo.z - P.motorHole / 2, L.axleY, 1.7, 12),
       rrect(idz - 4 - 2.2, L.axleY - 2.2, idz + 4 + 2.2, L.axleY + 2.2, 2.1)];
     t.add(plateZY(wallOutline, hs, sx, P.plateT, mPrint));
   }
-  // 前後壁
+  // 前後壁：後壁上半部是電池艙開口，下半部是 CH224K 的 USB-C 孔
   const wy0 = L.floorTop, wy1 = L.deckY0;
-  const rearHoles = [], frontHoles = [];
-  const door = L.bat.box;
-  const doorRect = rrect(Math.max(door.x0 - 2, -L.hw + 1.5), wy0 + 1, Math.min(door.x1 + 2, L.hw - 1.5), Math.min(door.y1 + 2.5, wy1 - 1.5), 2);
-  (L.bat.drawer === 'rear' ? rearHoles : frontHoles).push(doorRect);
-  frontHoles.push(circ(-20, (wy0 + wy1) / 2, 1.7, 12), circ(20, (wy0 + wy1) / 2, 1.7, 12));
-  t.add(plateXY(rrect(-L.hw, wy0, L.hw, wy1, 1), rearHoles, z0, L.endWallT, mPrint));
-  t.add(plateXY(rrect(-L.hw, wy0, L.hw, wy1, 1), frontHoles, z1 - L.endWallT, L.endWallT, mPrint));
-  // 四角螺絲柱
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) t.add(cylY(4, wy0, wy1, sx * (L.hw - 5), sz * (L.tubZ1 - L.endWallT - 5), mPrintDk, 16));
-  // 馬達尾端托架：跨在底板槽兩側的立柱，束線帶繞過馬達
-  for (const mo of [L.mL, L.mR_]) {
-    const cx = mo.innerX + mo.sign * (P.encLen + 6);
-    for (const s of [-1, 1]) t.add(boxB(cx - 3, cx + 3, L.floorTop, L.axleY, mo.z + s * 12.9, mo.z + s * 16.4, mPrintDk));
-    t.add(cylX(L.mR + 0.6, cx - 1.6, cx + 1.6, L.axleY, mo.z, mat(0xf2f2f2), 24));
+  const usbHole = rrect(pw.usbX - 6.75, L.usbY - 3.8, pw.usbX + 6.75, L.usbY + 3.8, 2.5);
+  const rearOut = L.bay ? [[-L.hw, wy0], [L.hw, wy0], [L.hw, wy1], [L.bayX1, wy1], [L.bayX1, L.trayY0], [L.lipX0, L.trayY0], [L.lipX0, wy1], [-L.hw, wy1]] : rrect(-L.hw, wy0, L.hw, wy1, 1);
+  const my = (wy0 + Math.min(L.trayY0, wy1)) / 2;
+  const frontHoles = [circ(-20, my, 1.7, 12), circ(20, my, 1.7, 12)], rearHoles = [];
+  (pw.front ? frontHoles : rearHoles).push(usbHole);
+  t.add(plateXY(rearOut, rearHoles, z0, E, mPrint));
+  t.add(plateXY(rrect(-L.hw, wy0, L.hw, wy1, 1), frontHoles, z1 - E, E, mPrint));
+  // 上身固定立柱（頂端 M3 熱熔螺母）
+  for (const p of L.pillars) {
+    t.add(boxB(p.x0, p.x1, p.y0, p.y1, p.z0, p.z1, mPrintDk));
+    t.add(cylY(2.1, p.y1 - 0.2, p.y1 + 0.05, (p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, mBrass, 14));
   }
-  // 驅動板螺絲座（與底板一起列印）
+  if (L.bay) {
+    // 托盤支撐：左壁凸緣（避開左後馬達）、前壁凸緣、通道邊小立柱；後壁開口下緣也撐著托盤
+    t.add(boxB(L.hw - 3, L.hw, L.trayY0 - 2.5, L.trayY0, L.mL.box.z1 + 1, z1 - E, mPrintDk));
+    t.add(boxB(L.lipX0, L.hw, L.trayY0 - 2.5, L.trayY0, z1 - E - 6, z1 - E, mPrintDk));
+    const tp = L.trayPost; t.add(boxB(tp.x0, tp.x1, tp.y0, tp.y1, tp.z0, tp.z1, mPrintDk));
+  }
+  // 馬達尾端托架：跨在底板槽兩側的立柱，束線帶繞過馬達
+  for (const c of L.cradles) t.add(boxB(c.x0, c.x1, c.y0, c.y1, c.z0, c.z1, mPrintDk));
+  for (const mo of [L.mL, L.mR_]) { const cx = mo.innerX + mo.sign * (P.encLen + 6); t.add(cylX(L.mR + 0.6, cx - 1.6, cx + 1.6, L.axleY, mo.z, mat(0xf2f2f2), 24)); }
+  // 驅動板螺絲座、電源模組底座
   const d = L.drv;
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) t.add(cylY(3.25, L.floorTop, d.y0, d.x + sx * d.hole[0], d.z + sz * d.hole[1], mPrintDk, 16));
-  // 電池滑軌
-  const b = L.bat.box;
-  t.add(boxB(b.x0 - 3.5, b.x0 - 1.5, L.floorTop, L.floorTop + 4, L.bat.drawer === 'rear' ? z0 + L.endWallT : b.z0, L.bat.drawer === 'rear' ? b.z1 : z1 - L.endWallT, mPrintDk));
-  t.add(boxB(b.x1 + 1.5, b.x1 + 3.5, L.floorTop, L.floorTop + 4, L.bat.drawer === 'rear' ? z0 + L.endWallT : b.z0, L.bat.drawer === 'rear' ? b.z1 : z1 - L.endWallT, mPrintDk));
+  const pd = pw.pd, ra = Math.max(pd.z0, z0 + E), rb = Math.min(pd.z1, z1 - E);
+  for (const xx of [pd.x0 + 1.5, pd.x1 - 1.5]) t.add(boxB(xx - 1, xx + 1, L.floorTop, pd.y0, ra, rb, mPrintDk));
+  for (const m of [pw.buck, pw.ldo]) for (const zz of [m.z0 + 3, m.z1 - 3]) t.add(cylY(1.8, L.floorTop, m.y0, (m.x0 + m.x1) / 2, zz, mPrintDk, 12));
 
   // 馬達
   for (const mo of [L.mL, L.mR_]) {
@@ -1171,8 +1358,10 @@ function buildChassis() {
     g.add(cylX(L.mR, xC, xD, L.axleY, mo.z, mat(COL.dark)));
     g.add(cylX(P.shaftD / 2, xA, xA + s * P.shaftLen, L.axleY, mo.z, mat(0xd9dde0, { m: 0.8, r: 0.25 }), 16));
     g.add(cylX(3.5, xA, xA + s * 2.5, L.axleY, mo.z, mat(0xc98b5a, { m: 0.6, r: 0.35 }), 20));   // Ø7 銅套凸台（高 2.5）
-    g.add(boxB(xD + s * 1.5, xD + s * 9.5, L.axleY + L.mR - 1.5, L.axleY + L.mR + 3.5, mo.z - 4.5, mo.z + 4.5, mat(0xf2f2f2)));   // 6P 編碼器接頭，朝上
-    for (const dy of [-P.motorHole / 2, P.motorHole / 2]) g.add(cylX(2.8, xA + s * (P.plateT - 2), xA + s * (P.plateT - 0.35), L.axleY + dy, mo.z, mat(0x5b6066, { m: 0.6 }), 12));
+    const fz = mo.fz;
+    g.add(boxB(xD + s * 1.5, xD + s * 9.5, L.axleY - 4.5, L.axleY + 4.5, mo.z + fz * (L.mR - 1.5), mo.z + fz * (L.mR + 3.5), mat(0xf2f2f2)));   // 6P 編碼器接頭，水平朝車身中央
+    g.add(boxB(xD + s * 2, xD + s * 9, L.axleY - 3.5, L.axleY + 3.5, mo.z + fz * (L.mR + 3.5), mo.z + fz * (L.mR + 6), mat(0xe8e2c8)));        // 插頭
+    for (const dz of [-P.motorHole / 2, P.motorHole / 2]) g.add(cylX(2.8, xA + s * (P.plateT - 2), xA + s * (P.plateT - 0.35), L.axleY, mo.z + dz, mat(0x5b6066, { m: 0.6 }), 12));
   }
 
   // 輪子
@@ -1217,47 +1406,102 @@ function buildChassis() {
     g.add(im, ig);
   }
 
-  // 驅動板
+  // 驅動板（藍色端子朝車身中央、VM 在後端；排針在外側長邊、IN1 在後端）
   {
-    const g = part('driver'); const d = L.drv; const b = d.box; const y1 = d.y0 + 1.6;
+    const g = part('driver'); const b = d.box; const y1 = d.y0 + 1.6;
     g.add(boxB(b.x0, b.x1, d.y0, y1, b.z0, b.z1, mat(0x15181c, { r: 0.5 })));
-    // 藍色端子台（VM、G、OUT1–4）面向車身中央，VM 在前端
     for (let i = 0; i < 6; i++) {
       const zc = d.tz(i);
-      g.add(boxB(b.x0 + 0.5, b.x0 + 8, y1, y1 + 10, zc - 2.45, zc + 2.45, mat(0x2f7fd6, { r: 0.5 })));
-      g.add(cylY(1.6, y1 + 10, y1 + 10.3, b.x0 + 4.5, zc, mat(0xb9bec3, { m: 0.7 }), 12));
+      g.add(boxB(b.x1 - 8, b.x1 - 0.5, y1, y1 + 10, zc - 2.45, zc + 2.45, mat(0x2f7fd6, { r: 0.5 })));
+      g.add(cylY(1.6, y1 + 10, y1 + 10.3, b.x1 - 4.5, zc, mat(0xb9bec3, { m: 0.7 }), 12));
     }
-    for (const dz of [8, -10]) {   // DRV8870 ×2 與 R100 取樣電阻 ×2
-      g.add(boxB(d.x - 3, d.x + 1, y1, y1 + 1.5, d.z + dz - 2.5, d.z + dz + 2.5, mat(0x111111)));
-      g.add(boxB(d.x + 3, d.x + 9, y1, y1 + 2.2, d.z + dz - 1.6, d.z + dz + 1.6, mat(0x2b2b2b)));
+    for (const dz of [-8, 10]) {   // DRV8870 ×2 與 R100 取樣電阻 ×2
+      g.add(boxB(d.x - 1, d.x + 3, y1, y1 + 1.5, d.z + dz - 2.5, d.z + dz + 2.5, mat(0x111111)));
+      g.add(boxB(d.x - 9, d.x - 3, y1, y1 + 2.2, d.z + dz - 1.6, d.z + dz + 1.6, mat(0x2b2b2b)));
     }
-    g.add(boxB(b.x1 - 13, b.x1 - 5, y1, y1 + 4.5, b.z1 - 7, b.z1 - 1, mat(0x222222)));   // LM317M
-    // 排針：IN1 IN2 IN3 IN4 VO G S1 G S2 G（沿外側長邊，IN1 在前）
-    g.add(boxB(b.x1 - 3.8, b.x1 - 1.2, y1, y1 + 2.5, b.z1 - 8 - 24.13, b.z1 - 8 + 1.27, mat(0x111111)));
-    g.add(boxB(b.x1 - 3.9, b.x1 - 1.1, y1 + 2.5, y1 + 16.5, b.z1 - 8 - 14.0, b.z1 - 8 + 1.3, mat(0x202020)));   // 杜邦頭：IN1–4、VO、G
+    g.add(boxB(b.x0 + 5, b.x0 + 13, y1, y1 + 4.5, b.z0 + 1, b.z0 + 7, mat(0x222222)));   // LM317M
+    g.add(cylY(2.2, y1, y1 + 4, b.x0 + 9, b.z0 + 12, mat(0x2f6fd0), 16));                  // 可變電阻（轉到最小）
+    g.add(boxB(b.x0 + 1.2, b.x0 + 3.8, y1, y1 + 2.5, d.hdrZ(0) - 1.27, d.hdrZ(9) + 1.27, mat(0x111111)));
+    g.add(boxB(b.x0 + 1.1, b.x0 + 3.9, y1 + 2.5, d.hdrTop, d.hdrZ(0) - 1.3, d.hdrZ(5) + 1.3, mat(0x202020)));   // 杜邦頭：IN1–4、（VO 空）、G
   }
-  // 電池與抽屜
+  // 電源區
   {
-    const g = part('battery'); const b = L.bat.box;
-    g.add(boxB(b.x0, b.x1, b.y0, b.y0 + 3, b.z0, b.z1, mat(0x1b1d20)));
-    g.add(boxB(b.x0, b.x1, b.y0, b.y1 - 4, b.z0, b.z0 + 3, mat(0x1b1d20)));
-    g.add(boxB(b.x0, b.x1, b.y0, b.y1 - 4, b.z1 - 3, b.z1, mat(0x1b1d20)));
-    const cr = Math.min(9.15, (P.batW - 2) / 4);
-    for (const dx of [-1, 1]) g.add(cylZ(cr, b.z0 + 3, b.z1 - 3, L.bat.x + dx * (P.batW / 4), b.y0 + 3 + cr, mat(dx < 0 ? COL.battery : 0x3f8c5a, { r: 0.35 })));
-    const s = part('sled'); const rear = L.bat.drawer === 'rear';
-    const sz0 = rear ? L.tubZ0 + L.endWallT : b.z0 - 2, sz1 = rear ? b.z1 + 2 : L.tubZ1 - L.endWallT;
-    s.add(boxB(b.x0 - 1, b.x1 + 1, L.floorTop + 0.1, L.floorTop + L.sledT, sz0, sz1, mat(0x5d7d99)));
-    const dz = rear ? L.tubZ0 : L.tubZ1 - L.endWallT;
-    s.add(boxB(b.x0 - 1.8, b.x1 + 1.8, L.floorTop + 0.3, Math.min(b.y1 + 2.3, L.deckY0 - 1.7), dz, dz + L.endWallT, mat(0x5d7d99)));
-    const hz = rear ? dz - 5 : dz + L.endWallT + 5;
-    s.add(boxB(L.bat.x - 9, L.bat.x + 9, L.floorTop + 10, L.floorTop + 14, Math.min(hz, dz + (rear ? 0 : L.endWallT)), Math.max(hz, dz + (rear ? 0 : L.endWallT)), mat(0x3d5a73)));
+    const g = part('pd'); const b = pw.pd; const y1 = b.y0 + 1.6;
+    g.add(boxB(b.x0, b.x1, b.y0, y1, b.z0, b.z1, mat(COL.pcbBlack, { r: 0.5 })));
+    const r0 = pw.front ? b.z1 - 7.3 : b.z0, r1 = pw.front ? b.z1 : b.z0 + 7.3;
+    g.add(boxB(pw.usbX - 4.5, pw.usbX + 4.5, y1, y1 + 3.2, r0, r1, mat(COL.metal, { m: 0.75, r: 0.3 })));   // USB-C 母座
+    const cz = (b.z0 + b.z1) / 2 + pw.s * 3;
+    g.add(boxB(pw.usbX - 1.5, pw.usbX + 1.5, y1, y1 + 0.9, cz - 1.5, cz + 1.5, mat(0x111111)));               // CH224K
+    const oz = pw.front ? b.z0 + 3 : b.z1 - 3;
+    for (const dx of [-3, 3]) g.add(boxB(pw.usbX + dx - 1.6, pw.usbX + dx + 1.6, y1, y1 + 0.4, oz - 1.6, oz + 1.6, mat(COL.copper, { m: 0.6 })));
   }
-  // 保險絲與 J1/J2
   {
-    const g = part('fuse'); const hz = L.deckHole.z;
-    g.add(boxB(-11, -1, L.deckY0 - 7, L.deckY0 - 1, hz - 4, hz + 4, mat(0xf2f2f2)));
-    g.add(boxB(1, 13, L.deckY0 - 7, L.deckY0 - 1, hz - 4, hz + 4, mat(0xf2f2f2)));
-    g.add(boxB(L.bat.x + 6, L.bat.x + 20, L.bat.y1 + 1, L.bat.y1 + 5, L.bat.box.z0 - 16, L.bat.box.z0 - 6, mat(0xd43a2c)));
+    const g = part('buck'); const b = pw.buck; const y1 = b.y0 + 1.6;
+    const cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
+    g.add(boxB(b.x0, b.x1, b.y0, y1, b.z0, b.z1, mat(COL.pcbBlue, { r: 0.5 })));
+    g.add(boxB(cx - 3.5, cx + 3.5, y1, y1 + 4, cz - 3.5, cz + 3.5, mat(0x2a2b2e)));              // 電感
+    g.add(boxB(cx + 4.5, cx + 6.5, y1, y1 + 1.2, cz - 1.5, cz + 1.5, mat(0x111111)));
+    for (const s of [-1, 1]) g.add(boxB(cx + s * 5.5 - 1.2, cx + s * 5.5 + 1.2, y1, y1 + 1.6, b.z0 + 2, b.z0 + 5, mat(0xb88a4a)));
+  }
+  {
+    const g = part('ldo'); const b = pw.ldo; const y1 = b.y0 + 1.6;
+    const cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2;
+    g.add(boxB(b.x0, b.x1, b.y0, y1, b.z0, b.z1, mat(COL.pcbRed, { r: 0.5 })));
+    g.add(boxB(cx - 3.3, cx + 3.3, y1, y1 + 1.8, cz - 3.5, cz + 3.5, mat(0x1a1a1a)));             // SOT-223
+    g.add(boxB(cx - 3.3, cx + 3.3, y1, y1 + 0.3, cz + 3.5, cz + 5.5, mat(COL.metal, { m: 0.7 })));
+  }
+  {
+    const g = part('cap'); const c = pw.cap;
+    g.add(cylZ(c.r, c.z0, c.z1, c.x, c.y, mat(0x23324d, { r: 0.4 }), 24));
+    g.add(cylZ(c.r - 0.5, c.z1, c.z1 + 0.3, c.x, c.y, mat(COL.metal, { m: 0.7, r: 0.3 }), 24));
+    g.add(boxB(c.x - 1, c.x + 1, c.y + c.r - 0.2, c.y + c.r + 0.05, c.z0, c.z1, mat(0x9aa3ad)));   // 負極條紋
+  }
+  {
+    const g = part('conn'); const c = L.conn;
+    for (const [a, b] of [c.j1, c.j2]) g.add(boxB(c.x0, c.x1, c.y0, c.y1, a, b, mat(0xf2f2f2)));
+  }
+
+  // 電池艙：托盤、行動電源、綁帶、墊塊
+  const B = L.bank;
+  if (L.bay) {
+    const g = part('tray'); const mT = mat(0x7d8b96);
+    const xr = L.hw - 0.4, zf = L.bayZ1 - 0.3, nx = L.bayX1 - 0.4;
+    const out = [[L.lipX0, z0], [L.bayX1, z0], [L.bayX1, z0 + E + 0.3], [xr, z0 + E + 0.3]];
+    for (const p of L.pillars.filter(p => p.x1 > 0).sort((a, b) => a.z0 - b.z0)) out.push([xr, p.z0 - 0.4], [nx, p.z0 - 0.4], [nx, p.z1 + 0.4], [xr, p.z1 + 0.4]);
+    out.push([xr, zf], [L.lipX0, zf]);
+    const hs = L.trayWins.map(([a, b, c, e]) => rrect(a, b, c, e, 4));
+    for (const zc of L.strapSlots) for (const xs of L.slotX) hs.push(rrect(xs - 1.5, zc - 11, xs + 1.5, zc + 11, 1.4));
+    g.add(plateXZ(out, hs, L.trayY0, L.trayT, mT));
+    g.add(boxB(L.lipX0, L.lipX1, L.trayTop, L.trayTop + 8, z0, zf, mT));
+    if (P.bankSpacer > 0) {
+      const sp = part('spacer');
+      sp.add(boxB(B.x - (P.bankW - 6) / 2, B.x + (P.bankW - 6) / 2, L.trayTop, L.trayTop + Math.min(P.bankT, P.bayH - 1) * 0.8, B.z1, L.bayZ1, mat(0xd08a3a)));
+    }
+  }
+  {
+    const g = part('bank');
+    const bm = mat(0x30353d, { r: 0.42 }), dk = mat(0x0d0f12), led = mat(0x55d6ff);
+    const pt = B.port;
+    if (L.bay) {
+      g.add(plateXZ(rrect(B.x0, B.z0, B.x1, B.z1, Math.min(7, P.bankW / 5)), [], B.y0, P.bankT, bm));
+      g.add(boxB(B.x0 + 8, B.x1 - 8, B.y1, B.y1 + 0.3, B.z0 + 14, B.z0 + 30, mat(0x4e8fd0, { r: 0.4 })));
+      for (const px of [pt.x, pt.x - 13]) g.add(boxB(px - 4.5, px + 4.5, pt.y - 1.6, pt.y + 1.6, B.z0 - 0.3, B.z0 + 0.2, dk));
+      for (let i = 0; i < 4; i++) g.add(boxB(B.x - P.bankW * 0.3 + i * 4, B.x - P.bankW * 0.3 + i * 4 + 1.6, pt.y - 0.8, pt.y + 0.8, B.z0 - 0.3, B.z0 + 0.2, led));
+    } else {
+      g.add(plateXY(rrect(B.x0, B.y0, B.x1, B.y1, 6), [], B.z0, P.bankT, bm));
+      for (const dz of [-1, 1]) g.add(boxB(B.x1 - 0.2, B.x1 + 0.3, pt.y - 1.6 + dz * 6, pt.y + 1.6 + dz * 6, pt.z - 4.5, pt.z + 4.5, dk));
+    }
+  }
+  {
+    const g = part('strap'); const sm = mat(0x26292d, { r: 0.9 }); const th = 1.2;
+    if (L.bay) for (const zc of L.strapZ) {
+      g.add(boxB(B.x0 - th, B.x1 + th, B.y1, B.y1 + th, zc - 10, zc + 10, sm));
+      g.add(boxB(B.x0 - th, B.x0, L.trayTop, B.y1 + th, zc - 10, zc + 10, sm));
+      g.add(boxB(B.x1, B.x1 + th, L.trayTop, B.y1 + th, zc - 10, zc + 10, sm));
+      const xa = L.slotX[0] - 1.5, xb = L.slotX[3] + 1.5;
+      if (B.x0 - th > xa) g.add(boxB(xa, B.x0 - th, L.trayTop, L.trayTop + th, zc - 10, zc + 10, sm));
+      if (B.x1 + th < xb) g.add(boxB(B.x1 + th, xb, L.trayTop, L.trayTop + th, zc - 10, zc + 10, sm));
+    }
   }
 }
 function loopPoint(s) {
@@ -1278,16 +1522,22 @@ function buildBody() {
   const mF = mat(COL.print2), mFd = mat(0x8ea2b1);
   const f = part('frame');
   const xo = L.wallOut;
-  // 底板（兼底盤上蓋）：中央線孔、前緣任務模組孔
-  const hz = L.deckHole.z;
-  f.add(plateXZ(rrect(-xo, L.tubZ0, xo, L.tubZ1, 6), [rrect(-11, hz - 7, 11, hz + 7, 3), circ(-30, L.tubZ1 - 8, 1.7, 12), circ(30, L.tubZ1 - 8, 1.7, 12)], L.deckY0, P.deckT, mF));
+  // 底板（兼底盤上蓋）：右後方線孔對準通道、四根立柱的 M3 孔、前緣任務模組孔
+  const hz = L.deckHole;
+  const pinHoles = L.pillars.map(p => circ((p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, 1.7, 12));
+  f.add(plateXZ(rrect(-xo, L.tubZ0, xo, L.tubZ1, 6), [rrect(hz.x0, hz.z0, hz.x1, hz.z1, 2), circ(-30, L.tubZ1 - 8, 1.7, 12), circ(30, L.tubZ1 - 8, 1.7, 12), ...pinHoles], L.deckY0, P.deckT, mF));
   const fh0 = L.deckY1, fh1 = L.frameTop;
   // 脊板（中下方穿線孔）
   f.add(plateXY(rrect(-L.wingX1, fh0, L.wingX1, fh1, 2), [rrect(-10, fh0 + 4, 10, fh0 + 16, 3)], L.spineZ0, 3, mF));
   // 側翼
   for (const s of [-1, 1]) f.add(boxB(s * L.wingX0, s * L.wingX1, fh0, fh1, L.inZ0 + 2, L.spineZ1, mF));
-  // 斜撐
-  for (const s of [-1, 1]) f.add(boxB(s * (L.wingX0 - 6), s * L.wingX0, fh0, fh0 + 10, L.inZ0 + 2, L.spineZ0, mFd));
+  // 斜撐（右邊在線孔上方斷開）
+  for (const s of [-1, 1]) {
+    const bx0 = s * (L.wingX0 - 6), bx1 = s * L.wingX0;
+    const over = Math.min(bx0, bx1) < hz.x1 && Math.max(bx0, bx1) > hz.x0;
+    const segs = over ? [[L.inZ0 + 2, hz.z0 - 2], [hz.z1 + 2, L.spineZ0]] : [[L.inZ0 + 2, L.spineZ0]];
+    for (const [a, b] of segs) if (b - a > 3) f.add(boxB(bx0, bx1, fh0, fh0 + 10, a, b, mFd));
+  }
 
   // 喇叭＋墊高環
   const r = part('spkRing');
@@ -1303,12 +1553,6 @@ function buildBody() {
   a.add(boxB(L.amp.x - 8.85, L.amp.x + 8.85, L.amp.y - 9.55, L.amp.y + 9.55, L.amp.z, L.amp.z + 1.6, mat(COL.pcbPurple, { r: 0.5 })));
   a.add(boxB(L.amp.x - 5, L.amp.x + 5, L.amp.y + 3, L.amp.y + 8.5, L.amp.z + 1.6, L.amp.z + 8, mat(0x2f8f4a)));
   a.add(boxB(L.amp.x - 2, L.amp.x + 2, L.amp.y - 2, L.amp.y + 2, L.amp.z + 1.6, L.amp.z + 2.4, mat(0x111111)));
-  // 降壓
-  const bk = part('buck'); const B = L.buck;
-  bk.add(boxB(B.x1 - 1.6, B.x1, B.y0, B.y1, B.z0, B.z1, mat(COL.pcbBlue, { r: 0.5 })));
-  bk.add(cylX(6, B.x1 - 1.6, B.x1 - 9, (B.y0 + B.y1) / 2, (B.z0 + B.z1) / 2 + 6, mat(0x2a2b2e), 20));
-  bk.add(cylX(4, B.x1 - 1.6, B.x1 - 12, (B.y0 + B.y1) / 2, B.z0 + 8, mat(0x222222), 20));
-  bk.add(boxB(B.x1 - 11, B.x1 - 1.6, B.y0 + 2, B.y0 + 12, B.z1 - 10, B.z1 - 2, mat(0x2b62c9)));
   // 配電板
   const pb = part('perf'); const Q = L.perf;
   pb.add(boxB(Q.x0, Q.x0 + 1.6, Q.y0, Q.y1, Q.z0, Q.z1, mat(0xc9a15a, { r: 0.7 })));
@@ -1382,6 +1626,18 @@ function buildBody() {
   plate.position.set(0, y0 + 11, L.bodyZ1 + 0.25); sh.add(plate);
   sh.add(boxB(-L.bw, L.bw, y1 - 6, y1 - 3, L.bodyZ1, L.bodyZ1 + 0.8, mat(COL.shellAccent)));
   for (const s of [-1, 1]) for (const dz of [-25, 5]) sh.add(cylX(2.7, s * L.bw, s * (L.bw + 0.8), y0 + 8, dz, mat(0x666c72, { m: 0.6 }), 12));
+
+  // 比較用：行動電源掛在身體背後的背包支架
+  if (!L.bay) {
+    const g = part('backpack'); const B = L.bank; const m = mat(0x5d7d99);
+    g.add(boxB(B.x0 + 6, B.x1 - 6, B.y0 - 3, B.y0, B.z0 - 2, L.bodyZ0, m));
+    for (const s of [-1, 1]) g.add(boxB(s * 30 - 5, s * 30 + 5, B.y0 - 3, B.y1 + 3, B.z1, L.bodyZ0, m));
+    const st = parts.strap?.obj, sm = mat(0x26292d, { r: 0.9 });
+    if (st) for (const xc of [-30, 30]) {
+      st.add(boxB(xc - 10, xc + 10, B.y0 - 4, B.y1 + 1.2, B.z0 - 1.2, B.z0, sm));
+      st.add(boxB(xc - 10, xc + 10, B.y1, B.y1 + 1.2, B.z0 - 1.2, L.bodyZ0, sm));
+    }
+  }
 }
 
 /* ---------- 頭部 ---------- */
@@ -1504,22 +1760,22 @@ function buildOverlays() {
   const A = accentHex();
   // 尺寸
   const dg = overlays.dims; clearGroup(dg);
-  const W = L.overallW / 2, zF = L.overallL / 2 + 18, y = 2;
+  const W = L.overallW / 2, zF = L.zMax + 18, y = 2;
   dg.add(line([new THREE.Vector3(-W, y, zF), new THREE.Vector3(W, y, zF)], A));
   dg.add(line([new THREE.Vector3(-W, 0, zF - 12), new THREE.Vector3(-W, 0, zF + 4)], A));
   dg.add(line([new THREE.Vector3(W, 0, zF - 12), new THREE.Vector3(W, 0, zF + 4)], A));
   dg.add(tag2d(`寬 ${fx(L.overallW, 0)}`, new THREE.Vector3(0, y, zF), 'lbl dim'));
-  const xS = W + 18, zh = L.overallL / 2;
-  dg.add(line([new THREE.Vector3(xS, y, -zh), new THREE.Vector3(xS, y, zh)], A));
-  dg.add(tag2d(`長 ${fx(L.overallL, 0)}`, new THREE.Vector3(xS, y, 0), 'lbl dim'));
-  dg.add(line([new THREE.Vector3(xS, 0, -zh - 14), new THREE.Vector3(xS, L.overallH, -zh - 14)], A));
-  dg.add(tag2d(`高 ${fx(L.overallH, 0)}`, new THREE.Vector3(xS, L.overallH / 2, -zh - 14), 'lbl dim'));
+  const xS = W + 18;
+  dg.add(line([new THREE.Vector3(xS, y, L.zMin), new THREE.Vector3(xS, y, L.zMax)], A));
+  dg.add(tag2d(`長 ${fx(L.overallL, 0)}`, new THREE.Vector3(xS, y, (L.zMin + L.zMax) / 2), 'lbl dim'));
+  dg.add(line([new THREE.Vector3(xS, 0, L.zMin - 14), new THREE.Vector3(xS, L.overallH, L.zMin - 14)], A));
+  dg.add(tag2d(`高 ${fx(L.overallH, 0)}`, new THREE.Vector3(xS, L.overallH / 2, L.zMin - 14), 'lbl dim'));
   dg.add(tag2d(`離地 ${fx(L.clearance, 1)}`, new THREE.Vector3(0, L.clearance / 2, L.tubZ1 + 4), 'lbl dim'));
   // 重心
   updateDynamicOverlays();
   // 標籤
   const lg = overlays.labels; clearGroup(lg);
-  const names = { motorL: '左馬達（後）', motorR: '右馬達（前）', battery: '2S 電池', driver: 'DRV8870', speaker: '喇叭', buck: '降壓 5V', perf: '配電板', servo: 'SG92R', esp32: 'ESP32-S3-CAM', mic: 'INMP441', switch: '開關', amp: 'MAX98357A' };
+  const names = { motorL: '左馬達（後）', motorR: '右馬達（前）', bank: '行動電源', driver: 'DRV8870', pd: 'CH224K', buck: 'Mini560', ldo: 'AMS1117', cap: 'C1', speaker: '喇叭', perf: '配電板', servo: 'SG92R', esp32: 'ESP32-S3-CAM', mic: 'INMP441', switch: '開關', amp: 'MAX98357A' };
   for (const [id, n] of Object.entries(names)) {
     const p = parts[id]; if (!p) continue;
     const b = new THREE.Box3().setFromObject(p.obj); const c = b.getCenter(new THREE.Vector3());
@@ -1577,51 +1833,64 @@ let selectedWire = null;
 function wirePaths() {
   const Lh = (x, y, z) => headToWorld(L, yaw, x, y, z);
   const v = (x, y, z) => new THREE.Vector3(x, y, z);
-  const h = L.head, b = L.bat, d = L.drv, hz = L.deckHole.z;
-  const J = v(0, L.deckY0 - 4, hz);
-  const batRear = L.bat.drawer === 'rear' ? b.box.z0 : b.box.z1;
-  const batLead = v(b.x + 6, b.y1 - 4, batRear + (L.bat.drawer === 'rear' ? -2 : 2));
-  const fuse = v(b.x + 13, b.y1 + 3, batRear - 11 * (L.bat.drawer === 'rear' ? 1 : -1));
-  const tX = d.box.x0 - 1, tY = d.y0 + 1.6 + 6;
+  const h = L.head, d = L.drv, db = d.box, pw = L.pwr, B = L.bank, hz = L.deckHole, cn = L.conn;
+  const hx = (hz.x0 + hz.x1) / 2, hzc = (hz.z0 + hz.z1) / 2, cx = (cn.x0 + cn.x1) / 2;
+  const j1z = (cn.j1[0] + cn.j1[1]) / 2, j2z = (cn.j2[0] + cn.j2[1]) / 2;
+  const J1b = v(cx, cn.y0, j1z), J1t = v(cx, cn.y1, j1z), J2b = v(cx, cn.y0, j2z), J2t = v(cx, cn.y1, j2z);
+  const chY = L.trayY0 - 3;                                  // 下層走線高度（托盤底下）
+  const up = v(hx, L.deckY1 + 4, hzc), inHole = v(hx, L.deckY0 + 1.5, hzc);
+  const tX = db.x1 + 1, tY = d.y0 + 1.6 + 6;                 // 端子入線口（朝車身中央）
   const vmT = v(tX, tY, (d.tz(0) + d.tz(1)) / 2);
   const outR = v(tX, tY, (d.tz(2) + d.tz(3)) / 2), outL = v(tX, tY, (d.tz(4) + d.tz(5)) / 2);   // OUT1/2 前(右)馬達、OUT3/4 後(左)馬達
-  const inT = v(d.box.x1 - 2.5, d.y0 + 1.6 + 16.5, d.box.z1 - 8 - 3.8);
-  const voT = v(d.box.x1 - 2.5, d.y0 + 1.6 + 16.5, d.box.z1 - 8 - 11.4);
-  const mLend = v(L.mL.innerX + L.mL.sign * 5.5, L.axleY + L.mR + 4, L.mL.z), mRend = v(L.mR_.innerX + L.mR_.sign * 5.5, L.axleY + L.mR + 4, L.mR_.z);
-  const up1 = v(0, L.deckY1 + 4, hz - 2);
+  const inT = v(d.hdrX, d.hdrTop, d.hdrZ(1.5));
+  const mLend = v(L.mL.conn.x, L.mL.conn.y, L.mL.conn.z), mRend = v(L.mR_.conn.x, L.mR_.conn.y, L.mR_.conn.z);
+  const sgn = z => (z >= 0 ? 1 : -1);
+  const pd = pw.pd, bk = pw.buck, ld = pw.ldo, cp = pw.cap, s = pw.s;
+  const pdOut = v(pw.usbX, pd.y0 + 2.2, (pw.front ? pd.z0 : pd.z1) - s * 3);
+  const bEnd = (pw.front ? bk.z0 : bk.z1) - s * 2, lEnd = (pw.front ? ld.z0 : ld.z1) - s * 1.5;
+  const bkIn = v(bk.x0 + 3, bk.y0 + 2.5, bEnd), bkOut = v(bk.x1 - 3, bk.y0 + 2.5, bEnd);
+  const ldIn = v((ld.x0 + ld.x1) / 2 + 3, ld.y0 + 2.5, lEnd), ldOut = v((ld.x0 + ld.x1) / 2 - 3, ld.y0 + 2.5, lEnd);
+  const capT = v(cp.x, cp.y + 1, cp.z0 - 1.5);
   const swB = v(L.sw.x, L.sw.y0 + 1, L.sw.z);
-  const bk = L.buck, pf = L.perf;
-  const buckIn = v((bk.x0 + bk.x1) / 2, (bk.y0 + bk.y1) / 2, bk.z0 + 1);
-  const buckOut = v((bk.x0 + bk.x1) / 2, (bk.y0 + bk.y1) / 2, bk.z1 - 1);
+  const pf = L.perf;
   const perfF = v(pf.x1, (pf.y0 + pf.y1) / 2, pf.z1 - 4), perfT = v(pf.x1, pf.y1 - 3, pf.z0 + 10), perfB = v(pf.x1, pf.y0 + 3, pf.z0 + 6);
   const servoC = v(L.servoBox.x1 + 1, L.servoY0 + 4, P.neckZ);
   const ampIn = v(L.amp.x - 6, L.amp.y - 4, L.amp.z + 2), ampOut = v(L.amp.x, L.amp.y + 8, L.amp.z + 6);
   const spkT = v(8, L.spk.y + L.spk.r * 0.5, L.spk.zB + 2);
   const hole = v(0, L.deckY1 + 10, L.spineZ0 + 1.5);
-  const win = v(-L.harnessR * Math.sin(0) , L.mountY1 + 0.5, P.neckZ - L.harnessR);
+  const win = v(0, L.mountY1 + 0.5, P.neckZ - L.harnessR);
   const hHole = Lh(0, h.floorT + 0.5, -L.harnessR);
   const hHoleB = Lh(0, -1, -L.harnessR);
-  const hdr = Lh(P.lensOffset * 0 + 4, h.pcbY - ESP.w / 2 + 1, h.pcbFrontZ - ESP.t - 2.5 - ESP.dupont - 1);
+  const hdr = Lh(4, h.pcbY - ESP.w / 2 + 1, h.pcbFrontZ - ESP.t - 2.5 - ESP.dupont - 1);
   const hdrT = Lh(10, h.pcbY + ESP.w / 2 - 1, h.pcbFrontZ - ESP.t - 2.5 - ESP.dupont - 1);
   const micP = P.micInHead ? Lh(h.micLocal[0], h.micLocal[1] - 1.5, h.micLocal[2] - 5) : v(-L.bw + 14, L.topY0 - 2, L.bodyZ0 + 12);
   const midSlack = [v(-24, L.topY0 - 26, L.inZ0 + 8), v(-6, L.topY0 - 36, L.inZ0 + 10), v(6, L.topY0 - 18, P.neckZ - 22)];
   const neckMid = headToWorld(L, yaw * 0.5, 0, -L.skirt.drop / 2 - 1, -L.harnessR);
+  // 行動電源 → 後壁 USB-C 的短線
+  const port = v(B.port.x, B.port.y, B.port.z);
+  const usbIn = v(pw.usbX, L.usbY, pw.wallZ), usbEnd = v(pw.usbX, L.usbY, pw.wallZ - s * 7);
+  let usbPts;
+  if (L.bay && !pw.front) usbPts = [port, v(port.x, port.y, Math.min(B.z0, L.tubZ0) - 14), v((port.x + pw.usbX) / 2, (port.y + L.usbY) / 2, L.tubZ0 - 24), v(pw.usbX, L.usbY + 2, L.tubZ0 - 15), usbEnd, usbIn];
+  else if (L.bay) usbPts = [port, v(port.x, port.y, Math.min(B.z0, L.tubZ0) - 14), v(-L.trackOut - 10, L.trayTop + 4, L.tubZ0 - 8), v(-L.trackOut - 10, L.usbY + 6, L.tubZ1 + 8), v(pw.usbX, L.usbY + 2, L.tubZ1 + 15), usbEnd, usbIn];
+  else usbPts = [port, v(B.x1 + 12, port.y - 10, port.z), v(B.x1 + 4, L.deckY1, pw.front ? L.tubZ1 + 20 : L.tubZ0 - 20), v(pw.usbX, L.usbY + 6, pw.wallZ - s * 18), usbEnd, usbIn];
   return [
-    { id: 'bat', name: '電池正負極 → 保險絲 → J1', col: 0xd23a2a, r: 1.2, awg: '20 AWG 矽膠線（紅／黑）', from: '電池盒', to: 'J1（底盤接頭）', pts: [batLead, fuse, v(J.x - 6, J.y - 2, J.z - 8), J], grp: '電源' },
-    { id: 'vbatUp', name: 'VBAT 上身 ↔ 開關（去回兩條）', col: 0xe0702a, r: 1.2, awg: '20 AWG', from: 'J1', to: '頂板開關', pts: [J, up1, v(20, L.bodyY0 + 20, L.inZ0 + 6), v(L.sw.x - 6, L.sw.y0 - 20, L.inZ0 + 5), swB], grp: '電源' },
-    { id: 'vsw', name: '開關後 VBAT → DRV8870 VM／GND', col: 0xf0a030, r: 1.1, awg: '20 AWG', from: 'J1（SW 腳）', to: 'DRV8870 VM', pts: [J, v(8, L.deckY0 - 6, hz + 14), v(tX - 8, L.deckY0 - 7, vmT.z - 16), v(tX - 6, tY + 3, vmT.z - 2), vmT], grp: '電源' },
-    { id: 'buckIn', name: '開關後 VBAT → 降壓輸入', col: 0xf0a030, r: 1, awg: '22 AWG', from: '頂板開關', to: '降壓 IN', pts: [swB, v(L.sw.x - 2, L.sw.y0 - 6, L.sw.z - 4), buckIn], grp: '電源' },
-    { id: 'v5', name: '5 V → 配電板匯流排', col: 0xc9302c, r: 1, awg: '22 AWG', from: '降壓 OUT', to: '配電板', pts: [buckOut, v(20, buckOut.y - 6, L.spineZ0 - 4), v(-20, perfF.y, L.spineZ0 - 4), perfF], grp: '電源' },
+    { id: 'usb', name: '行動電源 → CH224K（C-to-C 短線）', col: 0x2b2f35, r: 2, awg: 'USB-C 公對公，支援 PD 3 A，10–15 cm（一端 90° 彎頭最好）', from: '行動電源 C 孔（輸出）', to: (pw.front ? '前' : '後') + '壁 USB-C（CH224K）', pts: usbPts, grp: '電源' },
+    { id: 'pdJ1', name: 'CH224K 9 V 輸出 → J1', col: 0xd23a2a, r: 1.2, awg: '20 AWG 矽膠線（紅／黑）', from: 'CH224K VOUT／GND', to: 'J1（9V_RAW、GND）', pts: [pdOut, v(pdOut.x - 3, chY, pdOut.z + s * 7), v(cx + 4, chY + 2, pdOut.z + s * 16), v(cx, cn.y0 - 6, j1z - s * 4), J1b], grp: '電源' },
+    { id: 'vswUp', name: '9V_RAW／9V_SW 上身 ↔ 開關（去回兩條）', col: 0xe0702a, r: 1.2, awg: '20 AWG', from: 'J1', to: '頂板開關', pts: [J1t, inHole, up, v(hx + 10, L.bodyY0 + 16, L.inZ0 + 8), v(L.sw.x - 6, L.sw.y0 - 18, L.inZ0 + 5), swB], grp: '電源' },
+    { id: 'vsw', name: 'J1 9V_SW → C1 → DRV8870 VM／GND', col: 0xf0a030, r: 1.1, awg: '20 AWG', from: 'J1（9V_SW、GND）', to: 'DRV8870 VM／G 端子（並 C1）', pts: [J1b, v(cx, cn.y0 - 6, j1z), v(cx + 6, chY, vmT.z - 6), v(cp.x - 2, chY, cp.z0 + 4), capT, v(tX + 2, tY + 3, vmT.z), vmT], grp: '電源' },
+    { id: 'buckIn', name: '9V_SW → Mini560 輸入', col: 0xf0a030, r: 1, awg: '22 AWG', from: 'C1／DRV8870 VM', to: 'Mini560 IN', pts: [capT, v(cp.x + 3, chY, cp.z0 - s * 6), v(bkIn.x, chY - 2, bkIn.z + s * 6), bkIn], grp: '電源' },
+    { id: 'v5', name: 'Mini560 5 V → J1 → 配電板', col: 0xc9302c, r: 1, awg: '22 AWG（5 V、GND 各兩 pin 並聯）', from: 'Mini560 OUT', to: '配電板 5 V 匯流排', pts: [bkOut, v(bkOut.x, chY, bkOut.z + s * 5), v(cx + 4, chY + 2, j1z - s * 10), J1b, J1t, inHole, up, v(hx + 3, L.bodyY0 + 20, hzc), perfF], grp: '電源' },
+    { id: 'v33', name: 'Mini560 5 V → AMS1117 輸入', col: 0xc9302c, r: 0.8, awg: '24 AWG', from: 'Mini560 OUT', to: 'AMS1117 VIN', pts: [bkOut, v(bkOut.x - 4, chY - 3, bkOut.z + s * 4), v(ldIn.x + 4, chY - 3, ldIn.z + s * 4), ldIn], grp: '電源' },
     { id: 'servoP', name: 'SG92R 三線（5V／GND／訊號）', col: 0xe6b422, r: 0.9, awg: '伺服原廠線', from: '配電板 3P', to: 'SG92R', pts: [perfT, v(-20, L.servoY0 + 2, P.neckZ - 14), servoC], grp: '訊號' },
     { id: 'ampP', name: '5 V＋I2S（BCLK/WS/DOUT）→ 功放', col: 0x8e44ad, r: 0.9, awg: '26 AWG ×5', from: '配電板', to: 'MAX98357A', pts: [perfB, v(-12, L.deckY1 + 12, L.spineZ0 - 5), hole, v(10, L.deckY1 + 10, L.spineZ1 + 4), ampIn], grp: '音訊' },
     { id: 'spk', name: '功放 → 喇叭', col: 0xe86aa6, r: 0.8, awg: '24 AWG 雙絞', from: 'MAX98357A', to: '喇叭', pts: [ampOut, v(L.amp.x - 6, L.spk.y + 4, L.amp.z + 8), spkT], grp: '音訊' },
-    { id: 'mL', name: 'DRV8870 OUT3/4 → 左馬達（後）M+／M−', col: 0x8a8f96, r: 1, awg: '22 AWG 雙絞', from: 'DRV8870 OUT3/4', to: '左馬達 6P 接頭', pts: [outL, v(tX - 10, L.deckY0 - 8, outL.z - 10), v(mLend.x + 8, L.deckY0 - 7, L.mL.z + 16), mLend], grp: '馬達' },
-    { id: 'mR', name: 'DRV8870 OUT1/2 → 右馬達（前）M+／M−', col: 0x6c7178, r: 1, awg: '22 AWG 雙絞', from: 'DRV8870 OUT1/2', to: '右馬達 6P 接頭', pts: [outR, v(tX - 8, L.deckY0 - 8, outR.z + 8), v(mRend.x + 4, L.deckY0 - 7, L.mR_.z - 10), mRend], grp: '馬達' },
-    { id: 'mSig', name: '馬達 PWM ×4 → J2 → DRV8870 IN1–4', col: 0x2e9e5b, r: 0.8, awg: '26 AWG ×4', from: 'ESP32（經頸部線束）', to: 'DRV8870 IN1–4', pts: [perfB, v(pf.x1 + 4, L.deckY1 + 6, pf.z0), v(-4, L.deckY1 + 3, hz), v(-3, L.deckY0 - 6, hz), v(22, L.deckY0 - 5, 0), v(inT.x - 3, L.deckY0 - 5, inT.z - 8), inT], grp: '馬達' },
-    { id: 'encL', name: '左馬達編碼器 A／B → J2', col: 0x9acd32, r: 0.7, awg: '26 AWG ×2（串 1 kΩ）', from: '左馬達 6P 接頭', to: 'J2 → 頸部線束 → GPIO19／GPIO3', pts: [mLend, v(mLend.x - 2, L.deckY0 - 4, L.mL.z + 12), v(-6, L.deckY0 - 4, hz - 8), v(-2, L.deckY0 - 3, hz)], grp: '馬達' },
-    { id: 'encR', name: '右馬達編碼器 A／B → J2', col: 0x7cb342, r: 0.7, awg: '26 AWG ×2（串 1 kΩ）', from: '右馬達 6P 接頭', to: 'J2 → 頸部線束 → GPIO20／GPIO46', pts: [mRend, v(mRend.x + 2, L.deckY0 - 4, L.mR_.z - 12), v(6, L.deckY0 - 4, 10), v(3, L.deckY0 - 3, hz + 3)], grp: '馬達' },
-    { id: 'encV', name: '編碼器 3.3 V／GND（驅動板 VO 調到 3.3 V）', col: 0xf5d547, r: 0.7, awg: '26 AWG ×2', from: 'DRV8870 VO／G', to: '兩顆馬達編碼器 VCC／GND', pts: [mRend, v(voT.x - 6, L.deckY0 - 3, L.mR_.z - 2), voT, v(voT.x - 10, L.deckY0 - 3, voT.z - 20), v(20, L.deckY0 - 3, -20), v(mLend.x + 3, L.deckY0 - 3, L.mL.z + 6), mLend], grp: '馬達' },
-    { id: 'neck', name: '頸部線束 15 芯（5V、GND、PWM×4、伺服、I2S×3、VBAT、編碼器 A/B×4）', col: 0x7c3aed, r: 2.5, awg: '5V／GND 24 AWG＋其餘 26 AWG，螺旋套約 Ø7', from: '配電板', to: 'ESP32-S3-CAM 排針', pts: [perfT, ...midSlack, win, neckMid, hHoleB, hHole, Lh(0, h.floorT + 8, -L.harnessR + 4), hdr], grp: '訊號' },
+    { id: 'mL', name: 'DRV8870 OUT3/4 → 左馬達（後）M+／M−', col: 0x8a8f96, r: 1, awg: '22 AWG 雙絞', from: 'DRV8870 OUT3/4', to: '左馬達 6P 接頭', pts: [outL, v(tX + 8, chY - 2, outL.z - 4), v(mLend.x - 2, chY - 3, mLend.z - 10 * sgn(mLend.z)), mLend], grp: '馬達' },
+    { id: 'mR', name: 'DRV8870 OUT1/2 → 右馬達（前）M+／M−', col: 0x6c7178, r: 1, awg: '22 AWG 雙絞', from: 'DRV8870 OUT1/2', to: '右馬達 6P 接頭', pts: [outR, v(tX + 8, chY - 2, outR.z + 4), v(mRend.x + 2, chY - 3, mRend.z - 10 * sgn(mRend.z)), mRend], grp: '馬達' },
+    { id: 'mSig', name: '馬達 PWM ×4 → J2 → DRV8870 IN1–4', col: 0x2e9e5b, r: 0.8, awg: '26 AWG ×4', from: 'ESP32（經頸部線束）', to: 'DRV8870 IN1–4', pts: [perfB, v(pf.x1 + 4, L.deckY1 + 6, pf.z0), up, inHole, v(cx, cn.y1 + 1.5, j2z - 6), J2t, J2b, v(cx - 1, d.hdrTop + 8, inT.z + 4), v(inT.x, inT.y + 4, inT.z), inT], grp: '馬達' },
+    { id: 'encL', name: '左馬達編碼器 A／B → J2', col: 0x9acd32, r: 0.7, awg: '26 AWG ×2（串 1 kΩ）', from: '左馬達 6P 接頭', to: 'J2 → 頸部線束 → GPIO19／GPIO3', pts: [mLend, v(mLend.x - 3, chY, mLend.z - 3 * sgn(mLend.z)), v(cx + 6, chY + 1, mLend.z - 4 * sgn(mLend.z)), v(cx, L.trayY0 + 8, (mLend.z + j2z) / 2), J2b], grp: '馬達' },
+    { id: 'encR', name: '右馬達編碼器 A／B → J2', col: 0x7cb342, r: 0.7, awg: '26 AWG ×2（串 1 kΩ）', from: '右馬達 6P 接頭', to: 'J2 → 頸部線束 → GPIO20／GPIO46', pts: [mRend, v(mRend.x + 3, chY, mRend.z - 3 * sgn(mRend.z)), v(cx + 6, chY + 1, mRend.z - 6 * sgn(mRend.z)), v(cx, L.trayY0 + 8, (mRend.z + j2z) / 2), J2b], grp: '馬達' },
+    { id: 'encV', name: '編碼器 3.3 V／GND（AMS1117）', col: 0xf5d547, r: 0.7, awg: '26 AWG ×2', from: 'AMS1117 3.3 V／GND', to: '兩顆馬達編碼器 VCC／GND', pts: [ldOut, v(ldOut.x + 6, chY - 1, ldOut.z + s * 6), v(mLend.x - 6, chY - 1, mLend.z - 2 * sgn(mLend.z)), mLend, v(mLend.x + 4, chY - 1, mLend.z - 10 * sgn(mLend.z)), v(8, chY - 1, (mLend.z + mRend.z) / 2), v(mRend.x + 4, chY - 1, mRend.z - 10 * sgn(mRend.z)), mRend], grp: '馬達' },
+    { id: 'neck', name: '頸部線束 15 芯（5V、GND、PWM×4、伺服、I2S×3、9 V 監測、編碼器 A/B×4）', col: 0x7c3aed, r: 2.5, awg: '5V／GND 24 AWG＋其餘 26 AWG，螺旋套約 Ø7', from: '配電板', to: 'ESP32-S3-CAM 排針', pts: [perfT, ...midSlack, win, neckMid, hHoleB, hHole, Lh(0, h.floorT + 8, -L.harnessR + 4), hdr], grp: '訊號' },
     { id: 'micW', name: 'ESP32 → INMP441（3V3、GND、SCK、WS、SD）', col: 0xa855f7, r: 0.7, awg: '28 AWG ×5', from: 'ESP32 排針', to: 'INMP441', pts: P.micInHead ? [hdrT, Lh(h.micLocal[0] - 6, P.headH - 10, h.micLocal[2] - 8), micP] : [perfT, v(-L.bw + 16, L.topY0 - 10, L.bodyZ0 + 14), micP], grp: '音訊' },
   ];
 }
@@ -1661,11 +1930,12 @@ function applyState() {
     if (SHELLS.has(id) && UI.shell === 'hide') vis = false;
     if (asmVisible) vis = vis && asmVisible.has(id);
     if (asmVisible && id === 'mission') vis = false;
+    if (id === 'strap' && batDemo.k > 0.02) vis = false;
     p.obj.visible = vis;
     let e = UI.explode;
     const pos = p.base.clone().addScaledVector(p.vec, e);
     if (asmCur && asmCur.has(id)) pos.addScaledVector(p.vec, asmAnim.k);
-    if ((id === 'sled' || id === 'battery') && batDemo.k > 0) pos.z += (L.bat.drawer === 'rear' ? -1 : 1) * 92 * batDemo.k;
+    if (id === 'bank' && batDemo.k > 0) { if (L.bay) pos.z -= batDemo.dist * batDemo.k; else { pos.y += 70 * batDemo.k; pos.z -= 25 * batDemo.k; } }
     p.obj.position.copy(pos);
     const ghost = (UI.wires && (STRUCT.has(id))) || (SHELLS.has(id) && UI.shell === 'xray');
     const ghostOp = SHELLS.has(id) ? (UI.wires ? 0.06 : 0.16) : 0.14;
@@ -1708,33 +1978,39 @@ function isShown(o) { let n = o; while (n) { if (n.visible === false) return fal
    10. 組裝步驟
    ========================================================= */
 const ASM = [
-  { t: '檢查零件與工具', parts: ['tub'], d: '對照「規格」分頁的 BOM 清點。工具：十字起子、2.5 mm 六角扳手、烙鐵、熱熔膠槍、剝線鉗、三用電表。底盤槽先把 4 顆 M3 熱熔螺母燙進四角柱。' },
-  { t: '裝左右馬達（對角）', parts: ['motorL', 'motorR'], d: '左馬達從左壁內側、靠車尾插入；右馬達從右壁內側、靠車頭插入。兩個 M3 孔轉成上下排列，編碼器白色 6P 接頭就會朝上。每顆用 2 顆 M3×6 圓頭螺絲從側壁外面鎖入（進入減速箱 ≤ 4 mm）。馬達身體放在托架上用 3 mm 束線帶綁住。' },
+  { t: '檢查零件與工具', parts: ['tub'], d: '對照「規格」分頁的 BOM 清點。工具：十字起子、2.5 mm 六角扳手、烙鐵、熱熔膠槍、剝線鉗、三用電表。底盤四根立柱頂端先燙 M3 熱熔螺母。' },
+  { t: '裝左右馬達（對角）', parts: ['motorL', 'motorR'], d: '左馬達從左壁內側、靠車尾插入；右馬達從右壁內側、靠車頭插入。兩個 M3 孔轉成左右（水平）排列，編碼器白色 6P 接頭就會水平朝車身中央。每顆用 2 顆 M3×6 圓頭螺絲從側壁外面鎖入（進入減速箱 ≤ 4 mm）。馬達身體放在托架上用 3 mm 束線帶綁住。' },
   { t: '裝驅動輪與惰輪', parts: ['sprL', 'sprR', 'idlL', 'idlR'], d: '驅動輪 D 形孔對準馬達軸 D 面推到底，鎖 M3 止付螺絲。惰輪穿 M4×40 螺絲放進長槽，先不要鎖緊。' },
-  { t: '裝 DRV8870 驅動板', parts: ['driver'], d: '藍色端子朝車身中央、VM 在前端，4 顆 M3 自攻鎖在底板左前方的螺絲座。前（右）馬達接 OUT1/2、後（左）馬達接 OUT3/4（方向錯了在韌體反轉）。先用三用電表把 VO 調到 3.3 V，再接兩顆編碼器的 VCC／GND。' },
-  { t: '電池抽屜、保險絲、J1/J2', parts: ['sled', 'battery', 'fuse'], d: '電池盒鎖在抽屜上，正極先串 5 A 保險絲再接 J1。抽屜從後門推入右側通道，後門兩顆 Ø6×2 磁鐵吸住。先不要裝電池！' },
+  { t: '裝 DRV8870 與 C1', parts: ['driver', 'cap'], d: '驅動板放底盤右側：藍色端子朝車身中央、VM 在後端、排針那一邊在線材通道正下方，4 顆 M3 自攻鎖在螺絲座。前（右）馬達接 OUT1/2、後（左）馬達接 OUT3/4。可變電阻轉到最小（限流最低），VO 不接任何東西。C1 1000 µF 躺在 VM 端子旁，並在 VM／G 上（灰色條紋＝負極接 G）。' },
+  { t: '電源區：CH224K、Mini560、AMS1117、J1/J2', parts: ['pd', 'buck', 'ldo', 'conn'], d: '⚠ CH224K 先單獨接行動電源，用三用電表量到 9.0 V 才裝（出廠常是 20 V）。誘騙板放在右後角滑軌上，USB-C 母座從後壁小孔伸出。Mini560 輸入接 9V_SW、輸出 5 V；AMS1117 從 5 V 降 3.3 V 給兩顆編碼器。J1／J2 放進右側線材通道。' },
   { t: '組履帶並掛上', parts: ['trackL', 'trackR'], d: `每邊 ${'${links}'} 片，用 1.75 mm 線材當插銷，兩端用烙鐵燙平。套上驅動輪與惰輪，把惰輪往外推到履帶「手指壓下去約 5 mm」的鬆緊，再鎖緊 M4。` },
+  { t: '電池艙托盤', parts: ['tray'], d: '先把下層的線全部壓低、整理到兩側（編碼器線走馬達上緣），托盤放上去：架在左壁凸緣、前壁凸緣、後壁開口下緣和通道邊的小立柱上，4 顆 M3 鎖住。兩條魔鬼氈先穿過托盤側邊的扣孔。' },
   { t: '上身骨架：喇叭與功放', parts: ['frame', 'spkRing', 'speaker', 'amp'], d: '喇叭放進墊高環、墊高環鎖在脊板前面。MAX98357A 用 M2 鎖在喇叭旁邊，喇叭線剪短到 8 cm 以內。' },
-  { t: '降壓模組與配電板', parts: ['buck', 'perf'], d: '降壓模組鎖在左翼、配電板鎖在右翼。通電前先用 9 V 電池或電源供應器把降壓輸出調到 5.1 V。配電板焊好 SS34、470 µF、分壓電阻。' },
-  { t: '頂板：伺服與開關', parts: ['topPlate', 'servo', 'switch'], d: '伺服從頂板下方塞入，耳片貼住頂板底面用 M2 自攻鎖好。先用測試程式把伺服轉到 90°（置中）！開關壓入左後角開孔。頂板用 4 顆 M3 鎖在骨架上。' },
+  { t: '配電板', parts: ['perf'], d: '配電板鎖在右翼。焊好 SS34（Mini560 5 V → ESP32 5 V）、470 µF ×2（伺服、功放旁）、9 V 監測分壓 100k/33k（中點接 GPIO1）。' },
+  { t: '頂板：伺服與開關', parts: ['topPlate', 'servo', 'switch'], d: '伺服從頂板下方塞入，耳片貼住頂板底面用 M2 自攻鎖好。先用測試程式把伺服轉到 90°（置中）！開關壓入左後角開孔，接 J1 的 9V_RAW／9V_SW。頂板用 4 顆 M3 鎖在骨架上。' },
   { t: '頭部轉盤裝上舵盤', parts: ['headFloor'], d: '圓舵盤先用 2 顆 M2 鎖在轉盤底部凸台，再把轉盤朝正前方套進伺服花鍵，從上方 Ø6 孔鎖中心螺絲。裙邊要蓋住頸座軸環，後方限位指落在兩根限位柱之間。' },
   { t: 'ESP32、麥克風、頭罩', parts: ['esp32', 'mic', 'headHood'], d: '頸部線束先從頂板窗口往上穿過轉盤 Ø8 孔。ESP32 從頭罩後方放進四個角座（USB 朝左側開孔），把相機模組挪到右眼圈正後方用雙面膠固定。杜邦線插上後點熱熔膠。INMP441 金屬殼朝上貼在頭頂收音孔下。頭罩用 4 顆 M2 鎖在轉盤。' },
   { t: '頸部線束整理與後蓋', parts: ['headBack'], d: '手動把頭轉到 ±45°，確認線束在窗口內滑動、沒有被拉緊。身體內的線束留一個 U 形餘長圈，用束線帶固定在骨架後方。裝上頭部後蓋。' },
-  { t: '上身與底盤合體、套外殼', parts: ['shell'], d: '插上 J1、J2，上身骨架對準底盤四角柱鎖 4 顆 M3。外殼套筒從頭頂往下套，側面 4 顆 M3 固定。' },
-  { t: '通電測試', parts: [], d: '① 不裝電池，用三用電表量 VBAT 與 GND 不短路。② 裝電池、開開關，量配電板 5 V。③ 燒錄測試程式：伺服 ±45° 掃描、左右馬達各正反轉、喇叭嗶聲、麥克風音量條。④ 地面測試：慢速前進、原地轉、急停不前翻。' },
+  { t: '上身與底盤合體、套外殼', parts: ['shell'], d: '上身抬在底盤上方，從上身底板右後方的長孔把 J1、J2 插好，再對準四根立柱鎖 4 顆 M3。外殼套筒從頭頂往下套，側面 4 顆 M3 固定。' },
+  { t: '放進行動電源', parts: ['bank', 'strap', 'spacer'], d: '行動電源從車尾推進電池艙、頂到前壁（太短就先放前方墊塊），輸出 C 孔朝後。兩條魔鬼氈繞過去拉緊。用 C-to-C 短線接到後壁下方的 USB-C。' },
+  { t: '通電測試', parts: [], d: '① 不接行動電源，用三用電表量 9 V 與 GND 不短路。② 接行動電源、開開關：J1 的 9V_SW 要是 9.0 V（只有 5 V＝PD 沒成功，換 C-to-C 線或換行動電源）、配電板 5 V。③ 燒錄測試程式：b 看 9 V、伺服 ±45° 掃描、左右馬達各正反轉、喇叭嗶聲、麥克風音量條、e 看編碼器。④ 地面測試：慢速前進、原地轉、急停不前翻、急加速不後仰。' },
 ];
 const asmAnim = { k: 0, t0: 0 };
-const batDemo = { k: 0, from: 0, to: 0, t0: 0 };
-const BAT_STEPS = '① 關掉頂板開關　② 捏住後門的拉片往後拉，磁鐵就鬆開　③ 抽屜整個滑出約 9 cm，電池盒露出來　④ 換上充好的 18650（看清楚 +／−）　⑤ 推回去，聽到磁鐵「喀」一聲吸住。全程不用拆外殼、不用把車翻過來。';
+const batDemo = { k: 0, from: 0, to: 0, t0: 0, dist: 150 };
+const BAT_STEPS = {
+  deck: '① 關掉頂板開關　② 拔掉車尾的 USB-C 短線　③ 撕開兩條魔鬼氈　④ 行動電源直接往後抽出來　⑤ 換一顆充飽的推到底、綁好、插線。不想換也可以：輸入孔朝後放，直接插充電器在車上充。全程不用拆外殼、不用翻車。',
+  back: '① 關開關　② 拔線　③ 拆背包綁帶，往上拿起來。換起來很方便，但重心高又偏後、急加速容易後仰，請看「檢查 → 電池艙」。',
+};
 function batterySwap(on) {
   batDemo.from = batDemo.k; batDemo.to = on ? 1 : 0; batDemo.t0 = performance.now();
-  $('#btnBat').textContent = on ? '把電池推回去' : '換電池示範';
+  batDemo.dist = L.bank.z1 - L.tubZ0 + 12;
+  $('#btnBat').textContent = on ? '把行動電源放回去' : '換行動電源示範';
   if (on) {
     if (UI.asm >= 0) asmExit();
-    UI.selected = 'sled'; refreshInspector();
+    UI.selected = 'bank'; refreshInspector();
     $('#stepbar').classList.add('on');
-    $('#stepTitle').textContent = '換電池：從後門抽出';
-    $('#stepText').textContent = BAT_STEPS;
+    $('#stepTitle').textContent = L.bay ? '換行動電源：從車尾抽出' : '換行動電源：背包式（比較用）';
+    $('#stepText').textContent = BAT_STEPS[L.bay ? 'deck' : 'back'];
     setView('rear');
   } else if (UI.asm < 0) $('#stepbar').classList.remove('on');
 }
@@ -1764,7 +2040,8 @@ function renderHud() {
     ['外形 W×L×H', `${fx(L.overallW, 0)}×${fx(L.overallL, 0)}×${fx(L.overallH, 0)}`],
     ['估計重量', `${fx(st.mass, 0)} g`],
     ['重心高', `${fx(st.cg.y, 0)} mm`],
-    ['前翻門檻', `${fx(Math.min(st.aFront, st.aRear), 1)} m/s²`],
+    ['翻覆門檻', `${fx(Math.min(st.aFront, st.aRear), 1)} m/s²`],
+    ['續航（估）', `${fx(runtimeH(P), 1)} h`],
     ['離地間隙', `${fx(L.clearance, 1)} mm`],
     ['履帶片數', `${L.links}×2`],
   ].map(([k, v]) => `<b>${k}</b><span>${v}</span>`).join('');
@@ -1792,7 +2069,7 @@ function renderChecks() {
   });
 }
 const GPIO = [
-  ['GPIO1', 'VBAT 電壓偵測', '右排。ADC1_CH0，100k/33k 分壓', 'D'],
+  ['GPIO1', '9 V 電源監測', '右排。ADC1_CH0，100k/33k 分壓；低於 7 V 代表 PD 沒成功', 'D'],
   ['GPIO2', 'SG92R 訊號（50 Hz）', '右排。不需要 LU9685', 'D'],
   ['GPIO47', '右（前）馬達 IN1', '右排。20 kHz PWM', 'D'],
   ['GPIO38', '右（前）馬達 IN2', '右排', 'D'],
@@ -1815,15 +2092,15 @@ const GPIO = [
 function renderGpio() {
   $('#gpioTable').innerHTML = `<div class="tblwrap"><table><thead><tr><th>腳位</th><th>用途</th><th>狀態</th></tr></thead><tbody>` +
     GPIO.map(([g, u, n, s]) => `<tr><td class="v">${g}</td><td>${esc(u)}${n ? `<div class="small muted">${esc(n)}</div>` : ''}</td><td>${tag(s)}</td></tr>`).join('') + '</tbody></table></div>' +
-    `<div class="note">已依 GOOUUU ESP32-S3-CAM 排針絲印核對。編碼器必須用 3.3 V 供電（ESP32-S3 不耐 5 V），每條訊號串 1 kΩ。I2S 用同一個 I2S0 全雙工，麥克風與喇叭取樣率必須相同（建議 16 kHz）。</div>`;
+    `<div class="note">已依 GOOUUU ESP32-S3-CAM 排針絲印核對。編碼器必須用 3.3 V 供電（AMS1117，ESP32-S3 不耐 5 V），每條訊號串 1 kΩ。I2S 用同一個 I2S0 全雙工，麥克風與喇叭取樣率必須相同（建議 16 kHz）。</div>`;
 }
 function renderPower() {
   $('#powerTree').innerHTML = `<div class="tblwrap"><table><tbody>
-    <tr><td class="v">2S 18650</td><td>6.0–8.4 V → 5 A 保險絲 → J1 → 頂板開關</td></tr>
-    <tr><td class="v">VBAT_SW</td><td>→ DRV8870 VM（馬達）<br>→ 降壓模組 IN<br>→ 100k/33k 分壓 → GPIO1</td></tr>
-    <tr><td class="v">5 V（調 5.1）</td><td>→ SG92R＋470 µF<br>→ MAX98357A VIN＋470 µF<br>→ SS34 → 頸部線束 → ESP32 5V 腳</td></tr>
-    <tr><td class="v">3.3 V</td><td>ESP32 板上 LDO → INMP441<br>DRV8870 板上 LM317M（VO 調 3.3 V）→ 兩顆馬達編碼器</td></tr>
-    <tr><td class="v">GND</td><td>配電板單點匯流，底盤經 J1 回電池負極</td></tr>
+    <tr><td class="v">行動電源（PD）</td><td>C-to-C 短線 → ${L.pwr.front ? '前' : '後'}壁 USB-C → CH224K 誘騙 9 V → J1 → 頂板開關</td></tr>
+    <tr><td class="v">9V_SW</td><td>→ C1 1000 µF → DRV8870 VM（馬達，PWM 上限 66 %）<br>→ Mini560 IN<br>→ 100k/33k 分壓 → GPIO1（PD 有沒有成功）</td></tr>
+    <tr><td class="v">5 V（Mini560）</td><td>→ J1 → 配電板：SG92R＋470 µF、MAX98357A＋470 µF、SS34 → 頸部線束 → ESP32 5V 腳<br>→ AMS1117-3.3</td></tr>
+    <tr><td class="v">3.3 V</td><td>ESP32 板上 LDO → INMP441<br>AMS1117 → 兩顆馬達編碼器（驅動板 VO 不接）</td></tr>
+    <tr><td class="v">GND</td><td>配電板單點匯流，底盤經 J1 回 CH224K 負極</td></tr>
   </tbody></table></div>`;
 }
 function renderWires() {
@@ -1834,43 +2111,50 @@ function renderWires() {
 function specPaneHtml() {
   const rows = [
     ['JGA25-370', '本體直徑', 'Ø25', 'C'], ['JGA25-370', '馬達段／編碼器蓋', '31／11', 'C'], ['JGA25-370', '減速箱長 L', `${P.gearLen}（未標示）`, 'E'],
-    ['JGA25-370', '輸出軸', 'Ø4，突出 12.5（含 Ø7 銅套）', 'C'], ['JGA25-370', 'D 切面', '3.5', 'C'], ['JGA25-370', '前端 M3 孔距', '17', 'C'], ['JGA25-370', '編碼器 6P 接頭', '在編碼器蓋側面', 'C'], ['JGA25-370', '減速比（決定 L）／電壓／6P 腳位', '—', 'M'],
+    ['JGA25-370', '輸出軸', 'Ø4，突出 12.5（含 Ø7 銅套）', 'C'], ['JGA25-370', 'D 切面', '3.5', 'C'], ['JGA25-370', '前端 M3 孔距', '17', 'C'], ['JGA25-370', '編碼器 6P 接頭', '在編碼器蓋側面', 'C'], ['JGA25-370', '額定電壓', '6 V', 'C'], ['JGA25-370', '減速比（決定 L）／6P 腳位', '—', 'M'],
     ['ESP32-S3-CAM', '型號', 'GOOUUU，N16R8', 'C'], ['ESP32-S3-CAM', 'PCB／排針', '62.6 × 28.3／2×20，列距 24.7', 'C'], ['ESP32-S3-CAM', 'USB-C', 'OTG＋TTL 同一端', 'C'],
     ['ESP32-S3-CAM', '天線突出 PCB', `約 ${ESP.antOver}`, 'E'], ['ESP32-S3-CAM', '鏡頭位置（軟排線）', `約 ${P.lensOffset}`, 'M'], ['ESP32-S3-CAM', '鏡頭高出 PCB', `${P.lensH}`, 'M'], ['ESP32-S3-CAM', '背面有無 TF 卡座', '—', 'M'],
     ['MAX98357A', 'PCB／上方孔距', '17.7 × 19.1／12.6', 'C'], ['MAX98357A', '孔心到底邊', '16.7', 'C'], ['INMP441', 'PCB／腳位／收音孔', '10 × 10／6P／元件面', 'C'],
-    ['DRV8870 雙路', 'PCB／孔徑', '48 × 30／Ø3', 'C'], ['DRV8870 雙路', '端子與排針排列', 'VM G OUT1–4／IN1–4 VO G S1 G S2 G', 'C'], ['DRV8870 雙路', '孔距', '40.8 × 22.8', 'E'], ['DRV8870 雙路', 'S1／S2 用途', '—', 'M'],
+    ['DRV8870 雙路', 'PCB／孔徑', '48 × 30／Ø3', 'C'], ['DRV8870 雙路', '端子與排針排列', 'VM G OUT1–4／IN1–4 VO G S1 G S2 G', 'C'], ['DRV8870 雙路', '孔距', '40.8 × 22.8', 'E'], ['DRV8870 雙路', 'VO 是否＝VREF（限流）、S1／S2 用途', '—', 'M'],
     ['SG92R', '本體／耳片跨距／總高', '23.2×12.1×22.7／32.1／30.5', 'C'], ['SG92R', '耳片高度、軸心位置', '—', 'M'],
-    ['電池盒', '外形', `${P.batL} × ${P.batW} × ${P.batH}`, 'E'], ['降壓模組', '外形', `${P.buckL} × ${P.buckW} × ${P.buckH}`, 'E'], ['喇叭', '外形', `Ø${P.spkD} × ${P.spkH}`, 'E'],
+    ['行動電源（自備）', '長 × 寬 × 厚／重量', `${P.bankL} × ${P.bankW} × ${P.bankT}／${P.bankMass} g`, 'M'], ['行動電源（自備）', '必要規格', 'USB PD 9 V ≥ 2 A（20 W）、C 孔輸出', 'D'],
+    ['電池艙', '可用寬 × 高 × 長', `${fx(L.bayX1 - L.bayX0, 0)} × ${fx(P.bayH - 0.5, 1)} × ${fx(L.bayZ1 - L.tubZ0, 0)}（尾端開放）`, 'D'],
+    ['CH224K 誘騙板', '外形／9 V 設定方式', '約 12 × 25／—', 'M'], ['Mini560', '外形／固定或可調', `${P.buckL} × ${P.buckW}／—`, 'E'], ['AMS1117-3.3 模組', '外形', '22 × 11', 'E'], ['C1', '1000 µF／25 V', 'Ø10 × 20', 'E'], ['喇叭', '外形', `Ø${P.spkD} × ${P.spkH}`, 'E'],
     ['履帶', '節距／寬／片數', `${P.trackPitch}／${P.trackW}／${L.links}`, 'D'], ['驅動輪', '節圓', `${fx(L.PD, 2)}（≈Ø41）`, 'D'],
   ];
   const risks = [
-    ['高', '急煞或下坡時前翻', '直立式重心高。韌體加速度限制＋電池放最低處；目前計算不會翻，但加推土板或頭部加高後要再看「檢查」。'],
+    ['高', '急煞前翻／急加速後仰', '直立式重心高。行動電源躺在馬達正上方當配重＋韌體加速度限制；換大顆行動電源、加推土板或頭部加高後要再看「檢查」。'],
     ['高', '頸部線束疲勞斷線', '線束穿在轉軸後方 16 mm、身體內留 U 形餘長；機械限位 ±' + (P.yawMax + 10) + '°；杜邦頭熱熔膠固定。'],
-    ['高', '伺服／喇叭瞬間電流造成 ESP32 重開', '降壓 ≥3 A、伺服與功放旁各 470 µF、ESP32 經 SS34 單獨一路 5 V。'],
-    ['高', '18650 安全', '有保護板電芯、5 A 保險絲、有方向性接頭、充電由老師集中管理。'],
-    ['中', 'DRV8870 在 6.5 V 以下停機', '韌體 6.9 V 提示、6.6 V 停車。'],
+    ['高', 'CH224K 輸出不是 9 V（出廠常是 20 V）', '上車前一定先單獨量；量到 9.0 V 才接。'],
+    ['高', 'PD 沒觸發（只有 5 V）或行動電源自動關機', 'GPIO1 量 9 V 匯流排，< 7 V 停車亮紅燈；一定用 C-to-C 線；韌體不用 deep sleep。'],
+    ['中', '20 W 上限：兩邊堵轉＋伺服＋喇叭會超過', '驅動板可變電阻轉最小（限流約 1.25 A）、PWM 上限 66 %、編碼器堵轉保護 0.3 s 斷電。'],
+    ['中', '6 V 馬達接 9 V', 'PWM 上限 66 %（平均約 6 V）、0.25 s 軟啟動；不要拿掉上限。'],
+    ['中', '每個學員的行動電源都不一樣', `電池艙可用 ${fx(L.bayX1 - L.bayX0, 0)} × ${fx(P.bayH - 0.5, 1)}、尾端開放；薄的用魔鬼氈拉緊，短的放前方墊塊。網頁「參數」可以先輸入尺寸檢查。`],
+    ['中', '伺服／喇叭瞬間電流造成 ESP32 重開', 'Mini560、伺服與功放旁各 470 µF、ESP32 經 SS34 單獨一路 5 V；9 V 端 C1 1000 µF。'],
     ['中', '馬達只靠前端兩顆 M3 懸臂', '尾端 U 形托架＋束線帶。'],
     ['中', '驅動輪 D 孔打滑', '孔內埋 M3 螺母＋止付螺絲，輪轂 100% 填充。'],
     ['中', '頭內 ESP32 發熱', '頭罩用 PETG、後蓋散熱槽、串流時降低解析度。'],
-    ['中', '編碼器 5 V 燒壞 GPIO', '編碼器只接 3.3 V（驅動板 VO 先量）＋每條 1 kΩ。'],
+    ['中', '編碼器 5 V 燒壞 GPIO', '編碼器只接 AMS1117 的 3.3 V＋每條 1 kΩ；驅動板 VO 不要接。'],
     ['中', 'GPIO46（編碼器 B）影響燒錄', '先只接 A 相；B 相選配，燒錄失敗時拔 J2。'],
     ['低', '離地 ' + fx(L.clearance, 1) + ' mm', '營隊場地避免碎石；障礙物高度 ≤ 15 mm。'],
     ['低', '同一 I2S 全雙工', '麥克風與喇叭必須同取樣率，錄音時播音會被收進去（本來就該避免）。'],
   ];
   const needs = [
+    '學員的行動電源：請收集大家手上那顆的長 × 寬 × 厚、重量，以及背面標示有沒有「9V⎓2A」或 20 W（有 PD 才能用）。越多筆越好，我可以再微調電池艙。',
+    'CH224K 誘騙板：拍正反面，看它怎麼設定 9 V（跳線、電阻還是撥碼）以及外形尺寸。',
+    'Mini560：拍正反面，確認是固定 5 V 還是可調、外形尺寸。',
+    'DRV8870 模組：板子回來後量 VO（轉可變電阻看是不是從 1.25 V 起跳），並拍背面確認 VO 是否接到 DRV8870 的 VREF、S1／S2 接哪裡。',
     'ESP32-S3-CAM：量鏡頭中心到天線端 PCB 邊的距離（目前估 11 mm → 偏移 −20）、鏡頭頂高出 PCB 多少、背面有沒有 TF 卡座。',
-    'JGA25-370：馬達貼紙或商品頁的電壓／轉速／減速比（決定減速箱長 L），以及 6P 編碼器線每一條的顏色或絲印。',
-    'DRV8870 模組：S1／S2 在背面接到哪裡（拍背面）。',
+    'JGA25-370：減速比（決定減速箱長 L），以及 6P 編碼器線每一條的顏色或絲印。',
     'SG92R：卡尺量耳片下緣到底部、軸心到本體端的距離。',
     '喇叭：你用的是 Ø40 圓形，還是商品圖裡那種長方形腔體喇叭？（尺寸、阻抗、功率）',
-    '電池盒：實際外形與出線位置；18650 是否含保護板（長 65 或 69–70）。降壓模組型號與孔位。',
     '營隊印表機型號／平台尺寸，以及能用的線材（PLA／PETG／TPU）。',
   ];
   const cmp = [
     ['兩馬達干涉', '內寬 110 會互撞，需 ≥134', '完全錯開，無干涉', '同 B'],
     ['整體寬度', `約 ${fx(2 * (67 + 4 + 1.5 + 30), 0)} mm`, `約 ${fx(2 * L.trackOut, 0)} mm`, '同 B'],
     ['重心／前後配重', '兩顆馬達都在後，偏後', '左後＋右前，前後平衡', '頭高 70 mm，重心升高'],
-    ['換電池', '要改前門，前方會擋任務模組', '後門直接抽出', '同 B'],
+    ['換行動電源', '同 B，但 USB-C 只能接在前面', '車尾抽出，長的可以露出尾巴', '同 B'],
     ['頭部晃動／線束', '同 B', '線束最短', '桅杆晃、線束多 70 mm'],
     ['鏡頭視角', '同 B', '離地約 ' + fx(L.pivotY + L.head.pcbY, 0) + ' mm', '最高，看得最遠'],
     ['判定', '不選', '主方案', '備選：比賽要看遠時'],
@@ -1889,16 +2173,16 @@ function specPaneHtml() {
   <ol class="clean">${needs.map(n => `<li>${esc(n)}</li>`).join('')}</ol>
   <h3>列印件清單（預設參數）</h3>
   <div class="tblwrap"><table><thead><tr><th>零件</th><th>數量</th><th>材料</th><th>STL</th></tr></thead><tbody>
-  ${[['底盤槽', 1, 'PETG/PLA', 'tub'], ['驅動輪', 2, 'PETG', 'sprocket'], ['惰輪', 2, 'PETG', 'idler'], ['履帶片', 2 * L.links, 'PETG', 'track_link'], ['電池抽屜', 1, 'PLA', 'battery_sled'],
+  ${[['底盤槽', 1, 'PETG/PLA', 'tub'], ['驅動輪', 2, 'PETG', 'sprocket'], ['惰輪', 2, 'PETG', 'idler'], ['履帶片', 2 * L.links, 'PETG', 'track_link'], ['電池艙托盤', 1, 'PLA', 'battery_tray'], ['前方墊塊（10 mm，可疊）', 3, 'PLA', 'bank_spacer'],
     ['上身骨架', 1, 'PLA', 'upper_frame'], ['頂板／頸座', 1, 'PETG', 'neck_deck'], ['身體外殼', 1, 'PLA', 'body_shell'], ['喇叭墊高環', 1, 'PLA', 'speaker_ring'],
     ['頭部轉盤', 1, 'PETG', 'head_floor'], ['頭罩', 1, 'PETG', 'head_hood'], ['頭部後蓋', 1, 'PETG', 'head_back'], ['眼圈', 2, '橘色 PLA', 'eye_ring'], ['瞳孔（造型眼）', 1, '深灰 PLA', 'pupil'], ['眼瞼（可換）', 2, 'PLA', 'eyelid']]
     .map(([a, b, c, d]) => `<tr><td>${a}</td><td class="v">${b}</td><td>${c}</td><td class="v">cad/stl/${d}.stl</td></tr>`).join('')}</tbody></table></div>
   <h3>採購件＋五金</h3>
   <ul class="clean">
-    <li>JGA25-370 ×2、ESP32-S3-CAM ×1、MAX98357A ×1、INMP441 ×1、DRV8870 雙路 ×1、SG92R ×1</li>
-    <li>18650（含保護板）×2＋2 槽電池盒、5 V ≥3 A 降壓模組、Ø40 喇叭 4 Ω 3 W、KCD1 船型開關</li>
-    <li>5 A 迷你刀片保險絲＋線上座、SS34、470 µF/16 V ×2、100k＋33k、1 kΩ ×4（編碼器保護）、100 nF、JST-XH 6P／8P 各一組、5×7 洞洞板</li>
-    <li>M3×6 圓頭 ISO 7380 ×4（馬達）、M3×8 ×20、M3 熱熔螺母 ×4（底盤四角）、M3 止付螺絲＋M3 螺母 ×2、M4×40＋防鬆螺帽 ×2、M2×6 自攻 ×10、Ø6×2 釹磁鐵 ×4</li>
+    <li>JGA25-370（6 V）×2、ESP32-S3-CAM ×1、MAX98357A ×1、INMP441 ×1、DRV8870 雙路 ×1、SG92R ×1</li>
+    <li>行動電源（學員自備：PD 20 W 以上、有 C 孔）、CH224K PD 誘騙板（設 9 V）、Mini560 5 V 降壓、AMS1117-3.3 模組、C-to-C 短線 10–15 cm（支援 PD 3 A）、20 mm 背對背魔鬼氈 ×2、Ø40 喇叭 4 Ω 3 W、KCD1 船型開關</li>
+    <li>1000 µF/25 V ×1（C1）、470 µF/16 V ×2、SS34、100k＋33k、1 kΩ ×4（編碼器保護）、100 nF、JST-XH 6P／8P 各一組、5×7 洞洞板</li>
+    <li>M3×6 圓頭 ISO 7380 ×4（馬達）、M3×8 ×24、M3 熱熔螺母 ×4（立柱）、M3 止付螺絲＋M3 螺母 ×2、M4×40＋防鬆螺帽 ×2、M2×6 自攻 ×10</li>
     <li>1.75 mm 線材約 2 m（履帶插銷）、杜邦母母線 20 cm ×20、20/22/26 AWG 矽膠線、熱縮管、3 mm 束線帶、螺旋纏線管</li>
   </ul>`;
 }
@@ -1948,19 +2232,22 @@ function overviewHtml() {
     <tr><td>建議加速度上限</td><td class="v">${fx(st.aRamp, 1)} m/s²</td></tr>
     <tr><td>頭部轉角</td><td class="v">±${P.yawMax}°（限位 ±${L.stopAng}°）</td></tr>
     <tr><td>鏡頭離地</td><td class="v">${fx(L.pivotY + L.head.pcbY, 0)} mm</td></tr>
+    <tr><td>行動電源</td><td class="v">${P.bankL}×${P.bankW}×${P.bankT}、${P.bankMass} g、續航約 ${fx(runtimeH(P), 1)} h</td></tr>
   </tbody></table></div>
+  ${L.bay ? '' : '<div class="note bad"><b>目前是「掛背後」比較模式。</b>到「參數 → 行動電源」切回「放電池艙」。</div>'}
   ${fails.length ? `<div class="note bad"><b>${fails.length} 項干涉／失敗</b>：${fails.map(f => esc(f.title)).join('、')}</div>` : '<div class="note ok"><b>沒有干涉。</b>所有機構檢查通過。</div>'}
   ${warns.length ? `<div class="note"><b>${warns.length} 項需要注意</b>：${warns.map(f => esc(f.title)).join('、')}</div>` : ''}
   <h4>設計重點</h4>
   <ul class="clean">
+    <li><b>底盤是雙層巴士</b>：下層是馬達、驅動板和電源區，上層整層是行動電源的電池艙。學員自備的行動電源從車尾推進去，長的可以露出尾巴、薄的用魔鬼氈綁緊。按下面「換行動電源示範」看怎麼換。</li>
+    <li><b>PD 誘騙 9 V</b>：CH224K 跟行動電源要 9 V；6 V 馬達 PWM 上限 66 %；Mini560 降 5 V 給大腦、伺服與喇叭。</li>
     <li><b>馬達對角擺</b>：左後右前，兩顆 64 mm 長的馬達在 110 mm 內寬裡完全錯開。</li>
-    <li><b>電池走右側通道</b>：放在底盤最低處，從後門抽出，不用翻車。按下面「換電池示範」看怎麼換。</li>
     <li><b>右眼就是真鏡頭</b>：GOOUUU 板的相機貼在模組上、偏天線端約 20 mm，剛好是一隻眼睛的位置；左眼是造型眼。</li>
-    <li><b>編碼器接回 ESP32</b>：A 相用 GPIO19/20（改用 TTL 口燒錄），3.3 V 由驅動板的 LM317M 供應。</li>
+    <li><b>編碼器接回 ESP32</b>：A 相用 GPIO19/20（改用 TTL 口燒錄），3.3 V 由 AMS1117 供應。</li>
     <li><b>頸部線束繞開轉軸</b>：伺服佔住轉軸，線束改從轉軸後方 16 mm 穿過腎形窗口。</li>
     <li><b>外殼是套筒</b>：拆 4 顆螺絲往上拔，連頭都不用拆。</li>
   </ul>
-  <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="ovBat">換電池示範</button><button class="btn" data-go="asm">看組裝步驟</button><button class="btn" data-go="wire">看配線</button><button class="btn" data-go="spec">待量測清單</button></div>`;
+  <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="ovBat">換行動電源示範</button><button class="btn" data-go="asm">看組裝步驟</button><button class="btn" data-go="wire">看配線</button><button class="btn" data-go="spec">待量測清單</button></div>`;
 }
 function bindOverview() { $$('#inspector [data-go]').forEach(b => b.onclick = () => selectTab(b.dataset.go)); const ob = $('#ovBat'); if (ob) ob.onclick = () => batterySwap(batDemo.to < 1); }
 
@@ -1985,6 +2272,11 @@ function renderParams() {
   });
   $('#layoutNote').textContent = LAYOUT_NOTE[P.layout];
   setSeg('#layoutSeg', P.layout);
+  const cur = Object.entries(BANKS).find(([, b]) => Object.keys(b).every(k => k === 'label' || P[k] === b[k]));
+  $('#bankSeg').innerHTML = Object.entries(BANKS).map(([k, b]) => `<button data-v="${k}" aria-pressed="${!!cur && cur[0] === k}">${esc(b.label)}</button>`).join('');
+  $$('#bankSeg button').forEach(b => b.onclick = () => { const { label, ...vals } = BANKS[b.dataset.v]; Object.assign(P, vals); renderParams(); build(); });
+  setSeg('#mountSeg', P.bankMount);
+  $('#bankNote').textContent = P.bankMount === 'back' ? '比較模式：行動電源掛在身體背後（身體自動加高，讓總高相同）。看「檢查 → 電池艙」的重心比較。' : '自己的行動電源不在清單上？直接拉下面「行動電源」的長、寬、厚與重量。';
   setSeg('#micSeg', P.micInHead ? 'head' : 'body');
 }
 let buildPending = false;
@@ -2015,12 +2307,21 @@ $$('#shellMode button').forEach(b => b.onclick = () => { UI.shell = b.dataset.v;
 $$('#sectionMode button').forEach(b => b.onclick = () => { UI.section = b.dataset.v; setSeg('#sectionMode', UI.section); applyState(); });
 $('#section').oninput = e => { UI.sectionPos = +e.target.value; $('#sectionVal').textContent = `${UI.sectionPos} mm`; if (UI.section === 'off') { UI.section = 'x'; setSeg('#sectionMode', 'x'); } applyState(); };
 $('#explode').oninput = e => { UI.explode = e.target.value / 100; $('#explodeVal').textContent = `${e.target.value}%`; applyState(); };
-$$('#layoutSeg button').forEach(b => b.onclick = () => { P = { ...DEFAULTS, ...PRESETS[b.dataset.v], micInHead: P.micInHead }; renderParams(); syncYawRange(); build(); });
+const keepBank = () => ({ bankL: P.bankL, bankW: P.bankW, bankT: P.bankT, bankMass: P.bankMass, bankCap: P.bankCap });
+$$('#layoutSeg button').forEach(b => b.onclick = () => { P = { ...DEFAULTS, ...PRESETS[b.dataset.v], micInHead: P.micInHead, ...keepBank() }; renderParams(); syncYawRange(); build(); });
+$$('#mountSeg button').forEach(b => b.onclick = () => {
+  const v = b.dataset.v; if (v === P.bankMount) return;
+  const y1 = computeLayout(P).bodyY1;
+  P.bankMount = v;
+  P.bodyH = Math.round(P.bodyH + (y1 - computeLayout(P).bodyY1));   // 總高不變，比較才公平
+  if (batDemo.to) batterySwap(false);
+  renderParams(); build();
+});
 $$('#micSeg button').forEach(b => b.onclick = () => { P.micInHead = b.dataset.v === 'head'; setSeg('#micSeg', b.dataset.v); build(); });
 $('#btnReset').onclick = () => { P = { ...DEFAULTS }; renderParams(); syncYawRange(); build(); };
 $('#btnScad').onclick = async () => {
-  const keys = ['innerW', 'wheelbase', 'trackW', 'trackPitch', 'sprocketTeeth', 'plateT', 'trackGap', 'trackT', 'grouser', 'floorY', 'floorT', 'motorD', 'motorCan', 'encLen', 'gearLen', 'shaftD', 'shaftLen', 'motorHole', 'batL', 'batW', 'batH', 'batZ', 'drvL', 'drvW', 'buckL', 'buckW', 'buckH', 'spkD', 'spkH', 'bodyW', 'bodyD', 'bodyH', 'shellT', 'deckT', 'neckExtra', 'neckZ', 'headZ', 'headW', 'headH', 'headD', 'camTilt', 'lensOffset', 'lensH', 'eyelid', 'yawMax'];
-  const txt = `// ARES-1 參數（由工程網頁產生）— 貼到 cad/ares1_params.scad 取代對應數值\n// layout = "${P.layout}"; mic_in_head = ${P.micInHead};\n` + keys.map(k => `${k} = ${P[k]};`).join('\n') + '\n';
+  const keys = ['innerW', 'wheelbase', 'trackW', 'trackPitch', 'sprocketTeeth', 'plateT', 'trackGap', 'trackT', 'grouser', 'floorY', 'floorT', 'motorD', 'motorCan', 'encLen', 'gearLen', 'shaftD', 'shaftLen', 'motorHole', 'bankL', 'bankW', 'bankT', 'bankSpacer', 'bayH', 'drvL', 'drvW', 'buckL', 'buckW', 'buckH', 'spkD', 'spkH', 'bodyW', 'bodyD', 'bodyH', 'shellT', 'deckT', 'neckExtra', 'neckZ', 'headZ', 'headW', 'headH', 'headD', 'camTilt', 'lensOffset', 'lensH', 'eyelid', 'yawMax'];
+  const txt = `// ARES-1 參數（由工程網頁產生）— 貼到 cad/ares1_params.scad 取代對應數值\n// layout = "${P.layout}"; mic_in_head = ${P.micInHead}; bankMount = "${P.bankMount}";\n` + keys.map(k => `${k} = ${P[k]};`).join('\n') + '\n';
   const ta = $('#scadOut'); ta.hidden = false; ta.value = txt;
   try { await navigator.clipboard.writeText(txt); $('#scadMsg').textContent = '已複製到剪貼簿。'; }
   catch { ta.select(); $('#scadMsg').textContent = '瀏覽器不允許自動複製，已幫你全選，請按 Ctrl/⌘+C。'; }
@@ -2123,7 +2424,7 @@ renderParams();
 renderAsmList();
 build();
 // 除錯／文件用：在瀏覽器主控台輸入 __ares 可取得計算結果
-window.__ares = { UI, get parts() { return parts; }, applyState, overlays, get L() { return L; }, get P() { return P; }, stability, runChecks, computeLayout, massItems, fovOcclusion, get wires() { return WIRE_DEFS; } };
+window.__ares = { UI, BANKS, PRESETS, DEFAULTS, get parts() { return parts; }, applyState, overlays, get L() { return L; }, get P() { return P; }, set P(v) { P = v; }, build, stability, runChecks, computeLayout, massItems, fovOcclusion, get wires() { return WIRE_DEFS; } };
 resize();
 camera.position.set(0, 0, 0);
 { const dir = new THREE.Vector3(...VIEWS.iso).normalize(); controls.target.set(0, L.overallH * 0.45, 0); camera.position.copy(controls.target).addScaledVector(dir, Math.max(L.overallW, L.overallH, L.overallL) * 2.6 + 120); }

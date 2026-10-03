@@ -37,28 +37,47 @@ tubLen  = ceil(wheelbase + motorD + 18);
 tubZ0   = -tubLen / 2;
 tubZ1   = tubLen / 2;
 endWallT= 3;
-sledT   = 1.6;
-deckY0  = max(trackTop + 0.6, floorTop + sledT + batH + 4);
+// 底盤是「雙層巴士」：下層馬達＋驅動板＋電源區，上層整層是行動電源的電池艙
+bay     = (bankMount != "back");
+trayY0  = axleY + mR + 0.8;          // 托盤底面＝馬達頂 +0.8
+trayT   = 1.6;
+trayTop = trayY0 + trayT;
+deckY0  = bay ? trayTop + bayH : max(trackTop + 0.6, trayY0);
 deckY1  = deckY0 + deckT;
 coax    = (layout == "A");
 mLz     = -zS;
 mRz     = coax ? -zS : zS;
 // 馬達：[sign, flangeX, z]
 MOTORS  = [[+1, hw, mLz], [-1, -hw, mRz]];
-batX    = coax ? 0 : -(hw - 2 - batW / 2);
-batCz   = coax ? min(max(batZ + 35, -10), tubZ1 - endWallT - 2 - batL / 2) : batZ;
-bx0 = batX - batW / 2; bx1 = batX + batW / 2;
-bz0 = batCz - batL / 2; bz1 = batCz + batL / 2;
-by0 = floorTop + sledT; by1 = by0 + batH;
-drawerRear = !coax;
-doorX0 = max(bx0 - 2, -hw + 1.5);
-doorX1 = min(bx1 + 2, hw - 1.5);
-doorZ0 = floorTop + 1;
-doorZ1 = min(by1 + 2.5, deckY0 - 1.5);
-drvX    = hw - 4 - drvW / 2;
-drvZ    = coax ? 12 : 30;
+// 右側線材通道（地板直通上身）、托盤右緣立邊、電池艙
+chX0 = -hw; chX1 = -hw + 16;
+lipX0 = chX1; lipX1 = chX1 + 2;
+pillarW = 7;
+bayX0 = lipX1; bayX1 = hw - pillarW;       // 可用寬（預設 85）
+bayZ1 = tubZ1 - endWallT;                  // 前壁就是擋塊，後方整個打開
+// 上身固定立柱 [x0, x1, y0, y1]（頂端 M3 熱熔螺母）
+PILLARS = [[hw - pillarW, hw, -33.5, -26.5], [hw - pillarW, hw, 26.5, 33.5],
+           [-hw, -hw + pillarW, 18.5, 25.5], [-hw, -hw + pillarW, tubZ0 + endWallT, tubZ0 + endWallT + 6]];
+TRAYPOST = [lipX0 - 2, lipX1, 20, 26];
+STRAP_SLOTS = [-55, -10, 35];
+SLOT_X = [lipX1 + 2.5, lipX1 + 10.5, bayX1 - 10.5, bayX1 - 2.5];
+TRAY_SCREWS = [[0, tubZ1 - endWallT - 3], [35, tubZ1 - endWallT - 3], [(TRAYPOST[0] + TRAYPOST[1]) / 2, (TRAYPOST[2] + TRAYPOST[3]) / 2]];
+// 驅動板：右側，端子朝車身中央、VM 在後端，排針在線材通道正下方
+drvX    = -(hw - 4 - drvW / 2);
+drvZ    = -12;
 DRV_HOLE = [11.4, 20.4];   // 孔距 22.8 × 40.8（由 R3.6 圓角推得）
-deckHoleZ = coax ? 30 : -28;
+// 電源區（下層右後角；同軸方案改右前）：CH224K、Mini560、AMS1117
+pwS  = coax ? -1 : 1;
+pwZi = coax ? tubZ1 - endWallT : tubZ0 + endWallT;
+function pzr(a, b) = [min(pwZi + pwS * a, pwZi + pwS * b), max(pwZi + pwS * a, pwZi + pwS * b)];
+PDB  = concat([-hw + 15, -hw + 27], pzr(-2.5, 22));           // [x0, x1, y0, y1]
+BUCK = concat([-hw + 28.5, -hw + 28.5 + buckW], pzr(0.5, 0.5 + buckL));
+LDO  = concat([-hw + 1, -hw + 12], pzr(8, 30));
+modY0 = floorTop + 3;
+usbX = -hw + 21;
+usbY = modY0 + 3.2;
+usbWallY = coax ? tubZ1 - endWallT : tubZ0;
+deckHole = [chX0 + 7, chX1 - 1, -36, -10];   // [x0, x1, y0, y1]
 bodyY0  = deckY1;
 bodyY1  = bodyY0 + bodyH;
 bw      = bodyW / 2;
@@ -78,7 +97,7 @@ spkY    = bodyY0 + min(max(bodyH * 0.5, 26), 52);
 ampX    = min(max(spkD / 2 + 14, 20), wingX0 - 10);
 ampY    = bodyY0 + 14;
 swX     = bw - 22;
-buckY0  = min(bodyY0 + 44, bodyY1 - 20 - buckW);
+perfY0  = min(bodyY0 + 43, topY0 - 31);
 swZ     = -bodyD / 2 + 16;
 riserH  = neckExtra;
 mountY1 = topY1 + riserH;
@@ -113,7 +132,7 @@ micP = [esp_l / 2 - 9, hz0 + 12, headH - hT];
 TOP_BOSSES = [[wingX0 - 3, inZ0 + 6], [-(wingX0 - 3), inZ0 + 6], [30, spineZ0 - 4], [-30, spineZ0 - 4]];
 SHELL_SCREWS = [-25, 5];   // 外殼側面螺絲的 y 位置（z = bodyY0 + 8）
 
-echo(str("ARES-1: PD=", PD, " axleY=", axleY, " links=", links, " tubLen=", tubLen, " deckY0=", deckY0, " pivotY=", pivotY));
+echo(str("ARES-1: PD=", PD, " axleY=", axleY, " links=", links, " tubLen=", tubLen, " trayY0=", trayY0, " deckY0=", deckY0, " pivotY=", pivotY));
 
 // ------------------------- 小工具 -------------------------
 module rr2(x0, y0, x1, y1, r) {
@@ -135,30 +154,40 @@ function F2H(p) = [p[0], pcbFrontZ + p[1] * cos(camTilt) + p[2] * sin(camTilt), 
 module inPCBFrame() { translate([0, pcbFrontZ, pcbY]) rotate([-camTilt, 0, 0]) children(); }
 
 // =====================================================================
-// 1. 底盤槽（一體列印：底板＋左右側壁〔馬達座〕＋前後壁）
+// 1. 底盤槽（一體列印：底板＋左右側壁〔馬達座〕＋前後壁＋立柱＋托盤凸緣）
+//    列印方向：底板貼平台。後壁上半部是電池艙開口，下半部是 CH224K 的 USB-C 孔。
 // =====================================================================
+module rear_wall_2d() {
+  if (bay) polygon([[-hw - 0.5, floorTop - 0.5], [hw + 0.5, floorTop - 0.5], [hw + 0.5, deckY0], [bayX1, deckY0],
+                    [bayX1, trayY0], [lipX0, trayY0], [lipX0, deckY0], [-hw - 0.5, deckY0]]);
+  else rr2(-hw - 0.5, floorTop - 0.5, hw + 0.5, deckY0, 1);
+}
 module tub() {
   difference() {
     union() {
       translate([0, 0, floorY]) linear_extrude(floorT) rr2(-wallOut, tubZ0, wallOut, tubZ1, 6);
       plateYZ(hw, plateT) rr2(tubZ0, floorY, tubZ1, deckY0, 6);
       plateYZ(-wallOut, plateT) rr2(tubZ0, floorY, tubZ1, deckY0, 6);
-      plateXZ(tubZ0, endWallT) rr2(-hw - 0.5, floorTop - 0.5, hw + 0.5, deckY0, 1);
+      plateXZ(tubZ0, endWallT) rear_wall_2d();
       plateXZ(tubZ1 - endWallT, endWallT) rr2(-hw - 0.5, floorTop - 0.5, hw + 0.5, deckY0, 1);
-      // 四角 M3 熱熔螺母柱
-      for (sx = [-1, 1], sz = [-1, 1]) translate([sx * (hw - 5), sz * (tubZ1 - endWallT - 5), floorTop - 0.5]) cylinder(d = 8, h = deckY0 - floorTop + 0.5);
+      // 上身固定立柱
+      for (p = PILLARS) boxB(p[0], p[1], p[2], p[3], floorTop - 0.5, deckY0);
+      if (bay) {
+        // 托盤凸緣（下緣 45° 倒角，免支撐）：左壁（避開左後馬達）、前壁（含兩個鎖托盤的螺絲座）
+        hull() { boxB(hw - 3, hw, mLz + mR + 1, tubZ1 - endWallT, trayY0 - 0.8, trayY0); boxB(hw - 0.01, hw, mLz + mR + 1, tubZ1 - endWallT, trayY0 - 3.8, trayY0); }
+        hull() { boxB(lipX0, hw, tubZ1 - endWallT - 6, tubZ1 - endWallT, trayY0 - 0.8, trayY0); boxB(lipX0, hw, tubZ1 - endWallT - 0.01, tubZ1 - endWallT, trayY0 - 6.8, trayY0); }
+        boxB(TRAYPOST[0], TRAYPOST[1], TRAYPOST[2], TRAYPOST[3], floorTop - 0.5, trayY0);
+      }
       // 馬達尾端托架（兩根立柱，束線帶從底板槽繞過馬達）
       for (m = MOTORS) {
         cx = m[1] - m[0] * motorTotal + m[0] * (encLen + 6);   // 托在馬達身上，讓出編碼器接頭
         for (s = [-1, 1]) boxB(cx - 3, cx + 3, m[2] + s * 12.9, m[2] + s * 16.4, floorTop - 0.5, axleY);
       }
-      // 驅動板螺絲座（M3 自攻；孔距 41×23 為推估，待量測）
+      // 驅動板螺絲座（M3 自攻；孔距為推估，待量測）
       for (sx = [-1, 1], sz = [-1, 1]) translate([drvX + sx * DRV_HOLE[0], drvZ + sz * DRV_HOLE[1], floorTop - 0.5]) cylinder(d = 6.5, h = 4.5);
-      // 電池抽屜滑軌
-      railY0 = drawerRear ? tubZ0 + endWallT - 0.5 : bz0;
-      railY1 = drawerRear ? bz1 : tubZ1 - endWallT + 0.5;
-      boxB(bx0 - 3.5, bx0 - 1.5, railY0, railY1, floorTop - 0.5, floorTop + 4);
-      boxB(bx1 + 1.5, bx1 + 3.5, railY0, railY1, floorTop - 0.5, floorTop + 4);
+      // 電源區：CH224K 兩條滑軌（PCB 穿過牆孔）、Mini560／AMS1117 各兩根小柱（雙面膠或熱熔膠）
+      for (xx = [PDB[0] + 1.5, PDB[1] - 1.5]) boxB(xx - 1, xx + 1, max(PDB[2], tubZ0 + endWallT), min(PDB[3], tubZ1 - endWallT), floorTop - 0.5, modY0);
+      for (m = [BUCK, LDO], yy = [m[2] + 3, m[3] - 3]) translate([(m[0] + m[1]) / 2, yy, floorTop - 0.5]) cylinder(d = 3.6, h = modY0 - floorTop + 0.5);
     }
     // 底板：馬達下方長槽
     for (m = MOTORS) {
@@ -170,26 +199,22 @@ module tub() {
     for (m = MOTORS) {
       xin = m[0] > 0 ? hw : -wallOut;
       cylX(4.2, xin - 1, xin + plateT + 1, m[2], axleY);
-      // 兩個 M3 上下排列 → 編碼器 6P 接頭朝上；沉孔 2 mm 配 ISO 7380 圓頭
+      // 兩個 M3 左右（水平）排列 → 編碼器 6P 接頭水平朝車身中央，不會頂到托盤；沉孔 2 mm 配 ISO 7380 圓頭
       for (d = [-motorHole / 2, motorHole / 2]) {
-        cylX(1.7, xin - 1, xin + plateT + 1, m[2], axleY + d);
-        if (m[0] > 0) cylX(3.1, wallOut - 2, wallOut + 1, m[2], axleY + d);
-        else cylX(3.1, -wallOut - 1, -wallOut + 2, m[2], axleY + d);
+        cylX(1.7, xin - 1, xin + plateT + 1, m[2] + d, axleY);
+        if (m[0] > 0) cylX(3.1, wallOut - 2, wallOut + 1, m[2] + d, axleY);
+        else cylX(3.1, -wallOut - 1, -wallOut + 2, m[2] + d, axleY);
       }
       hull() for (d = [-4, 4]) cylX(2.2, xin - 1, xin + plateT + 1, -m[2] + d, axleY);
     }
-    // 電池門
-    dY = drawerRear ? tubZ0 - 1 : tubZ1 - endWallT - 1;
-    boxB(doorX0, doorX1, dY, dY + endWallT + 2, doorZ0, doorZ1);
-    // 電池門磁鐵槽（Ø6×2 ×2）
-    for (zz = [floorTop + 8, floorTop + 22]) {
-      if (drawerRear) cylY(3.1, tubZ0 - 1, tubZ0 + 2.2, doorX1 + 6, zz);
-      else cylY(3.1, tubZ1 - 2.2, tubZ1 + 1, doorX1 + 6, zz);
-    }
+    // CH224K 的 USB-C 孔（C 公頭外殼要進得去：13.5 × 7.6）
+    plateXZ(usbWallY - 1, endWallT + 2) rr2(usbX - 6.75, usbY - 3.8, usbX + 6.75, usbY + 3.8, 2.5);
     // 前壁任務模組介面 2×M3
-    for (s = [-1, 1]) cylY(1.7, tubZ1 - endWallT - 1, tubZ1 + 1, s * 20, (floorTop + deckY0) / 2);
-    // 螺絲柱孔（M3 熱熔螺母 Ø4.0×6）
-    for (sx = [-1, 1], sz = [-1, 1]) translate([sx * (hw - 5), sz * (tubZ1 - endWallT - 5), deckY0 - 7]) cylinder(d = 4.0, h = 8);
+    for (s = [-1, 1]) cylY(1.7, tubZ1 - endWallT - 1, tubZ1 + 1, s * 20, (floorTop + min(trayY0, deckY0)) / 2);
+    // 立柱頂端 M3 熱熔螺母孔（Ø4.0×6）
+    for (p = PILLARS) translate([(p[0] + p[1]) / 2, (p[2] + p[3]) / 2, deckY0 - 6.5]) cylinder(d = 4.0, h = 7);
+    // 托盤螺絲導孔（M2.5 自攻）
+    if (bay) for (q = TRAY_SCREWS) translate([q[0], q[1], trayY0 - 6]) cylinder(d = 2.1, h = 7, $fn = 16);
     // 驅動板螺絲座導孔
     for (sx = [-1, 1], sz = [-1, 1]) translate([drvX + sx * DRV_HOLE[0], drvZ + sz * DRV_HOLE[1], floorY + 0.8]) cylinder(d = 2.8, h = 10);
     // 托架束線帶孔
@@ -259,24 +284,40 @@ module track_links_plate(nx = 4, ny = 4) {
 }
 
 // =====================================================================
-// 4. 電池抽屜（Ø6×2 磁鐵吸住後門）
+// 4. 電池艙托盤（架在凸緣與小立柱上，3 顆 M2.5 自攻；右緣立邊兼導軌與通道牆）
+//    列印方向：平放，立邊朝上，免支撐
 // =====================================================================
-module battery_sled() {
-  s = drawerRear ? 1 : -1;
-  wallFace = drawerRear ? tubZ0 : tubZ1;
-  yIn  = drawerRear ? tubZ0 + endWallT : tubZ1 - endWallT;
-  yEnd = drawerRear ? bz1 + 2 : bz0 - 2;
+module tray_2d() {
+  xr = hw - 0.4; zf = bayZ1 - 0.3; nx = bayX1 - 0.4;
+  P1 = PILLARS[0]; P2 = PILLARS[1];
+  difference() {
+    polygon([[lipX0, tubZ0], [bayX1, tubZ0], [bayX1, tubZ0 + endWallT + 0.3], [xr, tubZ0 + endWallT + 0.3],
+             [xr, P1[2] - 0.4], [nx, P1[2] - 0.4], [nx, P1[3] + 0.4], [xr, P1[3] + 0.4],
+             [xr, P2[2] - 0.4], [nx, P2[2] - 0.4], [nx, P2[3] + 0.4], [xr, P2[3] + 0.4],
+             [xr, zf], [lipX0, zf]]);
+    // 減重窗（避開扣孔）
+    zs = [tubZ0 + 6, STRAP_SLOTS[0] - 13, STRAP_SLOTS[0] + 13, STRAP_SLOTS[1] - 13, STRAP_SLOTS[1] + 13, STRAP_SLOTS[2] - 13, STRAP_SLOTS[2] + 13, bayZ1 - 6];
+    for (i = [0:2:len(zs) - 2]) if (zs[i + 1] - zs[i] > 10) rr2(lipX1 + 16, zs[i], bayX1 - 16, zs[i + 1], 4);
+    // 魔鬼氈扣孔（每側兩個一組，綁帶從橋下穿過）
+    for (zc = STRAP_SLOTS, xs = SLOT_X) rr2(xs - 1.5, zc - 11, xs + 1.5, zc + 11, 1.4);
+    for (q = TRAY_SCREWS) translate([q[0], q[1]]) circle(d = 2.9, $fn = 20);
+  }
+}
+module battery_tray() {
   difference() {
     union() {
-      boxB(bx0 - 1, bx1 + 1, yIn - s * 0.5, yEnd, floorTop + 0.1, floorTop + sledT);
-      for (x = [bx0 - 1, bx1 - 0.6]) boxB(x, x + 1.6, yIn, yEnd, floorTop + 0.1, floorTop + 6);   // 側擋
-      boxB(bx0 - 1, bx1 + 1, yEnd - s * 2, yEnd, floorTop + 0.1, floorTop + 8);                 // 前擋
-      boxB(doorX0 + tol, doorX1 - tol, wallFace, yIn, doorZ0 + tol, doorZ1 - tol);               // 門
-      boxB(doorX0 - 2, doorX1 + 9.5, wallFace - s * 2, wallFace, floorTop + 0.1, doorZ1 + 1.5);   // 外蓋板
-      boxB(batX - 1.5, batX + 1.5, wallFace - s * 12, wallFace - s * 1.9, (doorZ0 + doorZ1) / 2 - 7, (doorZ0 + doorZ1) / 2 + 7); // 拉片
+      translate([0, 0, trayY0]) linear_extrude(trayT) tray_2d();
+      boxB(lipX0, lipX1, tubZ0, bayZ1 - 0.3, trayTop - 0.01, trayTop + 8);
     }
-    for (zz = [floorTop + 8, floorTop + 22]) cylY(3.1, wallFace - s * 1.9, wallFace + s * 0.1, doorX1 + 6, zz);  // 磁鐵槽（朝後壁）
-    cylX(4, batX - 3, batX + 3, wallFace - s * 7.5, (doorZ0 + doorZ1) / 2);   // 拉片指孔
+    for (q = TRAY_SCREWS) translate([q[0], q[1], trayTop - 1.2]) cylinder(d1 = 2.9, d2 = 5.4, h = 1.21, $fn = 20);
+  }
+}
+// 前方墊塊：短的行動電源在前面塞幾片，把重心推回中間（10 mm 一片，可疊）
+module bank_spacer() {
+  w = min(bankW - 6, bayX1 - bayX0 - 4); h = min(bankT, bayH - 1) * 0.8;
+  difference() {
+    translate([-w / 2, 0, 0]) cube([w, 10, h]);
+    translate([0, -1, h]) rotate([-90, 0, 0]) cylinder(d = 14, h = 12);   // 手指缺口
   }
 }
 
@@ -291,16 +332,20 @@ module upper_frame() {
       translate([0, 0, deckY0]) linear_extrude(deckT) rr2(-wallOut, tubZ0, wallOut, tubZ1, 6);
       plateXZ(spineZ0, 3) rr2(-wingX1, fh0 - 0.5, wingX1, fh1, 2);
       for (s = [-1, 1]) boxB(s * wingX0, s * wingX1, inZ0 + 2, spineZ1, fh0 - 0.5, fh1);
-      // 斜撐
-      for (s = [-1, 1]) hull() {
-        boxB(s * (wingX0 - 0.01), s * wingX0, inZ0 + 2, spineZ0, fh0 - 0.5, fh0 + 20);
-        boxB(s * (wingX0 - 8), s * wingX0, inZ0 + 2, spineZ0, fh0 - 0.5, fh0);
+      // 斜撐（右邊在線孔上方斷開）
+      for (s = [-1, 1]) {
+        over = min(s * (wingX0 - 8), s * wingX0) < deckHole[1] && max(s * (wingX0 - 8), s * wingX0) > deckHole[0];
+        segs = over ? [[inZ0 + 2, deckHole[2] - 2], [deckHole[3] + 2, spineZ0]] : [[inZ0 + 2, spineZ0]];
+        for (g = segs) if (g[1] - g[0] > 3) hull() {
+          boxB(s * (wingX0 - 0.01), s * wingX0, g[0], g[1], fh0 - 0.5, fh0 + 20);
+          boxB(s * (wingX0 - 8), s * wingX0, g[0], g[1], fh0 - 0.5, fh0);
+        }
       }
       for (b = TOP_BOSSES) translate([b[0] - 4, b[1] - 4, fh1 - 10]) cube([8, 8, 10]);
       for (s = [-1, 1], yy = SHELL_SCREWS) boxB(s * (wingX0 - 5), s * wingX0 + s * 0.5, yy - 4, yy + 4, bodyY0 + 3, bodyY0 + 13);
     }
-    for (sx = [-1, 1], sz = [-1, 1]) translate([sx * (hw - 5), sz * (tubZ1 - endWallT - 5), deckY0 - 1]) cylinder(d = 3.4, h = deckT + 2);
-    translate([0, 0, deckY0 - 1]) linear_extrude(deckT + 2) rr2(-11, deckHoleZ - 7, 11, deckHoleZ + 7, 3);
+    for (p = PILLARS) translate([(p[0] + p[1]) / 2, (p[2] + p[3]) / 2, deckY0 - 1]) cylinder(d = 3.4, h = deckT + 2);
+    translate([0, 0, deckY0 - 1]) linear_extrude(deckT + 2) rr2(deckHole[0], deckHole[2], deckHole[1], deckHole[3], 2);   // 線孔：對準右側通道，J1/J2 從這裡上來
     for (s = [-1, 1]) translate([s * 30, tubZ1 - 8, deckY0 - 1]) cylinder(d = 3.4, h = deckT + 2);
     // 脊板穿線孔
     plateXZ(spineZ0 - 1, 5) rr2(-10, fh0 + 4, 10, fh0 + 16, 3);
@@ -312,9 +357,9 @@ module upper_frame() {
     for (s = [-1, 1], yy = SHELL_SCREWS) cylX(1.3, s * (wingX0 - 6), s * (wingX1 + 1), yy, bodyY0 + 8);
     // 頂板螺絲導孔
     for (b = TOP_BOSSES) translate([b[0], b[1], fh1 - 9]) cylinder(d = 2.6, h = 10);
-    // 束線帶槽：左翼（降壓）、右翼（配電板）
-    for (s = [-1, 1], yy = [spineZ0 - 12, spineZ0 - 40], zz = [buckY0 + 3.5, buckY0 + 21.5])
-      boxB(s * (wingX0 - 1), s * (wingX1 + 1), yy - 1.5, yy + 1.5, zz - 2, zz + 2);
+    // 束線帶槽：右翼（配電板）；降壓模組已搬到底盤電源區
+    for (yy = [spineZ0 - 12, spineZ0 - 40], zz = [perfY0 + 5.5, perfY0 + 23.5])
+      boxB(-(wingX0 - 1), -(wingX1 + 1), yy - 1.5, yy + 1.5, zz - 2, zz + 2);
   }
 }
 
@@ -484,7 +529,8 @@ module motor_dummy(m) {
   color("Silver") cylX(mR, x0 - s * gearLen, x0 - s * (gearLen + motorCan), m[2], axleY);
   color("Black") cylX(mR, x0 - s * (gearLen + motorCan), x0 - s * motorTotal, m[2], axleY);
   color("LightGray") cylX(shaftD / 2, x0, x0 + s * shaftLen, m[2], axleY);
-  color("White") boxB(x0 - s * (motorTotal - 1.5), x0 - s * (motorTotal - 9.5), m[2] - 4.5, m[2] + 4.5, axleY + mR - 1.5, axleY + mR + 3.5);   // 編碼器 6P 接頭朝上
+  fz = m[2] > 0 ? -1 : 1;
+  color("White") boxB(x0 - s * (motorTotal - 1.5), x0 - s * (motorTotal - 9.5), m[2] + fz * (mR - 1.5), m[2] + fz * (mR + 3.5), axleY - 4.5, axleY + 4.5);   // 編碼器 6P 接頭水平朝車身中央
 }
 module head_assembly() {
   color("SlateGray") head_floor();
@@ -503,8 +549,19 @@ module assembly() {
     s = m[0];
     for (y = [m[2], -m[2]]) translate([s * (wallOut + 0.5 + ex * 45), y, axleY]) rotate([0, s * 90, 0]) color(y == m[2] ? "Chocolate" : "Sienna") sprocket(y == m[2]);
   }
-  color("RoyalBlue") translate([0, drawerRear ? -ex * 110 : ex * 110, 0]) { battery_sled(); boxB(bx0, bx1, bz0, bz1, by0, by1); }
+  bkx = (bayX0 + bayX1) / 2;
+  if (bay) {
+    color("SlateGray") translate([0, 0, ex * 40]) battery_tray();
+    color("#30353d") translate([0, -ex * 150, ex * 62]) boxB(bkx - bankW / 2, bkx + bankW / 2, bayZ1 - bankSpacer - bankL, bayZ1 - bankSpacer, trayTop, trayTop + bankT);
+    if (bankSpacer > 0) color("Peru") translate([bkx, bayZ1 - bankSpacer, trayTop + ex * 62]) scale([1, bankSpacer / 10, 1]) bank_spacer();
+  }
   color("FireBrick") translate([0, 0, ex * 45]) boxB(drvX - drvW / 2, drvX + drvW / 2, drvZ - drvL / 2, drvZ + drvL / 2, floorTop + 4, floorTop + 5.6);
+  translate([0, 0, ex * 22]) {
+    color("Black") boxB(PDB[0], PDB[1], PDB[2], PDB[3], modY0, modY0 + 1.6);
+    color("Silver") boxB(usbX - 4.5, usbX + 4.5, coax ? PDB[3] - 7.3 : PDB[2], coax ? PDB[3] : PDB[2] + 7.3, modY0 + 1.6, modY0 + 4.8);
+    color("RoyalBlue") boxB(BUCK[0], BUCK[1], BUCK[2], BUCK[3], modY0, modY0 + buckH);
+    color("Crimson") boxB(LDO[0], LDO[1], LDO[2], LDO[3], modY0, modY0 + 4);
+  }
   translate([0, 0, ex * 95]) {
     color("LightSteelBlue") upper_frame();
     color("LightSlateGray") translate([0, spineZ1, spkY]) rotate([-90, 0, 0]) speaker_ring_placed();
@@ -527,7 +584,7 @@ module print_tub()          { translate([0, 0, -floorY]) tub(); }
 module print_upper_frame()  { translate([0, 0, -deckY0]) upper_frame(); }
 module print_neck_deck()    { translate([0, 0, -topY0]) neck_deck(); }
 module print_body_shell()   { translate([0, 0, -bodyY0]) body_shell(); }
-module print_battery_sled() { translate([0, 0, -(floorTop + 0.1)]) battery_sled(); }
+module print_battery_tray() { translate([0, 0, -trayY0]) battery_tray(); }
 module print_head_floor()   { translate([0, 0, hFloorT]) rotate([180, 0, 0]) head_floor(); }
 module print_head_hood()    { rotate([-90, 0, 0]) translate([0, -hz1, 0]) head_hood(); }
 module print_head_back()    { rotate([90, 0, 0]) translate([0, -hz0, 0]) head_back(); }
@@ -542,7 +599,8 @@ if (part == "sprocket") out() sprocket(true);
 if (part == "idler") out() sprocket(false);
 if (part == "track_link") out() translate([0, 0, trackT / 2]) track_link();
 if (part == "track_links_16") out() track_links_plate(4, 4);
-if (part == "battery_sled") out() print_battery_sled();
+if (part == "battery_tray") out() print_battery_tray();
+if (part == "bank_spacer") out() bank_spacer();
 if (part == "upper_frame") out() print_upper_frame();
 if (part == "neck_deck") out() print_neck_deck();
 if (part == "body_shell") out() print_body_shell();

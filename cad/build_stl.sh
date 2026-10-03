@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 mkdir -p stl
 PARTS=("$@")
 if [ ${#PARTS[@]} -eq 0 ]; then
-  PARTS=(tub sprocket idler track_link track_links_16 battery_sled upper_frame neck_deck body_shell speaker_ring head_floor head_hood head_back eye_ring pupil eyelid)
+  PARTS=(tub sprocket idler track_link track_links_16 battery_tray bank_spacer upper_frame neck_deck body_shell speaker_ring head_floor head_hood head_back eye_ring pupil eyelid)
 fi
 for p in "${PARTS[@]}"; do
   echo "== $p"
