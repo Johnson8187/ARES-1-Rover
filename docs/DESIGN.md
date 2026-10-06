@@ -195,7 +195,7 @@ C 其實不會翻（翻覆門檻 7.6 m/s² 仍大於抓地力 6.9 m/s²），但
 ### 3.3 驅動輪／惰輪
 
 - 同一個模組：`sprocket(true)` 驅動輪、`sprocket(false)` 惰輪。
-- 驅動輪 D 孔（D 切面 3.5 [C]）深 8.5，M3 止付螺絲＋螺母槽。咬合 8 mm，履帶中心在軸端外 8 mm（懸臂，Ø4 鋼軸彎曲應力約 70 MPa，可接受）。
+- 驅動輪 D 孔（D 切面 3.5 [C]）深 8.5，M3 止付螺絲＋螺母槽，輪轂 Ø14 把螺母槽整個包住。咬合 8 mm，履帶中心在軸端外 8 mm（懸臂，Ø4 鋼軸彎曲應力約 70 MPa，可接受）。
 - 惰輪套 M4 × 40 螺絲；想更順可改 `idler_bearing = true` 壓 624ZZ。
 
 ### 3.4 電池艙（行動電源）
@@ -510,19 +510,22 @@ BCLK 與 WS 在頭內要 Y 型分接（一路到麥克風、一路下頸部到�
 
 ## 12. 製造清單
 
+**先印 `cad/stl/fit/` 的試配套件，再印大件。** 列印順序、切片設定、試配方法見 [`PRINTING.md`](PRINTING.md)。
+間隙由 `cad/ares1_params.scad` 的 `tol`（單邊配合間隙）和 `insertD`（熱熔螺母孔徑）控制，試配後改這兩個數字再重產 STL。
+
 ### 12.1 列印件
 
 | 零件 | STL | 數量 | 材料 | 列印方向 | 估計重量 |
 |---|---|---|---|---|---|
 | 底盤槽 | `tub.stl` | 1 | PETG／PLA | 底板貼平台（高 55） | 約 110 g |
-| 驅動輪 | `sprocket.stl` | 2 | PETG | 靠壁面貼平台 | 約 15 g |
-| 惰輪 | `idler.stl` | 2 | PETG | 同上 | 約 15 g |
+| 驅動輪 | `sprocket.stl` | 2 | PETG | 外側面貼平台（STL 已轉好），45° 腹板免支撐 | 約 20 g |
+| 惰輪 | `idler.stl` | 2 | PETG | 同上 | 約 20 g |
 | 履帶片 | `track_links_16.stl`（16 片一盤） | 56 ＋ 4 備品 | PETG | 內面貼平台 | 1.5 g／片 |
 | 電池艙托盤 | `battery_tray.stl` | 1 | PLA | 平放，立邊朝上 | 約 22 g |
 | 前方墊塊 | `bank_spacer.stl` | 0–3（看行動電源長度） | PLA | 平放 | 約 5 g／片 |
-| 上身骨架 | `upper_frame.stl` | 1 | PLA | 底板貼平台，免支撐 | 約 87 g |
+| 上身骨架 | `upper_frame.stl` | 1 | PLA | 底板貼平台，免支撐（頂板螺絲柱有 45° 斜撐） | 約 85 g |
 | 頂板／頸座 | `neck_deck.stl` | 1 | PETG | 板面貼平台 | 約 30 g |
-| 身體外殼 | `body_shell.stl` | 1 | PLA | 直立（高 78） | 約 65 g |
+| 身體外殼 | `body_shell.stl` | 1 | PLA | 直立（高 78） | 約 60 g |
 | 喇叭墊高環 | `speaker_ring.stl` | 1 | PLA | 前唇貼平台 | 約 12 g |
 | 頭部轉盤 | `head_floor.stl` | 1 | PETG | 倒放（裙邊朝上） | 約 13 g |
 | 頭罩 | `head_hood.stl` | 1 | PETG | 臉朝下 | 約 22 g |

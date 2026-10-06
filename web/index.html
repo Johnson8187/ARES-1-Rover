@@ -555,7 +555,7 @@ function computeLayout(P) {
   L.amp = { x: clamp(L.spk.r + 14, 20, L.wingX0 - 10), y: L.bodyY0 + 14, z: L.spineZ1 + 3 };
   // 配電洞洞板：右翼內側（降壓模組已搬到底盤電源區）
   L.perf = { x0: -L.wingX0, x1: -L.wingX0 + 12, y0: Math.min(L.bodyY0 + 43, L.topY0 - 31), z1: L.spineZ0 - 3 };
-  L.perf.x0 = -L.wingX0; L.perf.x1 = -L.wingX0 + 12; L.perf.y1 = L.perf.y0 + 30; L.perf.z0 = L.perf.z1 - 50;
+  L.perf.x0 = -L.wingX0; L.perf.x1 = -L.wingX0 + 12; L.perf.y1 = L.perf.y0 + 30; L.perf.z0 = L.perf.z1 - 44;   // 讓開右後方頂板螺絲柱
   // 船型開關（身體頂板左後角，朝上）
   L.sw = { x: L.bw - 22, z: L.bodyZ0 + 16, y1: L.topY1, y0: L.topY1 - 18 };
 
@@ -1053,8 +1053,8 @@ function partInfo(id, P, L) {
       dims: [m('PCB', '17.7 × 19.1', 'C'), m('上方兩孔距', '12.6（孔心距底邊 16.7）', 'C'), m('腳位', 'LRC BCLK DIN GAIN SD GND Vin（2.54）', 'C')],
       spec: 'I2S 數位輸入、D 類 3 W。VIN 接 5 V。GAIN 預設 9 dB。', use: '把 ESP32 的 I2S 音訊直接推喇叭。',
       notes: ['放在喇叭旁邊，喇叭線 < 8 cm，減少 D 類輸出干擾。', 'SD 腳預設（未接）＝左右聲道平均輸出。'] },
-    perf: { name: '配電洞洞板', kind: '自製', layer: '身體層', mat: '5×7 cm 洞洞板裁半',
-      dims: [m('尺寸', '50 × 30', 'D')],
+    perf: { name: '配電洞洞板', kind: '自製', layer: '身體層', mat: '5×7 cm 洞洞板裁成 44 × 30',
+      dims: [m('尺寸', '44 × 30', 'D')],
       spec: '5 V 與 GND 匯流排、SS34 二極體、470 µF×2、9 V 監測分壓 100k/33k、伺服 3P 排針、頸部線束排針。',
       use: '所有 5 V 負載從這裡分出去，GND 在此單點匯集。',
       notes: ['SS34 串在「Mini560 5 V → ESP32 5 V」這條，接 USB 燒錄時不會倒灌。', '分壓：9V_SW—100k—(GPIO1)—33k—GND，9 V 時 ADC 端 2.23 V；PD 沒成功（5 V）時只有 1.24 V，韌體就知道。'] },
@@ -1372,7 +1372,7 @@ function buildChassis() {
     const col = w.drive ? mat(COL.shellAccent) : mat(0x9a6a4a);
     const rim = L.R - P.trackT / 2 - 0.5;
     g.add(cylX(rim, s * L.trackX0, xout, L.axleY, w.z, col, 40));
-    g.add(cylX(6, xin, s * L.trackX0, L.axleY, w.z, col, 20));
+    g.add(cylX(7, xin, s * L.trackX0, L.axleY, w.z, col, 20));
     const toothM = mat(w.drive ? 0xa84e22 : 0x7e5638);
     for (let i = 0; i < P.sprocketTeeth; i++) {
       const a = (i + 0.5) / P.sprocketTeeth * Math.PI * 2;
@@ -1615,7 +1615,7 @@ function buildBody() {
     for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2; grille.push(circ(rr * Math.cos(t), L.spk.y + rr * Math.sin(t), 1.5, 10)); }
   }
   sh.add(plateXY(rrect(-L.bw, y0, L.bw, y1, 3), grille, L.bodyZ1 - P.shellT, P.shellT, mS));
-  sh.add(plateXY(rrect(-L.bw, y0, L.bw, y1, 3), [rrect(-18, y1 - 30, 18, y1 - 26, 2), rrect(-18, y1 - 38, 18, y1 - 34, 2)], L.bodyZ0, P.shellT, mS));
+  sh.add(plateXY(rrect(-L.bw, y0, L.bw, y1, 3), [-3, -2, -1, 0, 1, 2, 3].map(i => rrect(i * 5 - 1.25, y1 - 40, i * 5 + 1.25, y1 - 26, 1.2)), L.bodyZ0, P.shellT, mS));
   for (const s of [-1, 1]) sh.add(plateZY(rrect(L.bodyZ0 + P.shellT, y0, L.bodyZ1 - P.shellT, y1, 1), [], s > 0 ? L.bw - P.shellT : -L.bw, P.shellT, mS));
   // 胸前名牌與飾條
   const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
@@ -1625,7 +1625,7 @@ function buildBody() {
   const plate = new THREE.Mesh(new THREE.PlaneGeometry(40, 10), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5 }));
   plate.position.set(0, y0 + 11, L.bodyZ1 + 0.25); sh.add(plate);
   sh.add(boxB(-L.bw, L.bw, y1 - 6, y1 - 3, L.bodyZ1, L.bodyZ1 + 0.8, mat(COL.shellAccent)));
-  for (const s of [-1, 1]) for (const dz of [-25, 5]) sh.add(cylX(2.7, s * L.bw, s * (L.bw + 0.8), y0 + 8, dz, mat(0x666c72, { m: 0.6 }), 12));
+  for (const s of [-1, 1]) for (const dz of [-41, 5]) sh.add(cylX(2.7, s * L.bw, s * (L.bw + 0.8), y0 + 8, dz, mat(0x666c72, { m: 0.6 }), 12));
 
   // 比較用：行動電源掛在身體背後的背包支架
   if (!L.bay) {
@@ -1649,7 +1649,8 @@ function buildHead() {
   const mHF = mat(0x6e8597);
   hf.add(plateXZ(rrect(-W, h.z0, W, h.z1, 5), [circ(0, 0, 3, 16), circ(0, -L.harnessR, 4, 20)], 0, h.floorT, mHF));
   hf.add(ringY(L.skirt.r0, L.skirt.r1, -L.skirt.drop, 0, 0, 0, mHF));
-  hf.add(boxB(-2.5, 2.5, -6, -2, -L.skirt.r1 - 3.5, -L.skirt.r1 + 0.2, mHF));
+  hf.add(plateXZ(circ(0, 0, L.skirt.r1, 48), [circ(0, 0, 3, 16), circ(0, -L.harnessR, 4, 20)], 0, h.floorT, mHF));
+  hf.add(boxB(-2.5, 2.5, -6, h.floorT, -L.skirt.r1 - 3.5, -L.skirt.r1 + 0.2, mHF));
   hf.add(cylY(10, -2, 0, 0, 0, mHF, 28));
   hf.add(cylY(SERVO.hornD / 2, -2 - 1.8, -2, 0, 0, mat(0xf4f4f0), 28));
   hf.add(cylY(3.5, -(L.pivotY - L.bossTop), -3.8, 0, 0, mat(0xf4f4f0), 16));
@@ -2172,8 +2173,9 @@ function specPaneHtml() {
   <h3>需要你補拍／補量</h3>
   <ol class="clean">${needs.map(n => `<li>${esc(n)}</li>`).join('')}</ol>
   <h3>列印件清單（預設參數）</h3>
+  <p class="small muted">全部免支撐、STL 已擺好列印方向。先印試配套件拿實物試過，再印大件；順序與切片設定見 docs/PRINTING.md。</p>
   <div class="tblwrap"><table><thead><tr><th>零件</th><th>數量</th><th>材料</th><th>STL</th></tr></thead><tbody>
-  ${[['底盤槽', 1, 'PETG/PLA', 'tub'], ['驅動輪', 2, 'PETG', 'sprocket'], ['惰輪', 2, 'PETG', 'idler'], ['履帶片', 2 * L.links, 'PETG', 'track_link'], ['電池艙托盤', 1, 'PLA', 'battery_tray'], ['前方墊塊（10 mm，可疊）', 3, 'PLA', 'bank_spacer'],
+  ${[['試配套件（先印）', 8, 'PLA', 'fit/fit_*'], ['底盤槽', 1, 'PETG/PLA', 'tub'], ['驅動輪', 2, 'PETG', 'sprocket'], ['惰輪', 2, 'PETG', 'idler'], [`履帶片（16 片一盤，共 ${2 * L.links} 片＋備品）`, 4, 'PETG', 'track_links_16'], ['電池艙托盤', 1, 'PLA', 'battery_tray'], ['前方墊塊（10 mm，可疊）', 3, 'PLA', 'bank_spacer'],
     ['上身骨架', 1, 'PLA', 'upper_frame'], ['頂板／頸座', 1, 'PETG', 'neck_deck'], ['身體外殼', 1, 'PLA', 'body_shell'], ['喇叭墊高環', 1, 'PLA', 'speaker_ring'],
     ['頭部轉盤', 1, 'PETG', 'head_floor'], ['頭罩', 1, 'PETG', 'head_hood'], ['頭部後蓋', 1, 'PETG', 'head_back'], ['眼圈', 2, '橘色 PLA', 'eye_ring'], ['瞳孔（造型眼）', 1, '深灰 PLA', 'pupil'], ['眼瞼（可換）', 2, 'PLA', 'eyelid']]
     .map(([a, b, c, d]) => `<tr><td>${a}</td><td class="v">${b}</td><td>${c}</td><td class="v">cad/stl/${d}.stl</td></tr>`).join('')}</tbody></table></div>

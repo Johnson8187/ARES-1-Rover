@@ -112,7 +112,7 @@ bossTop = servoTop + sv_bossH;
 hornTop = bossTop + sv_hornH;
 pivotY  = hornTop + 2;
 collarR0 = 21; collarR1 = 24; collarH = 7;
-skirtR0 = 24.5; skirtR1 = 26.5; skirtDrop = 8.5;
+skirtR0 = collarR1 + tol + 0.2; skirtR1 = skirtR0 + 2; skirtDrop = 8.5;   // 預設 tol 0.3 → 裙邊 ID 49
 harnessR = 16;
 stopAng = yawMax + 10;
 stopR   = 31;
@@ -130,7 +130,7 @@ eyeX = camEye != 0 ? abs(lensOffset) : min(hW - 18, 21);
 micP = [esp_l / 2 - 9, hz0 + 12, headH - hT];
 // 上身骨架的頂板螺絲柱
 TOP_BOSSES = [[wingX0 - 3, inZ0 + 6], [-(wingX0 - 3), inZ0 + 6], [30, spineZ0 - 4], [-30, spineZ0 - 4]];
-SHELL_SCREWS = [-25, 5];   // 外殼側面螺絲的 y 位置（z = bodyY0 + 8）
+SHELL_SCREWS = [-41, 5];   // 外殼側面螺絲的 y 位置（z = bodyY0 + 8）；-41 避開右後方線孔
 
 echo(str("ARES-1: PD=", PD, " axleY=", axleY, " links=", links, " tubLen=", tubLen, " trayY0=", trayY0, " deckY0=", deckY0, " pivotY=", pivotY));
 
@@ -212,7 +212,7 @@ module tub() {
     // 前壁任務模組介面 2×M3
     for (s = [-1, 1]) cylY(1.7, tubZ1 - endWallT - 1, tubZ1 + 1, s * 20, (floorTop + min(trayY0, deckY0)) / 2);
     // 立柱頂端 M3 熱熔螺母孔（Ø4.0×6）
-    for (p = PILLARS) translate([(p[0] + p[1]) / 2, (p[2] + p[3]) / 2, deckY0 - 6.5]) cylinder(d = 4.0, h = 7);
+    for (p = PILLARS) translate([(p[0] + p[1]) / 2, (p[2] + p[3]) / 2, deckY0 - 6.5]) cylinder(d = insertD, h = 7);
     // 托盤螺絲導孔（M2.5 自攻）
     if (bay) for (q = TRAY_SCREWS) translate([q[0], q[1], trayY0 - 6]) cylinder(d = 2.1, h = 7, $fn = 16);
     // 驅動板螺絲座導孔
@@ -227,8 +227,16 @@ module tub() {
 
 // =====================================================================
 // 2. 驅動輪／惰輪（同一個檔案，drive 決定孔型）
-//    列印方向：軸向朝上，靠側壁的那面貼平台
+//    列印方向：外側面（離側壁最遠那面）貼平台，用 print_sprocket()。
+//    兩片抬高的圓盤底下都有 45° 錐形腹板，免支撐。
 // =====================================================================
+module cone_web(zA, zB, rA) {   // 在 zA 半徑 rA，往 zB 以 45° 收小；殼厚約 1.6
+  h = abs(zB - zA); rB = rA - h;
+  translate([0, 0, min(zA, zB)]) difference() {
+    cylinder(h = h, r1 = zB > zA ? rA : rB, r2 = zB > zA ? rB : rA, $fn = 80);
+    translate([0, 0, -0.01]) cylinder(h = h + 0.02, r1 = (zB > zA ? rA : rB) - 2.3, r2 = (zB > zA ? rB : rA) - 2.3, $fn = 80);
+  }
+}
 module sprocket(drive = true) {
   zT0 = trackX0 - (wallOut + 0.5);
   zT1 = zT0 + trackW;
@@ -236,22 +244,24 @@ module sprocket(drive = true) {
   cz = zT0 + trackW / 2;
   difference() {
     union() {
-      cylinder(d = 11, h = zT1);
+      cylinder(r = 7, h = zT1);                   // 輪轂 Ø14：把 M3 螺母槽整個包住
       translate([0, 0, zT0]) cylinder(r = rimR, h = 4, $fn = 80);
       translate([0, 0, zT1 - 4]) cylinder(r = rimR, h = 4, $fn = 80);
       translate([0, 0, cz - 4.5]) cylinder(r = rimR, h = 9, $fn = 80);
+      cone_web(cz + 4.5, zT1 - 4, rimR);          // 齒盤 → 外側圓盤
+      cone_web(zT0 + 4, cz - 4.5, rimR);          // 內側圓盤 → 齒盤
       for (i = [0:4]) rotate([0, 0, i * 72 + 18]) translate([0, -1.2, zT0]) cube([rimR - 0.5, 2.4, trackW]);
       for (i = [0:sprocketTeeth - 1]) rotate([0, 0, (i + 0.5) * 360 / sprocketTeeth])
         translate([0, 0, cz - 4]) linear_extrude(8) polygon([[rimR - 1, -2.5], [Rp + 2.2, -1.2], [Rp + 2.2, 1.2], [rimR - 1, 2.5]]);
     }
     if (drive) {
-      // D 形孔（Ø4.15，平面距圓心 1.55，待量測）深 8.5
-      translate([0, 0, -1]) linear_extrude(9.5) intersection() { circle(d = 4.15, $fn = 40); translate([-2.2, -2.2]) square([2.2 + 1.55, 4.4]); }
+      // D 形孔（軸 Ø4、D 切面 3.5；tol 0.3 → 孔 Ø4.15、平面距圓心 1.55）深 8.5
+      translate([0, 0, -1]) linear_extrude(9.5) intersection() { circle(d = shaftD + tol / 2, $fn = 40); translate([-2.4, -2.4]) square([2.4 + (3.5 - shaftD / 2) + tol / 6, 4.8]); }
       // 止付螺絲孔（朝 D 平面）＋ M3 螺母槽（從靠壁面塞入）
       translate([0, 0, 4.5]) rotate([0, 90, 0]) cylinder(d = 3.2, h = rimR + 5);
       translate([2.9, -2.95, -1]) cube([2.7, 5.9, 4.5 + 3.3 + 1]);
     } else {
-      translate([0, 0, -1]) cylinder(d = 4.4, h = zT1 + 2);
+      translate([0, 0, -1]) cylinder(d = 4 + tol * 4 / 3, h = zT1 + 2);   // M4 軸
       if (idler_bearing) for (z = [-1, zT1 - 5]) translate([0, 0, z]) cylinder(d = 13.1, h = 6);
     }
   }
@@ -262,7 +272,7 @@ module sprocket(drive = true) {
 //    列印方向：內面（平）貼平台，抓地齒朝上
 // =====================================================================
 module track_link() {
-  p = trackPitch; w = trackW; kd = trackT; pd = 1.95; gap = 0.4;
+  p = trackPitch; w = trackW; kd = trackT; pd = 1.75 + tol * 2 / 3; gap = tol + 0.1;   // 插銷 1.75 線材
   A = [[-w / 2, -w / 2 + 5.4], [-4.9, 4.9], [w / 2 - 5.4, w / 2]];
   B = [[-w / 2 + 5.4 + gap, -4.9 - gap], [4.9 + gap, w / 2 - 5.4 - gap]];
   top = 1.2;
@@ -288,12 +298,12 @@ module track_links_plate(nx = 4, ny = 4) {
 //    列印方向：平放，立邊朝上，免支撐
 // =====================================================================
 module tray_2d() {
-  xr = hw - 0.4; zf = bayZ1 - 0.3; nx = bayX1 - 0.4;
+  c = tol + 0.1; xr = hw - c; zf = bayZ1 - tol; nx = bayX1 - c;
   P1 = PILLARS[0]; P2 = PILLARS[1];
   difference() {
-    polygon([[lipX0, tubZ0], [bayX1, tubZ0], [bayX1, tubZ0 + endWallT + 0.3], [xr, tubZ0 + endWallT + 0.3],
-             [xr, P1[2] - 0.4], [nx, P1[2] - 0.4], [nx, P1[3] + 0.4], [xr, P1[3] + 0.4],
-             [xr, P2[2] - 0.4], [nx, P2[2] - 0.4], [nx, P2[3] + 0.4], [xr, P2[3] + 0.4],
+    polygon([[lipX0, tubZ0], [bayX1, tubZ0], [bayX1, tubZ0 + endWallT + tol], [xr, tubZ0 + endWallT + tol],
+             [xr, P1[2] - c], [nx, P1[2] - c], [nx, P1[3] + c], [xr, P1[3] + c],
+             [xr, P2[2] - c], [nx, P2[2] - c], [nx, P2[3] + c], [xr, P2[3] + c],
              [xr, zf], [lipX0, zf]]);
     // 減重窗（避開扣孔）
     zs = [tubZ0 + 6, STRAP_SLOTS[0] - 13, STRAP_SLOTS[0] + 13, STRAP_SLOTS[1] - 13, STRAP_SLOTS[1] + 13, STRAP_SLOTS[2] - 13, STRAP_SLOTS[2] + 13, bayZ1 - 6];
@@ -341,8 +351,13 @@ module upper_frame() {
           boxB(s * (wingX0 - 8), s * wingX0, g[0], g[1], fh0 - 0.5, fh0);
         }
       }
-      for (b = TOP_BOSSES) translate([b[0] - 4, b[1] - 4, fh1 - 10]) cube([8, 8, 10]);
-      for (s = [-1, 1], yy = SHELL_SCREWS) boxB(s * (wingX0 - 5), s * wingX0 + s * 0.5, yy - 4, yy + 4, bodyY0 + 3, bodyY0 + 13);
+      // 頂板螺絲柱：底下 45° 斜撐接到側翼或脊板（免支撐）
+      for (b = TOP_BOSSES) hull() {
+        translate([b[0] - 4, b[1] - 4, fh1 - 10]) cube([8, 8, 10]);
+        if (abs(b[0]) > wingX0 - 6) boxB(sign(b[0]) * wingX0, sign(b[0]) * (wingX0 + 1), b[1] - 4, b[1] + 4, fh1 - 18, fh1);
+        else boxB(b[0] - 4, b[0] + 4, spineZ0, spineZ0 + 1, fh1 - 18, fh1);
+      }
+      for (s = [-1, 1], yy = SHELL_SCREWS) boxB(s * (wingX0 - 5), s * wingX0 + s * 0.5, yy - 4, yy + 4, fh0 - 0.5, bodyY0 + 13);
     }
     for (p = PILLARS) translate([(p[0] + p[1]) / 2, (p[2] + p[3]) / 2, deckY0 - 1]) cylinder(d = 3.4, h = deckT + 2);
     translate([0, 0, deckY0 - 1]) linear_extrude(deckT + 2) rr2(deckHole[0], deckHole[2], deckHole[1], deckHole[3], 2);   // 線孔：對準右側通道，J1/J2 從這裡上來
@@ -371,7 +386,7 @@ module neck_deck() {
   rw = 20;
   difference() {
     union() {
-      translate([0, 0, topY0]) linear_extrude(topT) rr2(-inW + 0.3, inZ0 + 0.3, inW - 0.3, inZ1 - 0.3, 3);
+      translate([0, 0, topY0]) linear_extrude(topT) rr2(-inW + tol + 0.2, inZ0 + tol + 0.2, inW - tol - 0.2, inZ1 - tol - 0.2, 3);   // 外殼要從上面套下來
       if (riserH > 0) {
         difference() {
           translate([0, 0, topY1 - 0.5]) linear_extrude(riserH - 4 + 0.5) rr2(-rw, neckZ - rw, rw, neckZ + rw, 3);
@@ -384,7 +399,8 @@ module neck_deck() {
     }
     // 伺服開孔＋線束窗口（在安裝板上）
     translate([0, 0, mountY0 - 1]) linear_extrude(6) {
-      rr2(-sv_shaftOff - 0.2, neckZ - sv_w / 2 - 0.2, sv_l - sv_shaftOff + 0.2, neckZ + sv_w / 2 + 0.2, 0.5);
+      sc = tol * 2 / 3;
+      rr2(-sv_shaftOff - sc, neckZ - sv_w / 2 - sc, sv_l - sv_shaftOff + sc, neckZ + sv_w / 2 + sc, 0.5);
       polygon(WINDOW);
     }
     // 伺服耳片 M2 自攻導孔（由下往上）
@@ -410,7 +426,7 @@ module body_shell() {
       for (i = [0:n - 1]) cylY(1.5, bodyD / 2 - shellT - 1, bodyD / 2 + 1, rr * cos(i * 360 / n), spkY + rr * sin(i * 360 / n));
     boxB(-20, 20, bodyD / 2 - 0.6, bodyD / 2 + 1, bodyY0 + 6, bodyY0 + 16);        // 名牌凹槽
     boxB(-bw - 1, bw + 1, bodyD / 2 - 0.6, bodyD / 2 + 1, bodyY1 - 6, bodyY1 - 3); // 飾條
-    for (zz = [bodyY1 - 30, bodyY1 - 38]) translate([-18, -bodyD / 2 - 1, zz]) cube([36, shellT + 2, 4]);
+    for (i = [-3:3]) translate([i * 5 - 1.25, -bodyD / 2 - 1, bodyY1 - 40]) cube([2.5, shellT + 2, 14]);   // 直條散熱孔（橫的會變 36 mm 長橋）
     for (s = [-1, 1], yy = SHELL_SCREWS) cylX(1.7, s * (bw - shellT - 1), s * (bw + 1), yy, bodyY0 + 8);
   }
 }
@@ -420,7 +436,7 @@ module body_shell() {
 // =====================================================================
 module speaker_ring() {
   Lr = spkZF + 0.8 - spineZ1;
-  od = spkD + 4.4; id = spkD + 0.6;
+  od = spkD + 4.4; id = spkD + 2 * tol;
   difference() {
     union() {
       cylinder(d = od, h = Lr, $fn = 96);
@@ -446,8 +462,9 @@ module head_floor() {
   difference() {
     union() {
       linear_extrude(hFloorT) rr2(-hW, hz0, hW, hz1, 5);
+      cylinder(r = skirtR1, h = hFloorT, $fn = 96);                  // 圓形法蘭：裙邊整圈都坐在轉盤上（倒放列印免支撐）
       translate([0, 0, -skirtDrop]) ring(skirtR0, skirtR1, skirtDrop + 0.5);
-      boxB(-2.5, 2.5, -skirtR1 - 3.5, -skirtR1 + 0.2, -6, -2);   // 限位指
+      boxB(-2.5, 2.5, -skirtR1 - 3.5, -skirtR1 + 0.2, -6, hFloorT);   // 限位指（接到轉盤頂面，列印時貼平台）
       translate([0, 0, -2]) cylinder(d = 20, h = 2.5);
     }
     translate([0, 0, -3]) cylinder(d = 6, h = hFloorT + 4);
@@ -472,12 +489,12 @@ module head_hood() {
       // PCB 從頭罩後方放入，由後蓋的四根壓柱往前壓住；鏡頭插進 Ø12 孔順便定位。
       inPCBFrame() for (s = [-1, 1], v = [-1, 1]) difference() {
         boxB(s * (esp_l / 2 - 1.5), s * (hW - hT + 0.6), -3.5, 2, v * (esp_w / 2 - 4), v * (esp_w / 2 + 1.5));
-        boxB(s * (esp_l / 2 - 1.6), s * (esp_l / 2 + 0.4), -3.6, 0.2, v > 0 ? esp_w / 2 - 5 : -esp_w / 2 - 0.3, v > 0 ? esp_w / 2 + 0.3 : -esp_w / 2 + 5);
+        boxB(s * (esp_l / 2 - 1.6), s * (esp_l / 2 + tol + 0.1), -3.6, 0.2, v > 0 ? esp_w / 2 - 5 : -esp_w / 2 - tol, v > 0 ? esp_w / 2 + tol : -esp_w / 2 + 5);
       }
       // 麥克風定位框
       if (mic_in_head) translate([micP[0], micP[1], headH - hT - 1.5]) difference() {
         translate([-6.2, -6.2, 0]) cube([12.4, 12.4, 1.6]);
-        translate([-5.2, -5.2, -1]) cube([10.4, 10.4, 4]);
+        translate([-5 - tol * 2 / 3, -5 - tol * 2 / 3, -1]) cube([10 + tol * 4 / 3, 10 + tol * 4 / 3, 4]);
       }
       // 轉盤固定耳（M2 由下往上鎖）
       for (p = HOOD_SCREWS) hull() {
@@ -490,7 +507,7 @@ module head_hood() {
     cylY(6, hz1 - hT - 1, hz1 + 1, lensOffset, pcbY);
     // 護目鏡凹槽（貼黑色貼紙或塗黑）與眼圈座
     boxB(-hW + 5, hW - 5, hz1 - 0.6, hz1 + 1, pcbY - 13, pcbY + 13);
-    for (s = [-1, 1]) cylY(14.2, hz1 - 0.6 - 0.6, hz1 + 1, s * eyeX, pcbY);
+    for (s = [-1, 1]) cylY(14.1 + tol / 2, hz1 - 0.6 - 0.6, hz1 + 1, s * eyeX, pcbY);
     // USB-C 開孔（頭部左側）
     boxB(hW - hT - 1, hW + 1, pcbFrontZ - 2, pcbFrontZ + 6, pcbY - 10, pcbY + 10);
     // 收音孔
@@ -519,6 +536,71 @@ module head_back() {
 module eye_ring() { difference() { union() { cylinder(d = 28, h = 1.8, $fn = 72); translate([0, 0, -0.6]) cylinder(d = 28.2, h = 0.61, $fn = 72); } translate([0, 0, -1]) cylinder(d = 20, h = 4, $fn = 72); } }
 module pupil() { cylinder(d = 13, h = 1.2, $fn = 48); }
 module eyelid() { linear_extrude(1.4) scale([1, 0.62]) intersection() { circle(r = 14.5, $fn = 64); translate([-15, 0]) square([30, 15]); } }
+
+// =====================================================================
+// 13. 試配套件：大件之前先印這些小片（一盤約 1 小時、不到 30 g），拿實物試
+//     每一片都直接用正式零件的同一段程式或同一組尺寸，試得過，正式件就配得起來。
+// =====================================================================
+// 間隙梳：5 個孔（單邊間隙 0.1–0.5，刻字標示）＋ 1 根 Ø5 銷。銷能順順插進去的最小孔 → tol
+module fit_tol() {
+  difference() {
+    translate([0, -3, 0]) cube([64, 21, 3]);
+    for (i = [0:4]) {
+      c = 0.1 + 0.1 * i;
+      translate([8 + i * 12, 10, -1]) cylinder(d = 5 + 2 * c, h = 5, $fn = 72);
+      translate([8 + i * 12, 0.6, 2.4]) linear_extrude(1) text(str(c), size = 3.2, halign = "center", font = "Liberation Sans:style=Bold");
+    }
+  }
+  translate([-9, 10, 0]) cylinder(d = 5, h = 12, $fn = 72);
+}
+// 馬達座：側壁的軸孔＋2×M3 沉頭，拿真的 JGA25-370 鎖鎖看（沉頭面朝上列印）
+module fit_motor() {
+  difference() {
+    translate([-22, -16, 0]) cube([44, 32, plateT]);
+    translate([0, 0, -1]) cylinder(r = 4.2, h = plateT + 2);
+    for (d = [-motorHole / 2, motorHole / 2]) {
+      translate([d, 0, -1]) cylinder(r = 1.7, h = plateT + 2);
+      translate([d, 0, plateT - 2]) cylinder(r = 3.1, h = 3);
+    }
+  }
+}
+// 驅動輪輪轂：D 孔＋止付螺絲孔＋螺母槽，套到馬達軸上試
+module fit_hub() { translate([0, 0, -20]) intersection() { print_sprocket(true); translate([0, 0, 20]) cylinder(r = 7, h = 15); } }
+// 履帶 3 片：用 1.75 線材試插銷、試彎折、試鏈輪齒窗
+module fit_track() { track_links_plate(3, 1); }
+// 頸部：頂板的伺服開孔＋軸環＋限位柱（左），頭部轉盤的裙邊＋舵盤凸台（右）
+module fit_neck() {
+  intersection() { translate([0, -neckZ, -topY0]) neck_deck(); translate([0, 0, -1]) cylinder(r = 37, h = 40, $fn = 120); }
+  translate([75, 0, 0]) intersection() { print_head_floor(); translate([0, 0, -1]) cylinder(r = 31, h = 30, $fn = 120); }
+}
+// ESP32-S3-CAM 外框量規：間隙和頭罩角座相同，板子要能平放進去、四角架在台階上
+module fit_pcb() {
+  L2 = esp_l / 2 + tol + 0.1; W2 = esp_w / 2 + tol;
+  difference() {
+    translate([-L2 - 2, -W2 - 2, 0]) cube([2 * L2 + 4, 2 * W2 + 4, 2.4]);
+    translate([-L2, -W2, -1]) cube([2 * L2, 2 * W2, 5]);
+  }
+  for (s = [-1, 1], v = [-1, 1]) translate([s > 0 ? esp_l / 2 - 1.5 : -L2, v > 0 ? esp_w / 2 - 4 : -W2, 0]) cube([L2 - (esp_l / 2 - 1.5), W2 - (esp_w / 2 - 4), 1]);
+}
+// DRV8870 孔位樣板：外形同 PCB，板子疊上去 4 個孔要對齊（孔距是推估值，最容易錯）
+module fit_drv() {
+  difference() {
+    translate([-drvW / 2, -drvL / 2, 0]) cube([drvW, drvL, 2]);
+    for (sx = [-1, 1], sz = [-1, 1]) translate([sx * DRV_HOLE[0], sz * DRV_HOLE[1], -1]) cylinder(d = 3.2, h = 4);
+    translate([-drvW / 2 + 6, -drvL / 2 + 8, -1]) cube([drvW - 12, drvL - 16, 4]);
+  }
+}
+// 熱熔螺母孔：4 種孔徑，燙進去最正、不會歪也不會鬆的那個 → insertD
+module fit_insert() {
+  ds = [insertD - 0.2, insertD, insertD + 0.2, insertD + 0.4];
+  difference() {
+    cube([46, 16, 7]);
+    for (i = [0:3]) {
+      translate([6 + i * 11.3, 10, 0.6]) cylinder(d = ds[i], h = 7, $fn = 48);
+      translate([6 + i * 11.3, 1.2, 6.4]) linear_extrude(1) text(str(ds[i]), size = 2.6, halign = "center", font = "Liberation Sans:style=Bold");
+    }
+  }
+}
 
 // =====================================================================
 // 組合預覽（含簡化電子零件，僅供檢查）
@@ -586,6 +668,7 @@ module print_neck_deck()    { translate([0, 0, -topY0]) neck_deck(); }
 module print_body_shell()   { translate([0, 0, -bodyY0]) body_shell(); }
 module print_battery_tray() { translate([0, 0, -trayY0]) battery_tray(); }
 module print_head_floor()   { translate([0, 0, hFloorT]) rotate([180, 0, 0]) head_floor(); }
+module print_sprocket(d)    { translate([0, 0, trackX0 - (wallOut + 0.5) + trackW]) rotate([180, 0, 0]) sprocket(d); }
 module print_head_hood()    { rotate([-90, 0, 0]) translate([0, -hz1, 0]) head_hood(); }
 module print_head_back()    { rotate([90, 0, 0]) translate([0, -hz0, 0]) head_back(); }
 
@@ -595,8 +678,8 @@ module out() mirror([1, 0, 0]) children();
 
 if (part == "assembly") out() assembly();
 if (part == "tub") out() print_tub();
-if (part == "sprocket") out() sprocket(true);
-if (part == "idler") out() sprocket(false);
+if (part == "sprocket") out() print_sprocket(true);
+if (part == "idler") out() print_sprocket(false);
 if (part == "track_link") out() translate([0, 0, trackT / 2]) track_link();
 if (part == "track_links_16") out() track_links_plate(4, 4);
 if (part == "battery_tray") out() print_battery_tray();
@@ -611,3 +694,11 @@ if (part == "head_back") out() print_head_back();
 if (part == "eye_ring") out() translate([0, 0, 0.6]) eye_ring();
 if (part == "pupil") out() pupil();
 if (part == "eyelid") out() eyelid();
+if (part == "fit_tol") fit_tol();            // 有字的零件不鏡射，字才不會反
+if (part == "fit_motor") out() fit_motor();
+if (part == "fit_hub") out() fit_hub();
+if (part == "fit_track") out() fit_track();
+if (part == "fit_neck") out() fit_neck();
+if (part == "fit_pcb") out() fit_pcb();
+if (part == "fit_drv") out() fit_drv();
+if (part == "fit_insert") fit_insert();
