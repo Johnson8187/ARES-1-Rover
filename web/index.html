@@ -306,9 +306,8 @@ dialog.lzdlg .lzsheet{cursor:default;max-height:78vh;object-fit:contain}
       <h3>排版結果</h3>
       <div id="laserStats"></div>
       <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap">
-        <button class="btn primary" id="lzSvgAll">下載全部 SVG</button>
-        <button class="btn" id="lzDxfAll">下載全部 DXF</button>
-        <button class="btn" id="lzTest">切縫測試片</button>
+        <button class="btn primary" id="lzZip">下載全部（ZIP：SVG＋DXF）</button>
+        <button class="btn" id="lzTest">只下載測試片</button>
       </div>
       <p class="small muted" id="laserMsg">紅＝切穿、藍＝淺劃線（模組位置）、黑＝雕刻（文字、零件編號）。點板子放大；放大後點零件，模型會轉過去給你看它裝在哪裡。</p>
       <div id="laserSheets"></div>
@@ -2847,18 +2846,61 @@ const LZ_UI = [
 ];
 let LZ = null, LZT = null, LZ_DIRTY = true;
 const lzName = (n, tot, ext) => `ARES1_sheet${n}-of-${tot}_${P.sheetW}x${P.sheetH}_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.${ext}`;
-function download(name, text, type) {
-  try {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type }));
-    a.download = name; document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
-    return true;
-  } catch { return false; }
+// 下載：在 claude.ai 預覽裡走 downloads 能力（只收 svg／zip 等格式，DXF 會自動包成 zip）；其他地方用一般下載連結
+const DL = window.claude?.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+const DL_OK = /\.(svg|zip|csv|txt|json|md|png|pdf)$/i;
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+// 最小的 zip（不壓縮）：檔名用 UTF-8
+function makeZip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  const d = new Date(), dt = ((d.getFullYear() - 1980) << 9 | (d.getMonth() + 1) << 5 | d.getDate()) & 0xffff, tm = (d.getHours() << 11 | d.getMinutes() << 5 | d.getSeconds() >> 1) & 0xffff;
+  let off = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = typeof f.data === 'string' ? enc.encode(f.data) : f.data, crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(10, tm, true); h.setUint16(12, dt, true);
+    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(h.buffer), name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(12, tm, true); c.setUint16(14, dt, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    central.push(new Uint8Array(c.buffer), name);
+    off += 30 + name.length + data.length;
+  }
+  const size = central.reduce((s, a) => s + a.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: 'application/zip' });
 }
-async function downloadMany(files) {
-  for (const [n, t, ty] of files) { download(n, t, ty); await new Promise(r => setTimeout(r, 350)); }
-  $('#laserMsg').textContent = `已下載 ${files.length} 個檔案。沒看到檔案？這個預覽視窗可能擋下載，請用 GitHub Pages 或本機開網頁；repo 的 laser/ 資料夾也有預設參數的檔案。`;
+async function saveFile(name, data) {
+  const msg = $('#laserMsg'), dl = await DL;
+  if (dl) {
+    if (!DL_OK.test(name)) { data = makeZip([{ name, data }]); name += '.zip'; }
+    try { await dl.save({ filename: name, data }); msg.textContent = `已下載 ${name}。`; }
+    catch (e) { msg.textContent = e?.code === 'declined' ? '已取消下載。' : e?.code === 'rate_limited' ? '上一個下載視窗還開著，先處理那一個。' : `這裡沒辦法下載（${e?.code || '未知'}）：請用 GitHub Pages 或本機打開網頁，或直接拿 repo 的 laser/ 資料夾。`; }
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(data instanceof Blob ? data : new Blob([data], { type: 'application/octet-stream' }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  msg.textContent = `已下載 ${name}。`;
+}
+function laserBundle(withSheets = true) {
+  const n = LZ.sheets.length, files = [];
+  if (withSheets) for (const sh of LZ.sheets) {
+    files.push({ name: lzName(sh.n, n, 'svg'), data: sheetSVG(sh, P, { title: `板 ${sh.n}/${n}` }) });
+    files.push({ name: lzName(sh.n, n, 'dxf'), data: sheetDXF(sh) });
+  }
+  const t = `ARES1_test_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}`;
+  files.push({ name: t + '.svg', data: sheetSVG(LZT.sheets[0], P, { title: '切縫測試片' }) }, { name: t + '.dxf', data: sheetDXF(LZT.sheets[0]) });
+  if (withSheets) {
+    const rows = LZ.sheets.flatMap(sh => sh.parts.map(q => [q.p.code, q.p.grp, q.p.name, fx(q.rot ? q.h : q.w, 1), fx(q.rot ? q.w : q.h, 1), q.mirrored ? 1 : 0, sh.n]));
+    rows.sort((a, b) => a[0].localeCompare(b[0], 'en', { numeric: true }));
+    files.push({ name: 'parts.csv', data: '﻿code,group,name,width_mm,height_mm,mirrored,sheet\n' + rows.map(r => r.join(',')).join('\n') + '\n' });
+  }
+  files.push({ name: 'README.txt', data: `ARES-1 雷切檔\r\n板材 ${P.sheetW}x${P.sheetH} mm × ${n} 張｜椴木合板 ${P.ply} mm｜切縫補償 ${P.kerf} mm（已內含，雷切軟體不要再補）｜榫孔每邊間隙 ${P.fit} mm\r\n紅 #FF0000＝切穿　藍 #0000FF＝淺劃線　黑 #000000＝填滿雕刻\r\n順序：雕刻 → 劃線 → 切割；每片先切內孔再切外框。先切 ARES1_test 測試片確認板厚與切縫。\r\n說明：docs/LASER.md\r\n` });
+  return files;
 }
 function renderLaserParams() {
   const cur = SHEETS.find(([, w, h]) => w === P.sheetW && h === P.sheetH);
@@ -2906,22 +2948,21 @@ function renderLaser() {
   const pick = grp => { if (!parts[grp]) return; UI.selected = grp; applyState(); refreshInspector(); focusPart(grp); };
   $$('#laserList tr[data-grp]').forEach(tr => tr.onclick = () => pick(tr.dataset.grp));
   $$('#laserSheets .lzsheet').forEach(svg => svg.onclick = () => openSheet(+svg.closest('.lzcard').dataset.n));
-  $$('#laserSheets [data-svg]').forEach(b => b.onclick = () => { const sh = LZ.sheets[b.dataset.svg - 1]; download(lzName(sh.n, n, 'svg'), sheetSVG(sh, P, { title: `板 ${sh.n}/${n}` }), 'image/svg+xml'); });
-  $$('#laserSheets [data-dxf]').forEach(b => b.onclick = () => { const sh = LZ.sheets[b.dataset.dxf - 1]; download(lzName(sh.n, n, 'dxf'), sheetDXF(sh), 'application/dxf'); });
+  $$('#laserSheets [data-svg]').forEach(b => b.onclick = () => { const sh = LZ.sheets[b.dataset.svg - 1]; saveFile(lzName(sh.n, n, 'svg'), sheetSVG(sh, P, { title: `板 ${sh.n}/${n}` })); });
+  $$('#laserSheets [data-dxf]').forEach(b => b.onclick = () => { const sh = LZ.sheets[b.dataset.dxf - 1]; saveFile(lzName(sh.n, n, 'dxf'), sheetDXF(sh)); });
 }
 function openSheet(k) {
   const sh = LZ.sheets[k - 1], n = LZ.sheets.length, dlg = $('#lzDlg');
   $('#lzDlgT').textContent = `第 ${k}／${n} 張 · ${sh.W}×${sh.H} mm · ${sh.parts.length} 片`;
   $('#lzDlgBody').innerHTML = sheetSVG(sh, P, { preview: true });
-  $('#lzDlgSvg').onclick = () => download(lzName(k, n, 'svg'), sheetSVG(sh, P, { title: `板 ${k}/${n}` }), 'image/svg+xml');
-  $('#lzDlgDxf').onclick = () => download(lzName(k, n, 'dxf'), sheetDXF(sh), 'application/dxf');
+  $('#lzDlgSvg').onclick = () => saveFile(lzName(k, n, 'svg'), sheetSVG(sh, P, { title: `板 ${k}/${n}` }));
+  $('#lzDlgDxf').onclick = () => saveFile(lzName(k, n, 'dxf'), sheetDXF(sh));
   $$('#lzDlgBody g[data-grp]').forEach(g => g.onclick = () => { dlg.close(); if (parts[g.dataset.grp]) { UI.selected = g.dataset.grp; applyState(); refreshInspector(); focusPart(g.dataset.grp); } });
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
 }
 $('#lzDlgX').onclick = () => $('#lzDlg').close();
-$('#lzSvgAll').onclick = () => { const n = LZ.sheets.length; downloadMany(LZ.sheets.map(sh => [lzName(sh.n, n, 'svg'), sheetSVG(sh, P, { title: `板 ${sh.n}/${n}` }), 'image/svg+xml'])); };
-$('#lzDxfAll').onclick = () => { const n = LZ.sheets.length; downloadMany(LZ.sheets.map(sh => [lzName(sh.n, n, 'dxf'), sheetDXF(sh), 'application/dxf'])); };
-$('#lzTest').onclick = () => downloadMany([[`ARES1_test_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.svg`, sheetSVG(LZT.sheets[0], P, { title: '切縫測試片' }), 'image/svg+xml'], [`ARES1_test_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.dxf`, sheetDXF(LZT.sheets[0]), 'application/dxf']]);
+$('#lzZip').onclick = () => saveFile(`ARES1_laser_${P.sheetW}x${P.sheetH}_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.zip`, makeZip(laserBundle(true)));
+$('#lzTest').onclick = () => saveFile(`ARES1_test_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.zip`, makeZip(laserBundle(false)));
 let buildPending = false;
 function scheduleBuild() { if (buildPending) return; buildPending = true; requestAnimationFrame(() => { buildPending = false; build(); }); }
 function syncYawRange() {
