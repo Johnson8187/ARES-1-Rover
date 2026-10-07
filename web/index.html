@@ -14,6 +14,7 @@
   --ok:#2D7746; --warn:#96600F; --bad:#AE3333; --info:#34689F;
   --st-c:#2D7746; --st-e:#96600F; --st-m:#A0376C; --st-d:#34689F;
   --scene-bg:#DCE1E5; --ground:#CBBDAB; --grid:#B3A695;
+  --lz-bg:#E9D3AE; --lz-cut:#C2261B; --lz-score:#2F5FB3; --lz-fill:#4A2E16;
   --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --sans:"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", "Heiti TC", system-ui, sans-serif;
   --display:"Chakra Petch", "Noto Sans TC", system-ui, sans-serif;
@@ -26,6 +27,7 @@
     --ok:#61BC81; --warn:#D7A24C; --bad:#E36E6E; --info:#74A6DD;
     --st-c:#61BC81; --st-e:#D7A24C; --st-m:#DB7DAE; --st-d:#74A6DD;
     --scene-bg:#141A20; --ground:#3A322B; --grid:#51463B;
+    --lz-bg:#5A4630; --lz-cut:#FF7A62; --lz-score:#8FB4FF; --lz-fill:#1E140A;
     color-scheme:dark;
   }
 }
@@ -35,6 +37,7 @@
   --ok:#61BC81; --warn:#D7A24C; --bad:#E36E6E; --info:#74A6DD;
   --st-c:#61BC81; --st-e:#D7A24C; --st-m:#DB7DAE; --st-d:#74A6DD;
   --scene-bg:#141A20; --ground:#3A322B; --grid:#51463B;
+  --lz-bg:#5A4630; --lz-cut:#FF7A62; --lz-score:#8FB4FF; --lz-fill:#1E140A;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -56,7 +59,7 @@ button,input,select{font:inherit;color:inherit}
 button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 .panel{grid-column:1;grid-row:2;border-right:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;min-height:0}
-.tabs{display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid var(--line)}
+.tabs{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--line)}
 .tabs button{border:0;background:none;padding:10px 2px;cursor:pointer;font-size:13px;color:var(--ink2);border-bottom:2px solid transparent}
 .tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:500}
 .tabpane{padding-block:14px 28px;padding-inline:16px;overflow:auto;min-height:0;flex:1}
@@ -137,6 +140,22 @@ ul.clean li{margin:3px 0}
 .kbd{font-family:var(--mono);font-size:12px;padding:1px 5px;border:1px solid var(--line);border-radius:4px;background:var(--surface2)}
 textarea.export{width:100%;min-height:140px;font-family:var(--mono);font-size:12px;background:var(--surface2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:8px}
 .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink2);font-size:13px}
+.lzstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:6px 0}
+.lzstats div{background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.lzstats b{display:block;font-family:var(--mono);font-size:16px;font-weight:500}
+.lzstats span{font-size:11px;color:var(--ink3)}
+.lzcard{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface2);padding:6px;margin:8px 0}
+.lzcard .row{padding:2px 2px 6px}
+.lzsheet{display:block;width:100%;height:auto;border-radius:4px;cursor:zoom-in}
+.lzsheet .lz-sheet{fill:var(--lz-bg)}
+.lzsheet .lz-body{fill:transparent;stroke:none;cursor:pointer}
+.lzsheet g:hover>.lz-body,.lzsheet g.on>.lz-body{fill:color-mix(in srgb,var(--accent) 28%,transparent)}
+.lzfield{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+.lzfield input[type=number],.lzfield input[type=text]{width:84px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.lzfield input[type=text]{width:140px}
+dialog.lzdlg{width:min(96vw,1280px);max-height:92vh;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:10px}
+dialog.lzdlg::backdrop{background:rgba(0,0,0,.45)}
+dialog.lzdlg .lzsheet{cursor:default;max-height:78vh;object-fit:contain}
 
 @media (max-width:1180px){
   .app{grid-template-columns:320px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;height:auto;min-height:100%}
@@ -183,6 +202,7 @@ textarea.export{width:100%;min-height:140px;font-family:var(--mono);font-size:12
       <button role="tab" data-tab="check" aria-selected="false">檢查</button>
       <button role="tab" data-tab="wire" aria-selected="false">配線</button>
       <button role="tab" data-tab="asm" aria-selected="false">組裝</button>
+      <button role="tab" data-tab="laser" aria-selected="false">雷切</button>
       <button role="tab" data-tab="spec" aria-selected="false">規格</button>
     </div>
 
@@ -279,6 +299,23 @@ textarea.export{width:100%;min-height:140px;font-family:var(--mono);font-size:12
       <div class="steps" id="asmList" style="margin-top:10px"></div>
     </div>
 
+    <div class="tabpane" data-pane="laser" hidden>
+      <p class="small muted">整台車都是 3 mm 椴木合板雷切＋白膠，沒有任何 3D 列印件。先切「測試片」量好切縫和板厚，數字填進來，再切正式板。檔案已經內含切縫補償，雷切軟體裡不要再補一次。</p>
+      <h3>板材與雷射</h3>
+      <div id="laserParams"></div>
+      <h3>排版結果</h3>
+      <div id="laserStats"></div>
+      <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap">
+        <button class="btn primary" id="lzSvgAll">下載全部 SVG</button>
+        <button class="btn" id="lzDxfAll">下載全部 DXF</button>
+        <button class="btn" id="lzTest">切縫測試片</button>
+      </div>
+      <p class="small muted" id="laserMsg">紅＝切穿、藍＝淺劃線（模組位置）、黑＝雕刻（文字、零件編號）。點板子放大；放大後點零件，模型會轉過去給你看它裝在哪裡。</p>
+      <div id="laserSheets"></div>
+      <h3>零件清單</h3>
+      <div id="laserList"></div>
+    </div>
+
     <div class="tabpane" data-pane="spec" hidden>
       <div id="specPane"></div>
     </div>
@@ -304,6 +341,10 @@ textarea.export{width:100%;min-height:140px;font-family:var(--mono);font-size:12
 
   <section class="inspector" id="inspector" aria-live="polite"></section>
 </div>
+<dialog class="lzdlg" id="lzDlg" aria-label="板材排版放大">
+  <div class="row"><b id="lzDlgT"></b><span class="row" style="gap:6px;padding:0"><button class="btn" id="lzDlgSvg">下載 SVG</button><button class="btn" id="lzDlgDxf">下載 DXF</button><button class="btn" id="lzDlgX">關閉</button></span></div>
+  <div id="lzDlgBody"></div>
+</dialog>
 
 <script type="module">
 import * as THREE from 'three';
@@ -336,7 +377,7 @@ const DEFAULTS = {
   layout: 'B',
   // 履帶 / 底盤
   innerW: 110, wheelbase: 111.5, trackW: 30, trackPitch: 12.5, sprocketTeeth: 10,
-  plateT: 4, trackGap: 1.5, trackT: 5, grouser: 1.5, floorY: 12, floorT: 2.5,
+  plateT: 3, trackGap: 1.5, trackT: 5, grouser: 1.5, floorY: 14, floorT: 3,
   // JGA25-370（6 V 版）
   motorD: 25, motorCan: 31, encLen: 11, gearLen: 22, shaftD: 4, shaftLen: 12.5, motorHole: 17, motorMass: 85,
   // 行動電源（學員自備，預設＝10000 mAh 薄型）與電池艙
@@ -344,13 +385,17 @@ const DEFAULTS = {
   // 模組（buck＝Mini560 5 V）
   drvL: 48, drvW: 30, buckL: 22, buckW: 17, buckH: 6, spkD: 40, spkH: 20,
   // 身體
-  bodyW: 110, bodyD: 100, bodyH: 78, shellT: 1.6, deckT: 3,
+  bodyW: 110, bodyD: 100, bodyH: 78, shellT: 3, deckT: 3,
   // 頭部
-  neckExtra: 0, neckZ: 0, headZ: 2, headW: 80, headH: 44, headD: 48,
+  neckExtra: 0, neckZ: 0, headZ: -1, headW: 84, headH: 48, headD: 54,
   camTilt: 10, lensOffset: -20, lensH: 11, eyelid: 8, yawMax: 45, micInHead: true,
   // 分析
-  fovDiag: 66, mu: 0.7, bed: 180,
+  fovDiag: 66, mu: 0.7,
+  // 雷切木作（3 mm 椴木合板）
+  ply: 3, kerf: 0.15, fit: 0.05, sheetW: 400, sheetH: 300, woodRho: 0.55, nameTag: 'ARES-1',
 };
+// 板厚一改，所有板件跟著改
+function syncPly(P) { P.plateT = P.floorT = P.deckT = P.shellT = P.ply; return P; }
 const PRESETS = {
   B: {},
   A: { layout: 'A', innerW: 134 },
@@ -379,11 +424,11 @@ const PARAM_UI = [
   ]},
   { group: '行動電源（學員自備）', items: [
     { k: 'bankL', label: '行動電源長', min: 60, max: 200, step: 1, st: 'M', hint: '比電池艙長的部分會從車尾露出來（開尾設計），看「檢查」的離去角。' },
-    { k: 'bankW', label: '行動電源寬', min: 40, max: 100, step: 1, st: 'M', hint: '電池艙兩側立柱之間可用 85 mm。' },
+    { k: 'bankW', label: '行動電源寬', min: 40, max: 100, step: 1, st: 'M', hint: '電池艙左壁凸緣到右緣立板之間可用 85 mm。' },
     { k: 'bankT', label: '行動電源厚', min: 8, max: 40, step: 0.5, st: 'M', hint: '比電池艙高度少 0.5 以內都放得進去；薄的用魔鬼氈拉緊。' },
     { k: 'bankMass', label: '行動電源重量', min: 60, max: 500, step: 5, st: 'M', unit: 'g' },
     { k: 'bankCap', label: '標示容量', min: 2000, max: 26000, step: 1000, st: 'M', unit: 'mAh', hint: '只用來估算續航。' },
-    { k: 'bankSpacer', label: '前方墊塊', min: 0, max: 60, step: 1, st: 'D', hint: '短的行動電源在前面塞列印墊塊，把重心推回中間。「檢查」會算建議值。' },
+    { k: 'bankSpacer', label: '前方墊塊', min: 0, max: 60, step: 1, st: 'D', hint: '短的行動電源在前面塞合板疊片，把重心推回中間。「檢查」會算建議值。' },
     { k: 'bayH', label: '電池艙高度', min: 16, max: 40, step: 1, st: 'D', hint: '加高能放更厚的行動電源，但整台車跟著變高。' },
   ]},
   { group: '身體', items: [
@@ -395,19 +440,18 @@ const PARAM_UI = [
     { k: 'neckExtra', label: '頸部加高', min: 0, max: 100, step: 1, st: 'D', hint: '0 = 伺服直接裝在身體頂板。' },
     { k: 'neckZ', label: '轉軸前後位置', min: -20, max: 3, step: 1, st: 'D' },
     { k: 'headZ', label: '頭部相對轉軸前移', min: -10, max: 15, step: 1, st: 'D' },
-    { k: 'headW', label: '頭寬', min: 72, max: 110, step: 1, st: 'D', hint: 'PCB 62.6 橫放，加上卡槽與側壁至少約 72。' },
-    { k: 'headH', label: '頭高', min: 38, max: 64, step: 1, st: 'D' },
-    { k: 'headD', label: '頭深', min: 40, max: 64, step: 1, st: 'D', hint: '要容納鏡頭＋PCB＋排針＋杜邦頭＋線彎。' },
+    { k: 'headW', label: '頭寬', min: 76, max: 110, step: 1, st: 'D', hint: 'PCB 62.6 橫放，加上兩側卡板與 3 mm 側板至少約 78。' },
+    { k: 'headH', label: '頭高', min: 44, max: 64, step: 1, st: 'D', hint: '底板、上蓋和上蓋定位板各 3 mm。' },
+    { k: 'headD', label: '頭深', min: 46, max: 70, step: 1, st: 'D', hint: '要容納鏡頭＋PCB＋排針＋杜邦頭＋線彎；前後板內縮 3 mm 做出框。' },
     { k: 'camTilt', label: '鏡頭俯角', min: 0, max: 25, step: 1, st: 'D', hint: '往下看地面比較好，但轉頭時畫面下緣可能拍到車身。' },
     { k: 'lensOffset', label: '鏡頭偏離 PCB 中心（負＝天線端）', min: -24, max: 24, step: 0.5, st: 'M', hint: 'GOOUUU 板的相機是軟排線接的，平常貼在模組鐵殼上，約 −20。偏移 ≥ 12 mm 時，真鏡頭會放進一隻眼睛。' },
     { k: 'lensH', label: '鏡頭高出 PCB', min: 4, max: 16, step: 0.5, st: 'M', hint: '相機模組墊在模組鐵殼上，依商品照估 11。' },
     { k: 'yawMax', label: '轉頭範圍 ±', min: 20, max: 60, step: 1, st: 'D' },
-    { k: 'eyelid', label: '表情眼瞼角度', min: -25, max: 25, step: 1, st: 'D', hint: '純造型的可替換列印片，正值像在好奇，負值像在生氣。' },
+    { k: 'eyelid', label: '表情眼瞼角度', min: -25, max: 25, step: 1, st: 'D', hint: '純造型的可替換小木片，正值像在好奇，負值像在生氣。' },
   ]},
   { group: '分析條件', items: [
     { k: 'mu', label: '履帶摩擦係數 μ', min: 0.3, max: 1.2, step: 0.05, st: 'E', dec: 2 },
     { k: 'fovDiag', label: '鏡頭對角視角', min: 50, max: 160, step: 1, st: 'M', unit: '°' },
-    { k: 'bed', label: '列印平台邊長', min: 150, max: 300, step: 5, st: 'M' },
   ]},
 ];
 
@@ -424,6 +468,7 @@ let P = { ...DEFAULTS };
    座標：X＝車子左側（從車尾往前看）、Y＝向上、Z＝車頭方向，原點在地面中心
    ========================================================= */
 function computeLayout(P) {
+  syncPly(P);
   const L = {};
   const coax = P.layout === 'A';
   L.coax = coax;
@@ -433,7 +478,8 @@ function computeLayout(P) {
   L.axleY = L.pinY + L.R;
   L.trackTop = L.axleY + L.R + P.trackT / 2 + P.grouser;
   L.hw = P.innerW / 2;
-  L.wallOut = L.hw + P.plateT;
+  const T = L.T = P.ply;                          // 合板厚
+  L.wallOut = L.hw + T;
   L.trackX0 = L.wallOut + P.trackGap;
   L.trackCx = L.trackX0 + P.trackW / 2;
   L.trackOut = L.trackX0 + P.trackW;
@@ -444,17 +490,18 @@ function computeLayout(P) {
   L.motorTotal = P.gearLen + P.motorCan + P.encLen;
   L.mR = P.motorD / 2;
   L.motorBottom = L.axleY - L.mR;
-  L.floorTop = P.floorY + P.floorT;
-  L.clearance = Math.min(P.floorY, L.motorBottom);
+  L.floorTop = P.floorY + T;
+  L.wallBot = P.floorY - T;                       // 側壁往下多 3 mm，底板的榫頭才插得進側壁
+  L.clearance = Math.min(L.wallBot, L.motorBottom);
   L.tubLen = Math.ceil(P.wheelbase + P.motorD + 2 * (3 + 6));
-  L.tubZ0 = -L.tubLen / 2; L.tubZ1 = L.tubLen / 2;
-  L.endWallT = 3;
+  L.tubZ0 = -L.tubLen / 2; L.tubZ1 = L.tubLen / 2;   // 前後壁外面
+  L.endWallT = T;
   // 底盤是「雙層巴士」：下層馬達＋驅動板＋電源區，上層整層是行動電源的電池艙
   L.bay = P.bankMount !== 'back';
   L.trayY0 = L.axleY + L.mR + 0.8;               // 托盤底面＝馬達頂 +0.8
-  L.trayT = 1.6; L.trayTop = L.trayY0 + L.trayT;
+  L.trayT = T; L.trayTop = L.trayY0 + L.trayT;
   L.deckY0 = L.bay ? L.trayTop + P.bayH : Math.max(L.trackTop + 0.6, L.trayY0);
-  L.deckY1 = L.deckY0 + P.deckT;
+  L.deckY1 = L.deckY0 + T;
 
   const mk = (side, sign, z) => {
     const flangeX = sign * L.hw;
@@ -479,22 +526,17 @@ function computeLayout(P) {
   L.cradles = [];
   for (const mo of [L.mL, L.mR_]) {
     const cx = mo.innerX + mo.sign * (P.encLen + 6);
-    for (const s of [-1, 1]) { const za = mo.z + s * 12.9, zb = mo.z + s * 16.4; L.cradles.push({ cx, mz: mo.z, x0: cx - 3, x1: cx + 3, y0: L.floorTop, y1: L.axleY, z0: Math.min(za, zb), z1: Math.max(za, zb) }); }
+    for (const s of [-1, 1]) { const za = mo.z + s * 12.8, zb = mo.z + s * 17.8; L.cradles.push({ cx, mz: mo.z, x0: cx - T / 2, x1: cx + T / 2, y0: L.floorTop, y1: L.axleY, z0: Math.min(za, zb), z1: Math.max(za, zb) }); }
   }
 
   // 右側線材通道（地板直通上身底板）與電池艙
   L.chX0 = -L.hw; L.chX1 = -L.hw + 16;
-  L.lipX0 = L.chX1; L.lipX1 = L.chX1 + 2;          // 托盤右緣立邊：兼通道牆與行動電源導軌
-  L.pillarW = 7;
-  L.bayX0 = L.lipX1; L.bayX1 = L.hw - L.pillarW;   // 可用寬（預設 85）
+  L.lipX0 = L.chX1; L.lipX1 = L.chX1 + T;          // 托盤右緣立板：兼通道牆與行動電源導軌
+  L.bayX0 = L.lipX1; L.bayX1 = L.hw - 6;           // 可用寬（預設 85）；左邊留 6 mm 給後壁的小立柱
   L.bayZ1 = L.tubZ1 - L.endWallT;                  // 前壁就是擋塊，後方整個打開
-  L.pillars = [
-    { x0: L.hw - L.pillarW, x1: L.hw, z0: -33.5, z1: -26.5 },
-    { x0: L.hw - L.pillarW, x1: L.hw, z0: 26.5, z1: 33.5 },
-    { x0: -L.hw, x1: -L.hw + L.pillarW, z0: 18.5, z1: 25.5 },
-    { x0: -L.hw, x1: -L.hw + L.pillarW, z0: L.tubZ0 + L.endWallT, z1: L.tubZ0 + L.endWallT + 6 },
-  ].map(p => ({ ...p, y0: L.floorTop, y1: L.deckY0 }));
-  L.trayPost = { x0: L.lipX0 - 2, x1: L.lipX1, y0: L.floorTop, y1: L.trayY0, z0: 20, z1: 26 };
+  L.pillars = [];                                  // 木作版不用立柱：上身底板用 T 型槽螺絲鎖在側壁頂邊
+  L.tslots = [[1, -30], [1, 30], [-1, -30], [-1, 30]].map(([s, z]) => ({ s, z, x: s * (L.hw + T / 2) }));
+  L.trayPost = { x0: L.lipX0, x1: L.lipX0 + T, y0: L.floorTop, y1: L.trayY0, z0: 18, z1: 32 };
   L.strapSlots = [-55, -10, 35];                   // 魔鬼氈扣孔（每側兩個一組）
   L.slotX = [L.lipX1 + 2.5, L.lipX1 + 10.5, L.bayX1 - 10.5, L.bayX1 - 2.5];
   {
@@ -507,7 +549,7 @@ function computeLayout(P) {
   const d = {};
   d.x = -(L.hw - 4 - P.drvW / 2);
   d.z = -12;
-  d.y0 = L.floorTop + 4; d.y1 = d.y0 + 12;
+  d.y0 = L.floorTop + 5; d.y1 = d.y0 + 12;           // M3×5 尼龍銅柱
   d.hole = [11.4, 20.4];                          // 孔距 22.8 × 40.8（由 R3.6 圓角推得）
   d.box = { x0: d.x - P.drvW / 2, x1: d.x + P.drvW / 2, y0: d.y0, y1: d.y1, z0: d.z - P.drvL / 2, z1: d.z + P.drvL / 2 };
   d.tz = i => d.box.z0 + 9 + i * 5.08;            // 端子：0 VM、1 G、2 OUT1 … 5 OUT4（朝車身中央，VM 在後端）
@@ -523,7 +565,7 @@ function computeLayout(P) {
     const zi = front ? L.tubZ1 - L.endWallT : L.tubZ0 + L.endWallT;   // 牆內面
     const zr = (a, b) => ({ z0: Math.min(zi + s * a, zi + s * b), z1: Math.max(zi + s * a, zi + s * b) });
     const pw = { front, s, wallZ: front ? L.tubZ1 : L.tubZ0 };
-    const y0 = L.floorTop + 3;
+    const y0 = L.floorTop + T;                     // 每個模組底下墊一片 3 mm 合板
     pw.pd = { x0: -L.hw + 15, x1: -L.hw + 27, y0, y1: y0 + 4.8, ...zr(-2.5, 22) };   // PCB 穿過牆孔，母座和外牆面齊
     pw.usbX = (pw.pd.x0 + pw.pd.x1) / 2;
     pw.buck = { x0: -L.hw + 28.5, x1: -L.hw + 28.5 + P.buckW, y0, y1: y0 + P.buckH, ...zr(0.5, 0.5 + P.buckL) };
@@ -535,20 +577,24 @@ function computeLayout(P) {
   }
 
   // 上身線孔（對準通道）與 J1/J2
-  L.deckHole = { x0: L.chX0 + 7, x1: L.chX1 - 1, z0: -36, z1: -10 };
+  L.deckHole = { x0: L.chX0 + 8.5, x1: L.chX1 - 1, z0: -36, z1: -10 };
   L.conn = { x0: L.chX0 + 6.5, x1: L.chX0 + 12.5, y0: L.deckY0 - 9, y1: L.deckY0 - 2, j1: [L.deckHole.z0 + 2, L.deckHole.z0 + 19.5], j2: [L.deckHole.z1 - 2, L.deckHole.z1 + 20.5] };
 
   // 身體
   L.bodyY0 = L.deckY1; L.bodyY1 = L.bodyY0 + P.bodyH;
   L.bodyZ0 = -P.bodyD / 2; L.bodyZ1 = P.bodyD / 2;
   L.bw = P.bodyW / 2;
-  L.inW = L.bw - P.shellT; L.inZ0 = L.bodyZ0 + P.shellT; L.inZ1 = L.bodyZ1 - P.shellT;
-  L.topT = 4; L.topY1 = L.bodyY1; L.topY0 = L.topY1 - L.topT;
-  L.wingX1 = L.inW - 1.4; L.wingX0 = L.wingX1 - 3;
-  L.spineZ0 = P.neckZ + 10; L.spineZ1 = L.spineZ0 + 3;
+  L.shellInset = 3;                               // 外殼前後板內縮 3 mm，側板包住（像相框）
+  L.inW = L.bw - T; L.inZ0 = L.bodyZ0 + L.shellInset + T; L.inZ1 = L.bodyZ1 - L.shellInset - T;
+  L.topT = T; L.topY1 = L.bodyY1; L.topY0 = L.topY1 - L.topT;
+  L.wingX1 = L.inW - 1.4; L.wingX0 = L.wingX1 - T;
+  L.spineZ0 = P.neckZ + 10; L.spineZ1 = L.spineZ0 + T;
   L.frameTop = L.topY0;
-  // 喇叭（前方，用墊高環貼齊格柵）
-  L.spk = { x: 0, zF: L.inZ1 - 1, r: P.spkD / 2 };
+  L.shellZ = [L.inZ0 + 8, L.spineZ0 - 5];          // 外殼側板 M3 螺絲 → 側翼上的六角螺帽
+  L.deckHole.x0 = Math.max(L.deckHole.x0, -L.wingX0 + P.fit + 1.2);   // 線孔不能吃到右翼的榫孔
+  if (L.deckHole.x1 - L.deckHole.x0 < 5) L.deckHole.x1 = L.deckHole.x0 + 6.5;   // 通道在身體外（底盤太寬）：線孔退到右翼內側
+  // 喇叭（直接黏在外殼前板內側、對準格柵孔）
+  L.spk = { x: 0, zF: L.inZ1, r: P.spkD / 2 };
   L.spk.zB = L.spk.zF - P.spkH;
   L.spk.y = L.bodyY0 + clamp(P.bodyH * 0.5, 26, 52);
   // 功放 MAX98357A：骨架前面、喇叭旁
@@ -557,33 +603,35 @@ function computeLayout(P) {
   L.perf = { x0: -L.wingX0, x1: -L.wingX0 + 12, y0: Math.min(L.bodyY0 + 43, L.topY0 - 31), z1: L.spineZ0 - 3 };
   L.perf.x0 = -L.wingX0; L.perf.x1 = -L.wingX0 + 12; L.perf.y1 = L.perf.y0 + 30; L.perf.z0 = L.perf.z1 - 44;   // 讓開右後方頂板螺絲柱
   // 船型開關（身體頂板左後角，朝上）
-  L.sw = { x: L.bw - 22, z: L.bodyZ0 + 16, y1: L.topY1, y0: L.topY1 - 18 };
+  L.sw = { x: L.bw - 22, z: L.inZ0 + 11.5, y1: L.topY1, y0: L.topY1 - 18 };   // 21 mm 長，離後壁內側 1 mm
 
   // 頸部與伺服
   L.riserH = P.neckExtra;
   L.mountY1 = L.topY1 + L.riserH;
-  L.mountY0 = L.mountY1 - 4;
+  L.mountY0 = L.mountY1 - T;
   L.servoY0 = L.mountY0 - SERVO.tabT - SERVO.tabZ;
   L.servoTop = L.servoY0 + SERVO.h;
   L.bossTop = L.servoTop + SERVO.bossH;
   L.hornTop = L.bossTop + SERVO.hornH;
-  L.collar = { r0: 21, r1: 24, y0: L.mountY1, y1: L.mountY1 + 7 };
-  L.skirt = { r0: 24.5, r1: 26.5, drop: 8.5 };
-  L.pivotY = L.hornTop + 2;
+  L.collar = { r0: 21, r1: 25, y0: L.mountY1, y1: L.mountY1 + 2 * T };   // 兩片合板圈疊成軸環
+  L.skirt = { r0: 25.5, r1: 28.5, drop: 3 * T };                         // 三片合板圈疊成裙邊
+  L.stopR = 33;
+  L.pivotY = L.hornTop;                           // 頭部底板直接鎖在圓舵盤上
   L.servoBox = { x0: -SERVO.shaftOff, x1: SERVO.l - SERVO.shaftOff, y0: L.servoY0, y1: L.servoTop, z0: P.neckZ - SERVO.w / 2, z1: P.neckZ + SERVO.w / 2 };
   L.harnessR = 16; L.bundleR = 3.5; // 15 芯（含編碼器 A/B）＋螺旋套約 Ø7
   L.stopAng = P.yawMax + 10;
   L.windowR0 = 9; L.windowR1 = L.collar.r0 - 0.5; L.windowZ = -7.5; // 線槽窗口（相對轉軸）
 
   // 頭部（區域座標：原點＝轉軸在頭部底面，Z 朝前）
-  const h = { w: P.headW, h: P.headH, d: P.headD, zc: P.headZ, wall: 1.8, floorT: 3 };
+  const h = { w: P.headW, h: P.headH, d: P.headD, zc: P.headZ, wall: T, floorT: T, inset: 3 };
   h.z0 = P.headZ - P.headD / 2; h.z1 = P.headZ + P.headD / 2;
-  h.lensFrontZ = h.z1 - 1;
+  h.frontZ0 = h.z1 - h.inset - T;                 // 前板內面（前後板內縮 3 mm，側板包住）
+  h.lensFrontZ = h.z1 - h.inset - 0.5;            // 鏡頭伸進前板的 Ø12 孔
   h.pcbY = P.headH / 2 + 1;
   h.pcbFrontZ = h.lensFrontZ - P.lensH;
   h.stackDepth = P.lensH + ESP.t + ESP.pinLen + ESP.dupont + ESP.bend;
-  h.backInnerZ = h.z0 + h.wall;
-  h.micLocal = [ESP.l / 2 - 9, P.headH - h.wall - 1.2, h.z0 + 12];
+  h.backInnerZ = h.z0 + h.inset + T;
+  h.micLocal = [ESP.l / 2 - 9, P.headH - 2 * T, h.z0 + 14];   // 黏在上蓋定位板底下
   h.camEye = Math.abs(P.lensOffset) >= 12 ? Math.sign(P.lensOffset) : 0;   // 真鏡頭在哪一隻眼（−1＝右眼）
   h.eyeX = h.camEye ? Math.abs(P.lensOffset) : Math.min(P.headW / 2 - 18, 21);
   L.head = h;
@@ -630,15 +678,664 @@ function headToWorld(L, yaw, x, y, z) {
 }
 
 /* =========================================================
+   2b. 木作：3 mm 椴木合板雷切件
+   每片板＝平面上的 2D 外形（含榫頭）＋孔＋雷雕，放在三個座標平面之一：
+     'XY'：(a, b) = (x, y)，厚度往 +z，at＝z 起點
+     'XZ'：(a, b) = (x, z)，厚度往 +y，at＝y 起點
+     'ZY'：(a, b) = (z, y)，厚度往 +x，at＝x 起點
+   接合一律是「榫頭穿過另一片的榫孔」＋白膠；榫孔由榫頭的位置自動挖。
+   要拆的地方用 T 型槽（M3 螺絲＋螺帽）或六角螺帽孔。
+   ========================================================= */
+const WOOD_GROUPS = {
+  tub: ['C', '底盤箱'], tray: ['T', '電池艙托盤'], frame: ['B', '上身骨架'], topPlate: ['N', '頂板／頸座'],
+  shell: ['S', '外殼'], headFloor: ['H', '頭部底盤'], headHood: ['H', '頭殼'], headBack: ['H', '頭蓋'],
+  spacer: ['T', '前方墊塊'], backpack: ['P', '背包架'], test: ['X', '切縫測試片'],
+};
+const WOOD_AX = { XY: ['x', 'y', 'z'], XZ: ['x', 'z', 'y'], ZY: ['z', 'y', 'x'] };   // a 軸、b 軸、法線軸
+
+// 矩形板＋四邊特徵。邊：s＝b0、e＝a1、n＝b1、w＝a0（逆時針走）。
+// 特徵：{k:'tab', c, w, d}（往外凸）、{k:'notch', c, w, d}（往內缺）、{k:'tslot', c}（T 型螺絲槽）
+function edgePlate(a0, b0, a1, b1, f = {}, r = 0) {
+  const sides = [
+    { k: 's', n: [0, -1], pt: (c, h) => [c, b0 - h], dir: 1, lo: a0, hi: a1 },
+    { k: 'e', n: [1, 0], pt: (c, h) => [a1 + h, c], dir: 1, lo: b0, hi: b1 },
+    { k: 'n', n: [0, 1], pt: (c, h) => [c, b1 + h], dir: -1, lo: a0, hi: a1 },
+    { k: 'w', n: [-1, 0], pt: (c, h) => [a0 - h, c], dir: -1, lo: b0, hi: b1 },
+  ];
+  const TS = [[-1.7, 0], [-1.7, -6.7], [-2.9, -6.7], [-2.9, -9.3], [-1.7, -9.3], [-1.7, -13], [1.7, -13], [1.7, -9.3], [2.9, -9.3], [2.9, -6.7], [1.7, -6.7], [1.7, 0]];
+  const pts = [], bumps = [];
+  sides.forEach((sd, i) => {
+    const start = sd.dir > 0 ? sd.lo : sd.hi;
+    pts.push(sd.pt(start + sd.dir * r, 0));
+    const fs = (f[sd.k] || []).slice().sort((x, y) => sd.dir * (x.c - y.c));
+    for (const ft of fs) {
+      const prof = ft.k === 'tslot' ? TS : ft.k === 'tab' ? [[-ft.w / 2, 0], [-ft.w / 2, ft.d], [ft.w / 2, ft.d], [ft.w / 2, 0]] : [[-ft.w / 2, 0], [-ft.w / 2, -ft.d], [ft.w / 2, -ft.d], [ft.w / 2, 0]];
+      for (const [t, h] of prof) pts.push(sd.pt(ft.c + sd.dir * t, h));
+      if (ft.k === 'tab') {
+        const p0 = sd.pt(ft.c - ft.w / 2, 0), p1 = sd.pt(ft.c + ft.w / 2, ft.d);
+        bumps.push([Math.min(p0[0], p1[0]), Math.min(p0[1], p1[1]), Math.max(p0[0], p1[0]), Math.max(p0[1], p1[1])]);
+      }
+    }
+    const end = sd.dir > 0 ? sd.hi : sd.lo;
+    pts.push(sd.pt(end - sd.dir * r, 0));
+    if (r > 0) {   // 圓角：圓心往內縮 r
+      const nx = sides[(i + 1) % 4].n, n0 = sd.n, corner = sd.pt(end, 0);
+      const cx = corner[0] - r * n0[0] - r * nx[0], cy = corner[1] - r * n0[1] - r * nx[1];
+      const t0 = Math.atan2(n0[1], n0[0]);
+      for (let j = 1; j < 6; j++) { const t = t0 + (Math.PI / 2) * j / 6; pts.push([cx + r * Math.cos(t), cy + r * Math.sin(t)]); }
+    }
+  });
+  return { pts: dedupe(pts), bumps };
+}
+function dedupe(pts) {
+  const o = [];
+  for (const p of pts) { const q = o[o.length - 1]; if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-6) o.push(p); }
+  if (o.length > 2 && Math.hypot(o[0][0] - o[o.length - 1][0], o[0][1] - o[o.length - 1][1]) < 1e-6) o.pop();
+  return o;
+}
+// 沿著一條邊平均放榫頭，避開 avoid 範圍
+function tabsOn(c0, c1, d, o = {}) {
+  const w = o.w ?? 10, len = c1 - c0, avoid = o.avoid || [];
+  const n = o.n ?? Math.max(1, Math.min(5, Math.round(len / 40)));
+  const res = [];
+  for (let i = 0; i < n; i++) {
+    const c = c0 + len * (i + 0.5) / n;
+    if (avoid.some(([lo, hi]) => c + w / 2 > lo - 2 && c - w / 2 < hi + 2)) continue;
+    res.push({ k: 'tab', c, w, d });
+  }
+  return res;
+}
+const rectP = (a0, b0, a1, b1) => [[a0, b0], [a1, b0], [a1, b1], [a0, b1]];
+function polyArea(pts) { let s = 0; for (let i = 0; i < pts.length; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % pts.length]; s += x0 * y1 - x1 * y0; } return s / 2; }
+function polyCentroid(pts) {
+  let a = 0, cx = 0, cy = 0;
+  for (let i = 0; i < pts.length; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % pts.length]; const k = x0 * y1 - x1 * y0; a += k; cx += (x0 + x1) * k; cy += (y0 + y1) * k; }
+  return a ? [cx / (3 * a), cy / (3 * a)] : pts[0];
+}
+function inPoly(p, pts) {
+  let c = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > p[1]) !== (yj > p[1]) && p[0] < (xj - xi) * (p[1] - yi) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+function bbox(pts) { let a0 = Infinity, b0 = Infinity, a1 = -Infinity, b1 = -Infinity; for (const [a, b] of pts) { a0 = Math.min(a0, a); a1 = Math.max(a1, a); b0 = Math.min(b0, b); b1 = Math.max(b1, b); } return [a0, b0, a1, b1]; }
+
+function woodParts(P, L) {
+  const T = L.T, fit = P.fit, out = [];
+  const add = (grp, name, plane, at, shape, o = {}) => {
+    const p = { grp, name, plane, at, t: T, outline: shape.pts || shape, bumps: shape.bumps || [], holes: o.holes || [], marks: o.marks || [], fills: o.fills || [], texts: o.texts || [], face: o.face ?? 1, head: !!o.head };
+    out.push(p); return p;
+  };
+  const z0 = L.tubZ0, z1 = L.tubZ1, hw = L.hw, wy0 = L.wallBot, wy1 = L.deckY0;
+
+  // ---------- 底盤箱 ----------
+  // 底板：夾在四面牆中間，四邊榫頭插進牆；馬達底下開缺口讓馬達沉下去
+  {
+    const f = { e: [], w: [], s: tabsOn(-hw, hw, T), n: tabsOn(-hw, hw, T) };
+    for (const mo of [L.mL, L.mR_]) {
+      const side = mo.sign > 0 ? 'e' : 'w', depth = Math.abs(mo.flangeX - mo.innerX) + 1;
+      f[side].push({ k: 'notch', c: mo.z, w: 18, d: depth });
+    }
+    const avoidL = [L.mL, L.mR_].filter(m => m.sign > 0).map(m => [m.z - 9, m.z + 9]);
+    const avoidR = [L.mL, L.mR_].filter(m => m.sign < 0).map(m => [m.z - 9, m.z + 9]);
+    f.e.push(...tabsOn(z0 + T, z1 - T, T, { avoid: avoidL, n: 4 }));
+    f.w.push(...tabsOn(z0 + T, z1 - T, T, { avoid: avoidR, n: 4 }));
+    const d = L.drv, pw = L.pwr;
+    const holes = [];
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) holes.push(circ(d.x + sx * d.hole[0], d.z + sz * d.hole[1], 1.6, 16));
+    for (const s of [-1, 1]) holes.push(circ(s * 30, z1 - T - 4.5, 1.7, 14));   // 任務模組預留孔（避開馬達缺口）
+    const mk = o => rectP(o.x0, Math.max(o.z0, z0 + T), o.x1, Math.min(o.z1, z1 - T));
+    add('tub', '底板', 'XZ', P.floorY, edgePlate(-hw, z0 + T, hw, z1 - T, f), {
+      holes, face: 1,
+      marks: [mk(pw.pd), mk(pw.buck), mk(pw.ldo), rectP(pw.cap.x0, pw.cap.z0, pw.cap.x1, pw.cap.z1), rectP(d.box.x0, d.box.z0, d.box.x1, d.box.z1)],
+      texts: [{ s: '前 FRONT', a: 0, b: z1 - T - 5, size: 5 }],
+    });
+  }
+  // 左右側壁（兼馬達座）：最外層，前後各多 3 mm 包住前後壁；頂邊有 T 型槽讓上身底板鎖下來
+  for (const mo of [L.mL, L.mR_]) {
+    const s = mo.sign, x0 = s > 0 ? hw : -hw - T;
+    const ts = L.tslots.filter(q => q.s === s);
+    const nTabs = tabsOn(z0 - T, z1 + T, T, { avoid: ts.map(q => [q.z - 5, q.z + 5]), n: 5 });
+    const shape = edgePlate(z0 - T, wy0, z1 + T, wy1, { n: [...nTabs, ...ts.map(q => ({ k: 'tslot', c: q.z }))] });
+    const idz = -mo.z;
+    const holes = [circ(mo.z, L.axleY, 4.2, 24), circ(mo.z + P.motorHole / 2, L.axleY, 1.7, 14), circ(mo.z - P.motorHole / 2, L.axleY, 1.7, 14),
+      rrect(idz - 4 - 2.2, L.axleY - 2.2, idz + 4 + 2.2, L.axleY + 2.2, 2.1)];
+    add('tub', s > 0 ? '左側壁（左馬達座）' : '右側壁（右馬達座）', 'ZY', x0, shape, { holes, face: -s });
+  }
+  // 前後壁：夾在兩片側壁中間；後壁上半部是電池艙開口，下半部有 USB-C 孔
+  {
+    const pw = L.pwr;
+    const usb = rrect(pw.usbX - 6.75, L.usbY - 3.8, pw.usbX + 6.75, L.usbY + 3.8, 2.5);
+    const side = { e: tabsOn(wy0, wy1, T, { n: 2 }), w: tabsOn(wy0, wy1, T, { n: 2 }) };
+    const rearN = L.bay ? [{ k: 'notch', c: (L.lipX0 + L.bayX1) / 2, w: L.bayX1 - L.lipX0, d: wy1 - L.trayY0 }, { k: 'tab', c: (-hw + L.lipX0) / 2, w: 8, d: T }] : tabsOn(-hw, hw, T);
+    add('tub', '後壁', 'XY', z0, edgePlate(-hw, wy0, hw, wy1, { ...side, n: rearN }), { holes: pw.front ? [] : [usb], face: 1 });
+    const my = (L.floorTop + Math.min(L.trayY0, wy1)) / 2;
+    const fh = [circ(-20, my, 1.7, 14), circ(20, my, 1.7, 14)];
+    if (pw.front) fh.push(usb);
+    add('tub', '前壁', 'XY', z1 - T, edgePlate(-hw, wy0, hw, wy1, { ...side, n: tabsOn(-hw, hw, T) }), { holes: fh, face: -1 });
+  }
+  if (L.bay) {
+    // 左壁托盤凸緣（避開左後馬達）、通道邊小立板
+    const lz0 = L.mL.box.z1 + 1;
+    add('tub', '托盤凸緣', 'XZ', L.trayY0 - T, edgePlate(hw - 6, lz0, hw, z1 - T, { e: tabsOn(lz0, z1 - T, T, { n: 3 }) }));
+    const tp = L.trayPost;
+    add('tub', '托盤小立板', 'ZY', tp.x0, edgePlate(tp.z0, tp.y0, tp.z1, tp.y1, { s: [{ k: 'tab', c: (tp.z0 + tp.z1) / 2, w: 8, d: T }] }));
+  }
+  // 馬達尾端托柱（束線帶綁住馬達）
+  for (const c of L.cradles) add('tub', '馬達托柱', 'ZY', c.x0, edgePlate(c.z0, c.y0, c.z1, c.y1, { s: [{ k: 'tab', c: (c.z0 + c.z1) / 2, w: 3, d: T }] }));
+  // 電源模組墊片（黏在底板雷雕框上）
+  {
+    const pw = L.pwr;
+    for (const [o, n] of [[pw.pd, 'CH224K 墊片'], [pw.buck, 'Mini560 墊片'], [pw.ldo, 'AMS1117 墊片']])
+      add('tub', n, 'XZ', L.floorTop, rectP(o.x0, Math.max(o.z0, z0 + T), o.x1, Math.min(o.z1, z1 - T)));
+  }
+
+  // ---------- 電池艙托盤 ----------
+  if (L.bay) {
+    const xr = hw - 0.3, zf = z1 - T - 0.3, cx = L.bayX1 - 0.3, cz = z0 + T + 3.5;
+    const fr = [-15, 25].map(c => ({ c, w: 12 }));
+    const xl = L.lipX0 - 3;                         // 往通道多伸 3 mm，立板的榫孔外面才有料
+    const pts = [[xl, cz], [L.lipX0, cz], [L.lipX0, z0], [cx, z0], [cx, cz], [xr, cz], [xr, zf]];
+    const bumps = [];
+    for (const { c, w } of fr.sort((a, b) => b.c - a.c)) {
+      pts.push([c + w / 2, zf], [c + w / 2, z1], [c - w / 2, z1], [c - w / 2, zf]);
+      bumps.push([c - w / 2, zf, c + w / 2, z1]);
+    }
+    pts.push([xl, zf]);
+    const holes = L.trayWins.map(([a, b, c, e]) => rrect(a, b, c, e, 4));
+    for (const zc of L.strapSlots) for (const xs of L.slotX) holes.push(rrect(xs - 1.5, zc - 11, xs + 1.5, zc + 11, 1.4));
+    add('tray', '托盤', 'XZ', L.trayY0, { pts, bumps }, { holes, face: 1 });
+    const la = z0 + 2, lb = zf - 2;
+    add('tray', '托盤右緣立板', 'ZY', L.lipX0, edgePlate(la, L.trayTop, lb, L.trayTop + 8, { s: tabsOn(la, lb, T, { n: 4 }) }));
+    if (P.bankSpacer > 0) {
+      const B = L.bank, n = Math.max(1, Math.round(P.bankSpacer / T)), w2 = (P.bankW - 6) / 2, h = Math.min(P.bankT, P.bayH - 1) * 0.8;
+      for (let i = 0; i < n; i++) add('spacer', '前方墊塊', 'XY', B.z1 + i * T, rectP(B.x - w2, L.trayTop, B.x + w2, L.trayTop + h));
+    }
+  }
+
+  // ---------- 上身骨架：底板＋脊板＋兩片側翼 ----------
+  {
+    const hz = L.deckHole, xo = L.wallOut + 2.5;   // 比側壁外面多 2.5 mm，T 型槽螺絲孔才不會破邊
+    const holes = [rrect(hz.x0, hz.z0, hz.x1, hz.z1, 2), ...L.tslots.map(q => circ(q.x, q.z, 1.7, 14)), circ(-30, z1 - 8, 1.7, 14), circ(30, z1 - 8, 1.7, 14)];
+    add('frame', '上身底板', 'XZ', L.deckY0, edgePlate(-xo, z0 - T, xo, z1 + T, {}, 4), { holes, face: 1 });
+    const fy0 = L.deckY1, fy1 = L.topY0, wx0 = L.wingX0;
+    const amp = L.amp;
+    add('frame', '脊板', 'XY', L.spineZ0, edgePlate(-wx0, fy0, wx0, fy1, {
+      e: tabsOn(fy0, fy1, T, { n: 2 }), w: tabsOn(fy0, fy1, T, { n: 2 }),
+      s: tabsOn(-wx0, wx0, T, { avoid: [[-12, 12]], n: 4 }), n: tabsOn(-wx0, wx0, T, { avoid: [[-12, 20]], n: 4 }),
+    }), { holes: [rrect(-10, fy0 + 4, 10, fy0 + 16, 3), circ(amp.x - 6.3, amp.y + 7.05, 1, 10), circ(amp.x + 6.3, amp.y + 7.05, 1, 10)] });
+    const za = L.inZ0 + 2, zb = L.spineZ0 + T + 3;
+    for (const s of [-1, 1]) {
+      const x0 = s > 0 ? L.wingX0 : -L.wingX1;
+      const holes = L.shellZ.map(z => circ(z, L.bodyY0 + 8, 3.2, 6));   // M3 六角螺帽孔：壓入螺帽、點膠
+      if (s < 0) for (const yy of [L.spineZ0 - 12, L.spineZ0 - 40]) for (const zz of [L.perf.y0 + 5.5, L.perf.y0 + 23.5]) holes.push(rectP(yy - 1.5, zz - 2, yy + 1.5, zz + 2));
+      add('frame', s > 0 ? '左側翼' : '右側翼', 'ZY', x0, edgePlate(za, fy0, zb, fy1, { s: tabsOn(za, zb - 3, T, { n: 2 }), n: tabsOn(za, zb - 3, T, { n: 2 }) }), { holes });
+    }
+  }
+
+  // ---------- 頂板／頸座 ----------
+  {
+    const nz = P.neckZ, c = 0.3;
+    const sb = L.servoBox, sc = 0.25;
+    const servoHole = rrect(sb.x0 - sc, sb.z0 - sc, sb.x1 + sc, sb.z1 + sc, 0.5);
+    const winPts = [];
+    const r0 = L.windowR0, r1 = L.windowR1, wz = L.windowZ;
+    const aOut = Math.acos(-wz / r1), aIn = Math.acos(-wz / r0);
+    for (let i = 0; i <= 18; i++) { const t = -aOut + 2 * aOut * i / 18; winPts.push([r1 * Math.sin(t), nz - r1 * Math.cos(t)]); }
+    for (let i = 18; i >= 0; i--) { const t = -aIn + 2 * aIn * i / 18; winPts.push([r0 * Math.sin(t), nz - r0 * Math.cos(t)]); }
+    const midX = (sb.x0 + sb.x1) / 2;
+    const servoSet = [servoHole, winPts, ...[-1, 1].map(s => circ(midX + s * SERVO.holeSp / 2, nz, 0.8, 10))];
+    const holes = [rrect(L.sw.x - 6.5, L.sw.z - 9.5, L.sw.x + 6.5, L.sw.z + 9.5, 0.5)];
+    if (!P.micInHead) holes.push(circ(-L.bw + 14, L.bodyZ0 + 12, 1.2, 10));
+    const rw = 25;                                  // 方管頸部半寬：內面要讓開線束窗口（r ≤ 20.5）
+    if (L.riserH <= 0) holes.push(...servoSet);
+    else holes.push(rrect(-rw + T + 2.5, nz - rw + T + 2.5, rw - T - 2.5, nz + rw - T - 2.5, 3));
+    add('topPlate', '頂板', 'XZ', L.topY0, edgePlate(-L.inW + c, L.inZ0 + c, L.inW - c, L.inZ1 - c, {}, 2), { holes, face: 1, marks: [circ(0, nz, L.collar.r1, 72)] });
+    let mountAt = L.topY0;
+    if (L.riserH > 0) {   // 方案 C：方管頸部＋上方安裝板
+      const ry0 = L.topY1, ry1 = L.mountY0;
+      for (const s of [-1, 1]) {
+        const zAt = s > 0 ? nz + rw - T : nz - rw;
+        add('topPlate', '頸部立板（前後）', 'XY', zAt, edgePlate(-rw + T, ry0, rw - T, ry1, { e: tabsOn(ry0, ry1, T, { n: 2 }), w: tabsOn(ry0, ry1, T, { n: 2 }), s: tabsOn(-rw + T, rw - T, T, { n: 1 }), n: tabsOn(-rw + T, rw - T, T, { n: 1 }) }));
+        add('topPlate', '頸部立板（左右）', 'ZY', s > 0 ? rw - T : -rw, edgePlate(nz - rw - 3, ry0, nz + rw + 3, ry1, { s: tabsOn(nz - rw, nz + rw, T, { n: 1 }), n: tabsOn(nz - rw, nz + rw, T, { n: 1 }) }));
+      }
+      const mh = Math.max(rw + 6, L.stopR + 5);    // 限位柱也要站在這片上
+      add('topPlate', '頸部安裝板', 'XZ', L.mountY0, edgePlate(-mh, nz - mh, mh, nz + mh, {}, 4), { holes: servoSet, face: 1, marks: [circ(0, nz, L.collar.r1, 72)] });
+      mountAt = L.mountY0;
+    }
+    for (let i = 0; i < 2; i++) add('topPlate', '軸環', 'XZ', L.mountY1 + i * T, circ(0, nz, L.collar.r1, 72), { holes: [circ(0, nz, L.collar.r0, 72)] });
+    for (const s of [-1, 1]) {
+      const a = (180 + s * L.stopAng) * D2R, xc = L.stopR * Math.sin(a), zc = nz + L.stopR * Math.cos(a);
+      add('topPlate', '限位柱', 'ZY', xc - T / 2, edgePlate(zc - 2.5, L.mountY1, zc + 2.5, L.mountY1 + 6, { s: [{ k: 'tab', c: zc, w: 3, d: T }] }));
+    }
+  }
+
+  // ---------- 外殼套筒：側板最外層，前後板內縮 3 mm ----------
+  {
+    const by0 = L.bodyY0, by1 = L.bodyY1, bw = L.bw, ins = L.shellInset;
+    for (const s of [-1, 1]) {
+      const holes = L.shellZ.map(z => circ(z, by0 + 8, 1.7, 14));
+      add('shell', s > 0 ? '外殼左側板' : '外殼右側板', 'ZY', s > 0 ? bw - T : -bw, edgePlate(L.bodyZ0, by0, L.bodyZ1, by1, {}, 2), {
+        holes, face: s, texts: [{ s: s > 0 ? P.nameTag : 'ARES-1', a: 0, b: (by0 + by1) / 2 + 6, size: 9 }],
+      });
+    }
+    const side = { e: tabsOn(by0, by1, T, { n: 2 }), w: tabsOn(by0, by1, T, { n: 2 }) };
+    const grille = [];
+    for (let rr = 0; rr <= L.spk.r - 5; rr += 5.5) {
+      const n = rr === 0 ? 1 : Math.floor(2 * Math.PI * rr / 5.5);
+      for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2; grille.push(circ(rr * Math.cos(t), L.spk.y + rr * Math.sin(t), 1.5, 10)); }
+    }
+    add('shell', '外殼前板', 'XY', L.bodyZ1 - ins - T, edgePlate(-bw + T, by0, bw - T, by1, side), {
+      holes: grille, face: 1, texts: [{ s: 'ARES-1', a: 0, b: by0 + 11, size: 7 }], fills: [rectP(-bw + T + 4, by1 - 7, bw - T - 4, by1 - 4)],
+    });
+    const vents = [-3, -2, -1, 0, 1, 2, 3].map(i => rrect(i * 5 - 1.25, by1 - 40, i * 5 + 1.25, by1 - 26, 1.2));
+    add('shell', '外殼後板', 'XY', L.bodyZ0 + ins, edgePlate(-bw + T, by0, bw - T, by1, side), { holes: vents, face: -1 });
+  }
+
+  // ---------- 頭（頭部區域座標：原點＝轉軸、頭部底板底面）----------
+  {
+    const h = L.head, hW = P.headW / 2, H = P.headH, ins = h.inset, hz0 = h.z0, hz1 = h.z1;
+    const fz0 = hz0 + ins + T, fz1 = hz1 - ins - T;    // 前後板內面
+    // 底板：夾在四片牆中間；舵盤 M2 孔、中心螺絲孔、線束孔
+    const fh = [circ(0, 0, 3, 18), circ(0, -L.harnessR, 4, 20), ...[45, 135, 225, 315].map(a => circ(7.2 * Math.cos(a * D2R), 7.2 * Math.sin(a * D2R), 1.1, 10))];
+    add('headFloor', '頭部底板', 'XZ', 0, edgePlate(-hW + T, fz0, hW - T, fz1, { e: tabsOn(fz0, fz1, T, { n: 2 }), w: tabsOn(fz0, fz1, T, { n: 2 }), s: tabsOn(-hW + T, hW - T, T, { n: 3 }), n: tabsOn(-hW + T, hW - T, T, { n: 3 }) }), { holes: fh, face: -1, head: true, marks: [circ(0, 0, L.skirt.r1, 72)] });
+    // 裙邊三片：最下面那片帶限位指
+    for (let i = 1; i <= 3; i++) {
+      let outer = circ(0, 0, L.skirt.r1, 72);
+      if (i === 3) {   // 限位指：往後（−z）凸出
+        const hwid = 2.5, a = Math.asin(hwid / L.skirt.r1);
+        outer = [];
+        for (let j = 0; j <= 72; j++) { const t = -Math.PI / 2 + a + (2 * Math.PI - 2 * a) * j / 72; outer.push([L.skirt.r1 * Math.cos(t), L.skirt.r1 * Math.sin(t)]); }
+        const zr = -Math.sqrt(L.skirt.r1 ** 2 - hwid ** 2);
+        outer.push([-hwid, zr], [-hwid, -L.skirt.r1 - 3.5], [hwid, -L.skirt.r1 - 3.5], [hwid, zr]);
+        outer = dedupe(outer);
+      }
+      add('headFloor', i === 3 ? '裙邊（含限位指）' : '裙邊', 'XZ', -i * T, outer, { holes: [circ(0, 0, L.skirt.r0, 72)], head: true });
+    }
+    // 側板最外層；前後板內縮 3 mm 夾在中間
+    for (const s of [-1, 1]) {
+      const holes = [];
+      if (s > 0) holes.push(rrect(h.pcbFrontZ - 3, h.pcbY - 10, h.pcbFrontZ + 6, h.pcbY + 10, 2));   // USB-C（OTG＋TTL）
+      add('headHood', s > 0 ? '頭左側板' : '頭右側板', 'ZY', s > 0 ? hW - T : -hW, edgePlate(hz0, -T, hz1, H - T, {}, 2), { holes, face: s, head: true });
+    }
+    const hside = { e: tabsOn(-T, H - T, T, { n: 2 }), w: tabsOn(-T, H - T, T, { n: 2 }) };
+    const lensX = P.lensOffset, lensY = h.pcbY;
+    add('headHood', '頭前板（臉）', 'XY', fz1, edgePlate(-hW + T, -T, hW - T, H - T, hside), {
+      holes: [circ(lensX, lensY, 6, 28)], face: 1, head: true, fills: [rrect(-hW + T + 3, lensY - 13, hW - T - 3, lensY + 13, 9)],
+    });
+    const hv = [];
+    for (let i = -3; i <= 3; i++) hv.push(rrect(i * 7 - 1.4, H * 0.42, i * 7 + 1.4, H * 0.75, 1.2));
+    add('headHood', '頭後板', 'XY', hz0 + ins, edgePlate(-hW + T, -T, hW - T, H - T, hside), { holes: hv, face: -1, head: true });
+    // ESP32 卡板：PCB 兩端穿過卡板的十字孔（上下角卡住，中間讓出 USB 與天線）
+    {
+      const th = P.camTilt * D2R, ct = Math.cos(th), st = Math.sin(th);
+      const toZY = (w, v) => [h.pcbFrontZ + v * st + w * ct, lensY + v * ct - w * st];
+      const zFront = fz1 - 0.2, zBack = h.pcbFrontZ - 15;
+      const wF = (zFront - h.pcbFrontZ) / ct - 3.2, wB = -8, vs = ESP.w / 2 + 0.3, vw = 9.5, ws0 = -ESP.t - 0.15, ws1 = 0.15;
+      const cross = [[ws0, -vs], [ws1, -vs], [ws1, -vw], [wF, -vw], [wF, vw], [ws1, vw], [ws1, vs], [ws0, vs], [ws0, vw], [wB, vw], [wB, -vw], [ws0, -vw]].map(([w, v]) => toZY(w, v));
+      const yTop = H - 2 * T - 0.5;
+      for (const s of [-1, 1]) {
+        const x0 = s > 0 ? ESP.l / 2 - 1.5 : -ESP.l / 2 - 1.5;
+        add('headHood', 'ESP32 卡板', 'ZY', x0, edgePlate(zBack, T, zFront, yTop, { s: [{ k: 'tab', c: (zBack + zFront) / 2, w: 8, d: T }] }), { holes: [cross], head: true });
+      }
+    }
+    // 眼圈、造型瞳孔、眼瞼（黏在臉上）
+    const ez = hz1 - ins;
+    for (const s of [-1, 1]) {
+      const ex = s * h.eyeX;
+      add('headHood', '眼圈', 'XY', ez, circ(ex, lensY, 14, 48), { holes: [circ(ex, lensY, 10, 48)], head: true, face: 1 });
+      if (s !== h.camEye) add('headHood', '瞳孔', 'XY', ez, circ(ex, lensY, 6.5, 32), { head: true });
+      const cx = ex, cy = lensY + 3, rot = -s * P.eyelid * D2R, lid = [];
+      for (let i = 0; i <= 16; i++) { const a = i / 16 * Math.PI; const px = 14.5 * Math.cos(a), py = 14.5 * Math.sin(a) * 0.62; lid.push([cx + px * Math.cos(rot) - py * Math.sin(rot), cy + px * Math.sin(rot) + py * Math.cos(rot)]); }
+      add('headHood', '眼瞼', 'XY', ez + T, lid, { head: true });
+    }
+    // 上蓋＋定位板（可拆：定位板卡進四片牆裡）
+    const mic = h.micLocal;
+    const micHoles = P.micInHead ? [-3, 0, 3].map(d => circ(mic[0] + d, mic[2], 0.75, 10)) : [];
+    add('headBack', '頭上蓋', 'XZ', H - T, edgePlate(-hW, hz0, hW, hz1, {}, 3), { holes: micHoles, face: 1, head: true });
+    add('headBack', '上蓋定位板', 'XZ', H - 2 * T, edgePlate(-hW + T + 0.3, fz0 + 0.3, hW - T - 0.3, fz1 - 0.3, {}, 1), { holes: P.micInHead ? [circ(mic[0], mic[2], 3.5, 18)] : [], head: true });
+  }
+
+  // ---------- 背包架（比較用） ----------
+  if (!L.bay) {
+    const B = L.bank, zb = L.bodyZ0;
+    add('backpack', '背包背板', 'XY', B.z1, edgePlate(-40, B.y0 - T - 3, 40, B.y1 + 3, {}, 3));
+    add('backpack', '背包底托', 'XZ', B.y0 - T, edgePlate(-34, B.z0 - 2, 34, B.z1, { n: tabsOn(-34, 34, T, { n: 2 }) }));
+  }
+
+  // ---------- 自動挖榫孔：別片的榫頭穿過這片 → 在這片挖孔 ----------
+  const hits = new Map();
+  for (const p of out) {
+    const [A, B, N] = WOOD_AX[p.plane];
+    for (const q of out) {
+      if (q === p || q.head !== p.head) continue;
+      const [qA, qB, qN] = WOOD_AX[q.plane];
+      for (const r of q.bumps) {
+        const bx = {};
+        bx[qA] = [r[0], r[2]]; bx[qB] = [r[1], r[3]]; bx[qN] = [q.at, q.at + q.t];
+        const ov = Math.min(bx[N][1], p.at + p.t) - Math.max(bx[N][0], p.at);
+        if (ov < 0.01) continue;
+        const ra = bx[A], rb = bx[B];
+        const ctr = [(ra[0] + ra[1]) / 2, (rb[0] + rb[1]) / 2];
+        if (!inPoly(ctr, p.outline)) continue;
+        p.holes.push(rectP(ra[0] - fit, rb[0] - fit, ra[1] + fit, rb[1] + fit));
+        hits.set(r, (hits.get(r) || 0) + 1);
+      }
+    }
+  }
+  for (const p of out) p.orphans = p.bumps.filter(r => !hits.has(r));   // 沒插進任何一片的榫頭（設計錯誤）
+  // 編號（雷雕在零件上，對照組裝步驟）
+  const cnt = {};
+  for (const p of out) { const pre = WOOD_GROUPS[p.grp][0]; cnt[pre] = (cnt[pre] || 0) + 1; p.code = pre + cnt[pre]; }
+  // 外觀面（外殼、頭殼、眼睛、頂板、頭上蓋）不雕編號，靠形狀認；只有藏在裡面的結構件雕編號
+  for (const p of out) p.noCode = p.grp === 'shell' || p.grp === 'backpack' || (p.grp === 'headHood' && p.name !== 'ESP32 卡板') || p.name === '頭上蓋' || p.name === '頂板';
+  return out;
+}
+// 一片板的面積（扣掉孔）、重心（2D）
+function panelStats(p) {
+  let A = Math.abs(polyArea(p.outline)); const c = polyCentroid(p.outline);
+  let sa = A * c[0], sb = A * c[1];
+  for (const hl of p.holes) { const a = Math.abs(polyArea(hl)), hc = polyCentroid(hl); A -= a; sa -= a * hc[0]; sb -= a * hc[1]; }
+  return { area: A, ca: sa / A, cb: sb / A };
+}
+function panelPoint(p, a, b, n) { const o = {}; const [A, B, N] = WOOD_AX[p.plane]; o[A] = a; o[B] = b; o[N] = n; return [o.x, o.y, o.z]; }
+
+/* =========================================================
+   2c. 雷切輸出：切縫補償、自動排版、SVG／DXF
+   雷射從上面打，所以「要雷雕的那一面」朝上，需要的話整片左右翻面。
+   顏色＝圖層：紅 #FF0000 切穿、藍 #0000FF 淺劃線、黑 #000000 填滿雕刻（文字、編號、護目鏡）。
+   ========================================================= */
+const LASER_VIEW = { XY: 1, XZ: -1, ZY: -1 };   // 從法線哪一側看，(a, b) 剛好是「a 往右、b 往上」
+const LASER = { margin: 5, gap: 2.5, cutSpeed: 12, scoreSpeed: 60, fillRate: 25, perLoop: 0.4 };   // mm、mm/s、mm²/s、s（40 W CO2＋3 mm 椴木的保守值）
+const SHEETS = [['A4', 297, 210], ['30×20', 300, 200], ['40×30', 400, 300], ['60×40', 600, 400], ['60×30', 600, 300]];
+
+function segDist(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+  const t = l2 ? clamp(((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2, 0, 1) : 0;
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+}
+// 多邊形平移偏移：d > 0 往外擴、d < 0 往內縮（不管點的順序）。切縫補償只有零點幾 mm，斜接就夠。
+function offsetPoly(pts, d) {
+  const n = pts.length, s = polyArea(pts) > 0 ? 1 : -1, out = [];
+  const nrm = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [s * dy / l, -s * dx / l]; };
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[(i + n - 1) % n], p1 = pts[i], p2 = pts[(i + 1) % n];
+    const n0 = nrm(p0, p1), n1 = nrm(p1, p2);
+    let mx = n0[0] + n1[0], my = n0[1] + n1[1];
+    const ml = Math.hypot(mx, my);
+    if (ml < 1e-9) { out.push([p1[0] + n0[0] * d, p1[1] + n0[1] * d]); continue; }
+    mx /= ml; my /= ml;
+    const k = d / Math.max(mx * n0[0] + my * n0[1], 0.25);
+    out.push([p1[0] + mx * k, p1[1] + my * k]);
+  }
+  return out;
+}
+function perimeter(pts) { let s = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; s += Math.hypot(b[0] - a[0], b[1] - a[1]); } return s; }
+function rdp(pts, eps) {
+  if (pts.length < 3) return pts;
+  const a = pts[0], b = pts[pts.length - 1];
+  let dm = 0, k = 0;
+  for (let i = 1; i < pts.length - 1; i++) { const d = segDist(pts[i], a, b); if (d > dm) { dm = d; k = i; } }
+  if (dm <= eps) return [a, b];
+  return rdp(pts.slice(0, k + 1), eps).slice(0, -1).concat(rdp(pts.slice(k), eps));
+}
+// 文字 → 向量外框：用 canvas 畫字再沿像素邊描成外框，任何字型（含中文）都能變成雷雕用的封閉路徑
+const _txtCache = new Map();
+function textPolys(str, size) {
+  const key = str + '|' + size;
+  if (_txtCache.has(key)) return _txtCache.get(key);
+  const em = 96, font = `700 ${em}px "Noto Sans TC", "Chakra Petch", "WenQuanYi Zen Hei", "Microsoft JhengHei", sans-serif`;
+  const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+  cx.font = font;
+  const W = Math.ceil(cx.measureText(str).width) + 8, H = Math.ceil(em * 84 / 64) + 8;
+  cv.width = W; cv.height = H;
+  cx.font = font; cx.fillStyle = '#000'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillText(str, W / 2, H / 2 + em * 2 / 64);
+  const px = cx.getImageData(0, 0, W, H).data;
+  const on = (x, y) => x >= 0 && y >= 0 && x < W && y < H && px[(y * W + x) * 4 + 3] > 110;
+  const edges = new Map();
+  const addE = (x0, y0, x1, y1) => { const k = x0 + ',' + y0; if (!edges.has(k)) edges.set(k, []); edges.get(k).push([x1, y1]); };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!on(x, y)) continue;
+    if (!on(x, y - 1)) addE(x, y, x + 1, y);
+    if (!on(x + 1, y)) addE(x + 1, y, x + 1, y + 1);
+    if (!on(x, y + 1)) addE(x + 1, y + 1, x, y + 1);
+    if (!on(x - 1, y)) addE(x, y + 1, x, y);
+  }
+  const loops = [], s = size / em;
+  for (const [k0, arr0] of edges) {
+    while (arr0.length) {
+      const [sx, sy] = k0.split(',').map(Number);
+      let [cxp, cyp] = arr0.pop(), pdx = cxp - sx, pdy = cyp - sy;
+      const loop = [[sx, sy]];
+      while (!(cxp === sx && cyp === sy)) {
+        loop.push([cxp, cyp]);
+        const arr = edges.get(cxp + ',' + cyp);
+        let i = 0;
+        if (arr.length > 1) { i = arr.findIndex(([nx, ny]) => pdx * (ny - cyp) - pdy * (nx - cxp) > 0); if (i < 0) i = 0; }
+        const [nx, ny] = arr.splice(i, 1)[0];
+        pdx = nx - cxp; pdy = ny - cyp; cxp = nx; cyp = ny;
+      }
+      if (loop.length < 4) continue;
+      let far = 0, fd = 0;
+      for (let i = 1; i < loop.length; i++) { const d = Math.hypot(loop[i][0] - sx, loop[i][1] - sy); if (d > fd) { fd = d; far = i; } }
+      const sm = rdp(loop.slice(0, far + 1), 1.2).slice(0, -1).concat(rdp(loop.slice(far).concat([loop[0]]), 1.2).slice(0, -1));
+      if (sm.length >= 3 && Math.abs(polyArea(sm)) > 2) loops.push(sm.map(([x, y]) => [(x - W / 2) * s, (H / 2 - y) * s]));
+    }
+  }
+  _txtCache.set(key, loops);
+  return loops;
+}
+// 找一個離所有邊最遠的位置放零件編號
+function labelSpot(p) {
+  const segs = [];
+  const addLoop = pts => { for (let i = 0; i < pts.length; i++) segs.push([pts[i], pts[(i + 1) % pts.length]]); };
+  addLoop(p.outline); p.holes.forEach(addLoop); p.fills.forEach(addLoop); p.marks.forEach(addLoop);
+  for (const tx of p.texts) { const w = tx.s.length * tx.size * 0.75, h = tx.size * 0.9; addLoop(rectP(tx.a - w / 2, tx.b - h / 2, tx.a + w / 2, tx.b + h / 2)); }
+  const [a0, b0, a1, b1] = bbox(p.outline), N = 22;
+  let best = null, bd = 0;
+  for (let i = 1; i < N; i++) for (let j = 1; j < N; j++) {
+    const q = [a0 + (a1 - a0) * i / N, b0 + (b1 - b0) * j / N];
+    if (!inPoly(q, p.outline) || p.holes.some(h => inPoly(q, h)) || p.fills.some(f => inPoly(q, f))) continue;
+    let d = Infinity;
+    for (const [u, v] of segs) { d = Math.min(d, segDist(q, u, v)); if (d <= bd) break; }
+    if (d > bd) { bd = d; best = q; }
+  }
+  return best && { a: best[0], b: best[1], room: bd };
+}
+// 一片板 → 雷切幾何（板面座標，已補切縫、已翻成雷雕面朝上）
+function laserPanel(p, P, codes = true) {
+  const mir = p.face !== LASER_VIEW[p.plane], k = P.kerf / 2;
+  const tf = pts => pts.map(([a, b]) => [mir ? -a : a, b]);
+  const outline = tf(offsetPoly(p.outline, k));
+  const holes = p.holes.map(h => tf(offsetPoly(h, -k)));
+  const fill = p.fills.map(tf), score = p.marks.map(tf);
+  const put = (s, size, a, b) => textPolys(s, size).map(l => l.map(([x, y]) => [x + (mir ? -a : a), y + b]));
+  for (const tx of p.texts) fill.push(...put(tx.s, tx.size, tx.a, tx.b));
+  if (codes && p.code && !p.noCode) {
+    const sp = labelSpot(p), size = sp ? Math.min(4, (sp.room - 0.5) / 0.95) : 0;
+    if (size >= 1.8) fill.push(...put(p.code, +size.toFixed(1), sp.a, sp.b));
+  }
+  return { p, outline, holes, fill, score, box: bbox(outline), mirrored: mir };
+}
+// MaxRects＋可轉 90°：一張放不下就開新的一張。幾種排序×擺放規則都試，取張數最少、最後一張最空的
+const PACK_SORT = [(a, b) => Math.max(b.w, b.h) - Math.max(a.w, a.h) || b.w * b.h - a.w * a.h, (a, b) => b.w * b.h - a.w * a.h, (a, b) => b.h - a.h || b.w - a.w, (a, b) => b.w - a.w || b.h - a.h, (a, b) => (b.w + b.h) - (a.w + a.h)];
+const PACK_RULE = [
+  (f, w, h) => [Math.min(f.w - w, f.h - h), Math.max(f.w - w, f.h - h)],   // 最短邊貼合
+  (f, w, h) => [Math.max(f.w - w, f.h - h), Math.min(f.w - w, f.h - h)],   // 最長邊貼合
+  (f, w, h) => [f.w * f.h - w * h, Math.min(f.w - w, f.h - h)],            // 面積最貼合
+  (f, w, h) => [f.y + h, f.x],                                             // 由上往下、靠左
+];
+function packRects(items, W, H) {
+  let best = null;
+  for (const so of PACK_SORT) for (const rule of PACK_RULE) {
+    const r = packOnce(items.slice().sort(so), W, H, rule);
+    const last = r.sheets.length ? r.sheets[r.sheets.length - 1].placed.reduce((s, q) => s + q.w * q.h, 0) : 0;
+    const score = r.big.length * 1e12 + r.sheets.length * 1e9 + last;
+    if (!best || score < best.score) best = { ...r, score };
+  }
+  return best;
+}
+function packOnce(order, W, H, rule) {
+  const sheets = [], big = [];
+  const fitIn = (sh, w, h) => {
+    let best = null;
+    for (const f of sh.free) for (const [ww, hh, rot] of [[w, h, false], [h, w, true]]) {
+      if (ww > f.w + 1e-9 || hh > f.h + 1e-9) continue;
+      const [ss, ls] = rule(f, ww, hh);
+      if (!best || ss < best.ss - 1e-9 || (Math.abs(ss - best.ss) < 1e-9 && ls < best.ls)) best = { x: f.x, y: f.y, w: ww, h: hh, rot, ss, ls };
+    }
+    return best;
+  };
+  const cut = (sh, r) => {
+    const nf = [];
+    for (const f of sh.free) {
+      if (r.x >= f.x + f.w || r.x + r.w <= f.x || r.y >= f.y + f.h || r.y + r.h <= f.y) { nf.push(f); continue; }
+      if (r.x > f.x) nf.push({ x: f.x, y: f.y, w: r.x - f.x, h: f.h });
+      if (r.x + r.w < f.x + f.w) nf.push({ x: r.x + r.w, y: f.y, w: f.x + f.w - r.x - r.w, h: f.h });
+      if (r.y > f.y) nf.push({ x: f.x, y: f.y, w: f.w, h: r.y - f.y });
+      if (r.y + r.h < f.y + f.h) nf.push({ x: f.x, y: r.y + r.h, w: f.w, h: f.y + f.h - r.y - r.h });
+    }
+    const inside = (a, b) => a.x >= b.x - 1e-9 && a.y >= b.y - 1e-9 && a.x + a.w <= b.x + b.w + 1e-9 && a.y + a.h <= b.y + b.h + 1e-9;
+    sh.free = nf.filter((a, i) => !nf.some((b, j) => j !== i && inside(a, b) && (j < i || !inside(b, a))));
+  };
+  for (const it of order) {
+    let done = false;
+    for (const sh of sheets) { const r = fitIn(sh, it.w, it.h); if (r) { sh.placed.push({ it, ...r }); cut(sh, r); done = true; break; } }
+    if (done) continue;
+    const sh = { free: [{ x: 0, y: 0, w: W, h: H }], placed: [] };
+    const r = fitIn(sh, it.w, it.h);
+    if (!r) { big.push(it); continue; }
+    sh.placed.push({ it, ...r }); cut(sh, r); sheets.push(sh);
+  }
+  return { sheets, big };
+}
+// 排版：回傳每張板上每片零件的最終座標（mm，y 往下，跟 SVG 一樣）
+function laserPlan(P, panels, o = {}) {
+  const m = LASER.margin, g = LASER.gap;
+  const items = panels.map(p => laserPanel(p, P, o.codes ?? true));
+  const W = o.W ?? P.sheetW, H = o.H ?? P.sheetH;
+  const pk = packRects(items.map(it => ({ it, w: it.box[2] - it.box[0] + g, h: it.box[3] - it.box[1] + g })), W - 2 * m + g, H - 2 * m + g);
+  const sheets = pk.sheets.map((sh, si) => {
+    const parts = sh.placed.map(pl => {
+      const it = pl.it.it, [u0, v0, u1, v1] = it.box;
+      const rot = pl.rot;
+      // 轉 90°：(u, v) → (−v, u)；之後 y 往下翻
+      const bx0 = rot ? -v1 : u0, by1 = rot ? u1 : v1;
+      const ox = m + pl.x, oy = m + pl.y;
+      const T = rot ? ([u, v]) => [ox + (-v - bx0), oy + (by1 - u)] : ([u, v]) => [ox + (u - bx0), oy + (by1 - v)];
+      const map = loops => loops.map(l => l.map(T));
+      return { p: it.p, rot, mirrored: it.mirrored, outline: it.outline.map(T), holes: map(it.holes), fill: map(it.fill), score: map(it.score), x: ox, y: oy, w: pl.w - g, h: pl.h - g };
+    });
+    let W1 = W, H1 = H;
+    if (o.crop) { W1 = Math.ceil(Math.max(...parts.map(q => q.x + q.w)) + m); H1 = Math.ceil(Math.max(...parts.map(q => q.y + q.h)) + m); }
+    return { n: si + 1, W: W1, H: H1, parts };
+  });
+  // 統計：切割長度、劃線長度、雕刻面積 → 粗估時間
+  let cutLen = 0, scoreLen = 0, fillArea = 0, loops = 0, used = 0;
+  for (const sh of sheets) for (const q of sh.parts) {
+    for (const l of [...q.holes, q.outline]) { cutLen += perimeter(l); loops++; }
+    for (const l of q.score) { scoreLen += perimeter(l); loops++; }
+    for (const l of q.fill) fillArea += Math.abs(polyArea(l));
+    used += Math.abs(polyArea(q.outline));
+  }
+  const minutes = (cutLen / LASER.cutSpeed + scoreLen / LASER.scoreSpeed + fillArea / LASER.fillRate + loops * LASER.perLoop) / 60;
+  return { sheets, big: pk.big.map(b => b.it.p), cutLen, scoreLen, fillArea, minutes, util: sheets.length ? used / (sheets.length * W * H) : 0, count: items.length };
+}
+// 切縫／板厚測試片：X1 梳子（5 種寬度的開口＋1 個榫孔），X2 20 mm 方塊（下面帶一個榫頭）
+function testParts(P) {
+  const T = P.ply, fit = P.fit, out = [];
+  const dl = [-0.2, -0.1, 0, 0.1, 0.2];
+  const comb = edgePlate(0, 0, 84, 30, { n: dl.map((d, i) => ({ k: 'notch', c: 10 + i * 16, w: T + 2 * fit + d, d: 10 })) }, 1.5);
+  out.push({ grp: 'test', name: '板厚測試梳', plane: 'XY', at: 0, t: T, outline: comb.pts, bumps: [], marks: [], fills: [], face: 1, code: 'X1',
+    holes: [rectP(42 - 5 - fit, 4, 42 + 5 + fit, 4 + T + 2 * fit)],
+    texts: dl.map((d, i) => ({ s: d === 0 ? '0' : (d > 0 ? '+' : '-') + Math.abs(d).toFixed(1).replace(/^0/, ''), a: 10 + i * 16, b: 15.5, size: 3.6 })) });
+  const sq = edgePlate(0, 0, 20, 20, { s: [{ k: 'tab', c: 10, w: 10, d: T }] });
+  out.push({ grp: 'test', name: '20 mm 量規', plane: 'XY', at: 0, t: T, outline: sq.pts, bumps: [], holes: [], marks: [], fills: [], face: 1, code: 'X2',
+    texts: [{ s: '20.00', a: 10, b: 12, size: 4.2 }, { s: `k${P.kerf.toFixed(2).replace(/^0/, '')}`, a: 10, b: 5.5, size: 3 }] });
+  return out;
+}
+// ---------- 匯出 ----------
+const LAYER_COL = { cut: '#FF0000', score: '#0000FF', fill: '#000000' };
+function sheetSVG(sh, P, o = {}) {
+  const f = v => +v.toFixed(3);
+  const d = loops => loops.map(l => 'M' + l.map(([x, y]) => `${f(x)} ${f(y)}`).join('L') + 'Z').join('');
+  const pv = !!o.preview;
+  const cutS = pv ? 'stroke="var(--lz-cut)" stroke-width="0.7" fill="none"' : `stroke="${LAYER_COL.cut}" stroke-width="0.1" fill="none"`;
+  const scoreS = pv ? 'stroke="var(--lz-score)" stroke-width="0.5" fill="none"' : `stroke="${LAYER_COL.score}" stroke-width="0.1" fill="none"`;
+  const fillS = pv ? 'fill="var(--lz-fill)" fill-rule="evenodd"' : `fill="${LAYER_COL.fill}" fill-rule="evenodd" stroke="none"`;
+  let fills = '', scores = '', cuts = '';
+  for (const q of sh.parts) {
+    const id = q.p.code || q.p.name;
+    if (q.fill.length) fills += `<path data-code="${esc(id)}" d="${d(q.fill)}"/>`;
+    if (q.score.length) scores += `<path data-code="${esc(id)}" d="${d(q.score)}"/>`;
+    cuts += `<g data-code="${esc(id)}"${pv ? ` data-grp="${q.p.grp}"` : ''}>${pv ? `<title>${esc(id)} ${esc(q.p.name)}</title>` : ''}${pv ? `<path class="lz-body" d="${d([q.outline, ...q.holes])}" fill-rule="evenodd"/>` : ''}${q.holes.map(h => `<path d="${d([h])}"/>`).join('')}<path d="${d([q.outline])}"/></g>`;
+  }
+  const lay = (id, label, style, body) => `<g id="${id}" inkscape:groupmode="layer" inkscape:label="${label}" ${style}>${body}</g>`;
+  const head = pv ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sh.W} ${sh.H}" class="lzsheet" role="img" aria-label="第 ${sh.n} 張板">`
+    : `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="${sh.W}mm" height="${sh.H}mm" viewBox="0 0 ${sh.W} ${sh.H}">\n<title>ARES-1 ${esc(o.title || `板 ${sh.n}`)}</title>\n<desc>${sh.W}×${sh.H} mm 椴木合板 ${P.ply} mm｜切縫補償 ${P.kerf} mm（已內含）｜榫孔間隙 ${P.fit} mm｜紅＝切穿 藍＝淺劃線 黑＝雕刻</desc>\n`;
+  const bg = pv ? `<rect class="lz-sheet" x="0" y="0" width="${sh.W}" height="${sh.H}"/>` : '';
+  // 順序：雕刻 → 劃線 → 切割（板子還沒掉下來前先雕；每片先切內孔再切外框）
+  return head + bg + lay('ENGRAVE', '黑 雕刻', fillS, fills) + lay('SCORE', '藍 劃線', scoreS, scores) + lay('CUT', '紅 切穿', cutS, cuts) + '</svg>\n';
+}
+function sheetDXF(sh) {
+  const o = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$INSUNITS', '70', '4', '0', 'ENDSEC',
+    '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', '3'];
+  for (const [n, c] of [['CUT', 1], ['SCORE', 5], ['ENGRAVE', 7]]) o.push('0', 'LAYER', '2', n, '70', '0', '62', String(c), '6', 'CONTINUOUS');
+  o.push('0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
+  const f = v => v.toFixed(3);
+  const poly = (l, layer) => {
+    o.push('0', 'POLYLINE', '8', layer, '66', '1', '70', '1', '10', '0', '20', '0', '30', '0');
+    for (const [x, y] of l) o.push('0', 'VERTEX', '8', layer, '10', f(x), '20', f(sh.H - y), '30', '0');
+    o.push('0', 'SEQEND', '8', layer);
+  };
+  for (const q of sh.parts) { q.fill.forEach(l => poly(l, 'ENGRAVE')); q.score.forEach(l => poly(l, 'SCORE')); }
+  for (const q of sh.parts) { q.holes.forEach(l => poly(l, 'CUT')); poly(q.outline, 'CUT'); }
+  o.push('0', 'ENDSEC', '0', 'EOF');
+  return o.join('\n') + '\n';
+}
+// 幾何健檢：孔不能破邊、孔跟孔不能黏在一起（雷切會把中間那條燒斷）
+function panelIssues(p) {
+  const res = [], web = 0.8;
+  const loopSegs = pts => pts.map((q, i) => [q, pts[(i + 1) % pts.length]]);
+  const oSegs = loopSegs(p.outline);
+  const minDist = (A, segs) => { let d = Infinity; for (const q of A) for (const [u, v] of segs) d = Math.min(d, segDist(q, u, v)); return d; };
+  const boxes = p.holes.map(bbox);
+  p.holes.forEach((h, i) => {
+    if (!h.every(q => inPoly(q, p.outline))) { res.push('有孔超出板子外框'); return; }
+    if (minDist(h, oSegs) < web) res.push(`孔離板邊不到 ${web} mm`);
+  });
+  for (let i = 0; i < p.holes.length; i++) for (let j = i + 1; j < p.holes.length; j++) {
+    const a = boxes[i], b = boxes[j];
+    if (a[0] > b[2] + web || b[0] > a[2] + web || a[1] > b[3] + web || b[1] > a[3] + web) continue;
+    const d = Math.min(minDist(p.holes[i], loopSegs(p.holes[j])), minDist(p.holes[j], loopSegs(p.holes[i])));
+    const inside = inPoly(p.holes[i][0], p.holes[j]) || inPoly(p.holes[j][0], p.holes[i]);
+    if (inside || d < web) res.push(inside ? '兩個孔重疊' : `兩個孔之間只剩 ${fx(d, 2)} mm`);
+  }
+  return [...new Set(res)];
+}
+
+/* =========================================================
    3. 質量清單與穩定性
    ========================================================= */
-const PLA = 1.24e-3; // g/mm³
 function massItems(P, L, yaw) {
   const it = [];
   const add = (id, name, m, x, y, z) => it.push({ id, name, m, p: new THREE.Vector3(x, y, z) });
-  const hwall = (L.deckY0 - P.floorY);
-  const tubVol = L.tubLen * (P.innerW + 2 * P.plateT) * P.floorT * 0.55 + (2 * P.innerW * hwall * L.endWallT + 2 * L.tubLen * hwall * P.plateT) * 0.6;
-  add('tub', '底盤槽（列印）', tubVol * PLA, 0, (P.floorY + L.deckY0) / 2 - 4, 0);
+  // 木作件：實際板面積（扣掉孔）× 板厚 × 密度
+  {
+    const rho = P.woodRho * 1e-3, acc = {};
+    for (const p of woodParts(P, L)) {
+      const s = panelStats(p), m = s.area * p.t * rho;
+      let [x, y, z] = panelPoint(p, s.ca, s.cb, p.at + p.t / 2);
+      if (p.head) { const w = headToWorld(L, yaw, x, y, z); x = w.x; y = w.y; z = w.z; }
+      const a = acc[p.grp] ||= { m: 0, x: 0, y: 0, z: 0 };
+      a.m += m; a.x += m * x; a.y += m * y; a.z += m * z;
+    }
+    for (const [g, a] of Object.entries(acc)) add(g, WOOD_GROUPS[g][1] + '（合板）', a.m, a.x / a.m, a.y / a.m, a.z / a.m);
+    add('glue', '白膠、螺絲、螺帽', 12, 0, (L.floorTop + L.bodyY1) / 2, 0);
+  }
   add('motorL', '左馬達', P.motorMass, (L.mL.flangeX + L.mL.innerX) / 2, L.axleY, L.mL.z);
   add('motorR', '右馬達', P.motorMass, (L.mR_.flangeX + L.mR_.innerX) / 2, L.axleY, L.mR_.z);
   for (const w of L.wheels) add(w.id, w.drive ? '驅動輪' : '惰輪', 15 * P.trackW / 30, w.x, L.axleY, w.z);
@@ -648,11 +1345,6 @@ function massItems(P, L, yaw) {
   const B = L.bank;
   add('bank', '行動電源', P.bankMass, B.x, B.y, B.z);
   add('strap', '魔鬼氈綁帶', 6, B.x, L.bay ? B.y1 : B.y, B.z);
-  if (L.bay) {
-    const trayVol = (L.hw - L.lipX0) * L.tubLen * L.trayT * 0.65 + 2 * 8 * L.tubLen;
-    add('tray', '電池艙托盤（列印）', trayVol * PLA, (L.lipX0 + L.hw) / 2, L.trayY0 + 2, 0);
-    if (P.bankSpacer > 0) add('spacer', '前方墊塊（列印）', P.bankSpacer * (P.bankW - 6) * Math.min(P.bankT, P.bayH - 1) * 0.8 * 0.3 * PLA, B.x, L.trayTop + 5, (B.z1 + L.bayZ1) / 2);
-  } else add('backpack', '背包支架（列印）', 18, 0, B.y, L.bodyZ0 - 2);
   const pw = L.pwr, mid = o => [(o.x0 + o.x1) / 2, (o.y0 + o.y1) / 2, (o.z0 + o.z1) / 2];
   add('pd', 'CH224K 誘騙板', 3, ...mid(pw.pd));
   add('buck', 'Mini560 5 V', 5, ...mid(pw.buck));
@@ -661,27 +1353,15 @@ function massItems(P, L, yaw) {
   add('driver', 'DRV8870 驅動板', 15, L.drv.x, L.drv.y0 + 5, L.drv.z);
   add('conn', 'J1／J2 接頭', 5, (L.conn.x0 + L.conn.x1) / 2, (L.conn.y0 + L.conn.y1) / 2, L.deckHole.z0 + 10);
   add('wiresC', '底盤線材', 15, 0, (L.floorTop + L.deckY0) / 2, 0);
-  const deckVol = L.tubLen * (P.innerW + 2 * P.plateT) * P.deckT * 0.5;
-  const fh = L.frameTop - L.bodyY0;
-  const spineVol = 2 * L.wingX1 * fh * 3 * 0.5;
-  const wingVol = 2 * (L.spineZ1 - (L.inZ0 + 2)) * fh * 3 * 0.5;
-  add('frame', '上身骨架（列印）', (deckVol + spineVol + wingVol) * PLA * 1.35, 0, (deckVol * (L.deckY0 + 1.5) + (spineVol + wingVol) * (L.bodyY0 + fh / 2)) / (deckVol + spineVol + wingVol), (spineVol * L.spineZ0 + wingVol * (L.spineZ1 + L.inZ0) / 2) / (deckVol + spineVol + wingVol));
-  const topVol = (2 * L.inW) * (L.inZ1 - L.inZ0) * L.topT * 0.5 + 2 * Math.PI * 22.5 * 3 * 7 + (L.riserH > 0 ? 4 * 36 * L.riserH * 2.4 : 0);
-  add('topPlate', '頂板／頸座（列印）', topVol * PLA, 0, L.topY0 + 2 + L.riserH / 2, 0);
-  const shellVol = 2 * (P.bodyW + P.bodyD) * P.bodyH * P.shellT;
-  add('shell', '身體外殼（列印）', shellVol * PLA, 0, (L.bodyY0 + L.bodyY1) / 2, 0);
-  add('speaker', '喇叭＋墊環', 29, 0, L.spk.y, (L.spk.zF + L.spk.zB) / 2);
+  add('speaker', '喇叭', 25, 0, L.spk.y, (L.spk.zF + L.spk.zB) / 2);
   add('amp', 'MAX98357A', 2, L.amp.x, L.amp.y, L.amp.z);
   add('perf', '配電洞洞板', 10, (L.perf.x0 + L.perf.x1) / 2, (L.perf.y0 + L.perf.y1) / 2, (L.perf.z0 + L.perf.z1) / 2);
   add('switch', '電源開關', 6, L.sw.x, L.sw.y0 + 8, L.sw.z);
   add('servo', 'SG92R', 13, (L.servoBox.x0 + L.servoBox.x1) / 2, (L.servoY0 + L.servoTop) / 2, P.neckZ);
   add('wiresB', '身體線材', 15, 0, (L.bodyY0 + L.bodyY1) / 2 + 10, -25);
   const h = L.head;
-  const hoodVol = (P.headW * P.headH + P.headW * P.headD + 2 * P.headH * P.headD) * h.wall;
   const hw = (id, name, m, x, y, z) => { const w = headToWorld(L, yaw, x, y, z); add(id, name, m, w.x, w.y, w.z); };
-  hw('headFloor', '頭部轉盤＋舵盤', P.headW * P.headD * h.floorT * 0.6 * PLA + 3, 0, 0, h.zc);
-  hw('headHood', '頭罩（列印）', hoodVol * PLA + 4, 0, P.headH * 0.6, h.zc + 3);
-  hw('headBack', '頭部後蓋', P.headW * P.headH * h.wall * PLA, 0, P.headH / 2, h.z0 + 1);
+  hw('horn', 'SG92R 圓舵盤＋螺絲', 3, 0, -2, 0);
   hw('esp32', 'ESP32-S3-CAM', 14, 0, h.pcbY, h.pcbFrontZ - 3);
   hw('wiresH', '頭部線材', 5, 0, h.pcbY - 6, h.z0 + 12);
   if (P.micInHead) hw('mic', 'INMP441', 1, ...h.micLocal);
@@ -766,12 +1446,12 @@ function runChecks(P, L) {
   const engage = P.shaftLen - P.plateT - 0.5;
   const overhang = (L.trackCx) - (L.hw + P.shaftLen);
   add('機構干涉', '輸出軸插入驅動輪深度', engage < 4 ? 'fail' : engage < 6 ? 'warn' : 'pass', `${fx(engage)} mm`,
-    `軸突出 12.5 − 側壁 ${P.plateT} − 間隙 0.5。D 形孔＋M3 止付螺絲固定。履帶中心在軸端外 ${fx(overhang)} mm（懸臂），${overhang > 10 ? '偏大，建議縮窄履帶或減少側壁厚。' : '在可接受範圍。'}前端凸台尺寸待量測，凸台若比側壁孔大會吃掉咬合長度。`, ['sprL', 'sprR', 'motorL', 'motorR']);
+    `軸突出 12.5 − 合板側壁 ${P.plateT} − 間隙 0.5。廠商驅動輪的輪轂長度與孔型待量測（不是 Ø4 D 孔就用聯軸器）。履帶中心在軸端外 ${fx(overhang)} mm（懸臂），${overhang > 10 ? '偏大，建議縮窄履帶或減少側壁厚。' : '在可接受範圍。'}前端凸台尺寸待量測，凸台若比側壁孔大會吃掉咬合長度。`, ['sprL', 'sprR', 'motorL', 'motorR']);
 
   // 4 下層擺放：驅動板、電源區、立柱、托架、馬達插頭
   const pw = L.pwr;
   const lower = [['DRV8870', L.drv.box], ['CH224K', pw.pd], ['Mini560', pw.buck], ['AMS1117', pw.ldo], ['C1', pw.cap],
-    ...L.pillars.map((p, i) => [`立柱 ${i + 1}`, p]), ...(L.bay ? [['托盤小立柱', L.trayPost]] : []), ...L.cradles.map(c => ['馬達托架', c])];
+    ...L.pillars.map((p, i) => [`立柱 ${i + 1}`, p]), ...(L.bay ? [['托盤小立板', L.trayPost]] : []), ...L.cradles.map(c => ['馬達托架', c])];
   const movers = [['左馬達', mL], ['右馬達', mR], ['左馬達 6P 插頭', L.mL.connBox], ['右馬達 6P 插頭', L.mR_.connBox]];
   const hitsL = [];
   for (let i = 0; i < lower.length; i++) {
@@ -779,8 +1459,8 @@ function runChecks(P, L) {
     for (const [n, b] of movers) if (overlap(lower[i][1], b).hit) hitsL.push(`${lower[i][0]}／${n}`);
   }
   const trayGap = L.trayY0 - (L.axleY + L.mR);
-  add('機構干涉', '下層：驅動板、電源區、立柱', hitsL.length ? 'fail' : 'pass', hitsL.length ? `撞到 ${hitsL.slice(0, 3).join('、')}` : `托盤離馬達頂 ${fx(trayGap)} mm`,
-    hitsL.length ? '下層零件互相重疊，請調整內寬或驅動板位置。' : `DRV8870 在右側（端子朝中央、VM 在後），右${pw.front ? '前' : '後'}角是電源區（CH224K、Mini560、AMS1117），C1 躺在 VM 端子旁。馬達 6P 接頭水平朝車身中央，不會頂到上面的托盤。四根立柱讓上身鎖在底盤上，也決定電池艙寬度。`,
+  add('機構干涉', '下層：驅動板、電源區、托柱', hitsL.length ? 'fail' : 'pass', hitsL.length ? `撞到 ${hitsL.slice(0, 3).join('、')}` : `托盤離馬達頂 ${fx(trayGap)} mm`,
+    hitsL.length ? '下層零件互相重疊，請調整內寬或驅動板位置。' : `DRV8870 在右側（端子朝中央、VM 在後），右${pw.front ? '前' : '後'}角是電源區（CH224K、Mini560、AMS1117），C1 躺在 VM 端子旁。馬達 6P 接頭水平朝車身中央，不會頂到上面的托盤。上身用側壁頂邊的 4 個 T 型槽鎖在底盤上，不佔下層空間。`,
     ['driver', 'pd', 'buck', 'ldo', 'cap', 'motorL', 'motorR', 'tub']);
 
   // 5 驅動板杜邦頭上方
@@ -791,7 +1471,7 @@ function runChecks(P, L) {
 
   // 6 上身線孔
   const hz = L.deckHole;
-  const holeOk = hz.x0 >= -L.inW + 0.5 && hz.x1 <= L.inW - 0.5 && hz.x0 >= -L.wingX0 && hz.z0 >= L.inZ0 && hz.z1 <= L.inZ1;
+  const holeOk = hz.x0 >= -L.inW + 0.5 && hz.x1 <= L.inW - 0.5 && hz.x0 >= -L.wingX0 && hz.x1 <= L.chX1 && hz.z0 >= L.inZ0 && hz.z1 <= L.inZ1;
   add('機構干涉', '上身線孔對準通道', holeOk ? 'pass' : 'warn', holeOk ? '在身體內' : '落在身體外',
     holeOk ? `上身底板右後方 ${fx(hz.x1 - hz.x0, 0)} × ${fx(hz.z1 - hz.z0, 0)} 長孔在通道正上方、右翼內側，J1／J2 從這裡上來。` : '底盤比身體寬，線孔落在外殼外面，需要另外做線槽蓋。', ['frame', 'conn']);
 
@@ -808,10 +1488,10 @@ function runChecks(P, L) {
     const fitW = P.bankW <= wAvail, fitT = P.bankT <= tAvail;
     add('電池艙', '行動電源放得進電池艙', fitW && fitT ? 'pass' : 'fail', `${fx(P.bankW, 0)}×${fx(P.bankT, 1)}／可用 ${fx(wAvail, 0)}×${fx(tAvail, 1)}`,
       fitW && fitT ? `寬度還剩 ${fx(wAvail - P.bankW, 0)} mm、厚度還剩 ${fx(tAvail - P.bankT, 1)} mm。${tAvail - P.bankT > 6 ? '比較薄：魔鬼氈要拉緊，或在上面墊一片泡棉。' : ''}`
-        : (!fitT ? `太厚了。「電池艙高度」要加到 ${Math.ceil(P.bankT + 0.5)} mm（整台車會跟著變高），或換一顆薄一點的。` : `太寬了。寬度上限是兩側立柱之間的 ${fx(wAvail, 0)} mm，請換一顆窄一點的。`), ['bank', 'tray']);
-    const corners = [[L.tubZ0, P.floorY], [Math.min(B.z0, L.tubZ0), L.trayTop]];
+        : (!fitT ? `太厚了。「電池艙高度」要加到 ${Math.ceil(P.bankT + 0.5)} mm（整台車會跟著變高），或換一顆薄一點的。` : `太寬了。寬度上限是左壁凸緣到右緣立板之間的 ${fx(wAvail, 0)} mm，請換一顆窄一點的。`), ['bank', 'tray']);
+    const corners = [[L.tubZ0, L.wallBot], [Math.min(B.z0, L.tubZ0), L.trayTop]];
     const Cz = -L.zS, Cy = L.axleY, r = L.axleY;      // 車尾履帶繞輪外緣（貼地）
-    const dep = Math.min(...corners.map(([z, y]) => { const u = Cz - z, v = y - Cy, dd = Math.hypot(u, v); return dd <= r ? 0 : (Math.atan2(v, u) + Math.asin(r / dd)) / D2R; }));
+    const dep = Math.min(...corners.map(([z, y]) => { const u = Cz - z, v = y - Cy, dd = Math.hypot(u, v); return dd <= r ? 90 : (Math.atan2(v, u) + Math.asin(r / dd)) / D2R; }));   // 躲在履帶輪輪廓裡的角落永遠不會先著地
     const p = B.protrude;
     add('電池艙', '尾巴露出與離去角', dep < 20 ? 'fail' : (dep < 30 || p > 40) ? 'warn' : 'pass', `露出 ${fx(p, 0)} mm／離去角 ${fx(dep, 0)}°`,
       `電池艙長 ${fx(L.bayZ1 - L.tubZ0, 0)} mm，後面整個打開，比較長的行動電源直接從車尾露出來。離去角是倒車下坡時車尾不會先撞地的最大坡度，營隊坡道 ≤ 20° 就夠。${p > 20 ? '露出的部分倒車時會先撞到牆。' : ''}`, ['bank', 'tray', 'trackL', 'trackR']);
@@ -820,7 +1500,7 @@ function runChecks(P, L) {
     const spMax = Math.max(0, (L.bayZ1 - L.tubZ0) - P.bankL);
     const spIdeal = clamp(L.bayZ1 - P.bankL / 2 - zbIdeal, 0, spMax);
     const worstA = Math.min(st.aFront, st.aRear);
-    const sugg = Math.abs(spIdeal - P.bankSpacer) >= 5 ? `建議前方墊塊 ≈ ${fx(Math.round(spIdeal / 5) * 5, 0)} mm（可以疊 10 mm 的墊片）。` : '目前位置已經接近最佳。';
+    const sugg = Math.abs(spIdeal - P.bankSpacer) >= 5 ? `建議前方墊塊 ≈ ${fx(Math.round(spIdeal / 5) * 5, 0)} mm（3 mm 合板疊 ${Math.max(1, Math.round(spIdeal / L.T))} 片，或塞一塊泡棉）。` : '目前位置已經接近最佳。';
     add('電池艙', '行動電源前後位置（配重）', worstA < st.aTraction ? 'warn' : 'pass', `重心${st.cg.z >= 0 ? '偏前' : '偏後'} ${fx(Math.abs(st.cg.z))} mm`,
       `行動電源頂著前壁放${P.bankSpacer > 0 ? `（前面墊 ${P.bankSpacer} mm）` : ''}，中心在 z = ${fx(B.z, 0)}。${sugg}重心越接近兩軸中間，急煞前翻與急加速後仰的餘裕越平均。`, ['bank', 'spacer']);
     if (!L.strapZ.length) add('電池艙', '魔鬼氈綁得到', 'warn', '綁帶扣孔不在行動電源範圍內', '行動電源太短，前後兩組扣孔都碰不到；在前面加墊塊或用彈性繩。', ['bank', 'tray']);
@@ -883,12 +1563,12 @@ function runChecks(P, L) {
   const innerW = P.headW - 2 * L.head.wall;
   const needW = ESP.l + ESP.antOver + 2 * 1.5;
   const pcbVert = ESP.w * Math.cos(P.camTilt * D2R) + (ESP.t + P.lensH) * Math.sin(P.camTilt * D2R);
-  const innerH = P.headH - L.head.floorT - L.head.wall;
+  const innerH = P.headH - 3 * L.T;                 // 扣掉底板、上蓋、上蓋定位板
   const depthAvail = L.head.lensFrontZ - L.head.backInnerZ;
   const fits = innerW >= needW && innerH >= pcbVert + 6 && depthAvail >= L.head.stackDepth;
   add('頭部與配線', 'ESP32-S3-CAM 放進頭殼', fits ? (depthAvail - L.head.stackDepth < 3 ? 'warn' : 'pass') : 'fail',
     `深度餘裕 ${fx(depthAvail - L.head.stackDepth)} mm`,
-    `內寬 ${fx(innerW)} / 需要 ${fx(needW)}；內高 ${fx(innerH)} / PCB 投影 ${fx(pcbVert)}＋線 6；深度 ${fx(depthAvail)} / 鏡頭 ${P.lensH}＋PCB＋排針 ${ESP.pinLen}＋杜邦 ${ESP.dupont}＋彎線 ${ESP.bend}。排針方向與長度待量測。`, ['esp32', 'headHood']);
+    `內寬 ${fx(innerW)} / 需要 ${fx(needW)}；內高 ${fx(innerH)}（扣掉底板、上蓋、定位板）/ PCB 投影 ${fx(pcbVert)}＋線 6；深度 ${fx(depthAvail)} / 鏡頭 ${P.lensH}＋PCB＋排針 ${ESP.pinLen}＋杜邦 ${ESP.dupont}＋彎線 ${ESP.bend}。排針方向與長度待量測。`, ['esp32', 'headHood']);
 
   // 13 USB
   const eyeFit = L.head.eyeX + 14 <= P.headW / 2 - L.head.wall;
@@ -954,19 +1634,17 @@ function runChecks(P, L) {
   add('電源與腳位', 'GPIO 數量（含編碼器）', 'pass', '用 12＋選配 2／可用 14',
     '依 GOOUUU 排針：相機佔 4–13、15–18，35/36/37 雖然有拉出來但被 Octal PSRAM 佔用。馬達 4、伺服 1、I2S 4（麥克風與功放共用 BCLK/WS）、9 V 監測 1、編碼器 A 相 2（GPIO19/20，改用 TTL 口燒錄）。編碼器 B 相選配 GPIO3/46（46 會影響燒錄模式）。', ['esp32']);
 
-  // 19 列印尺寸
-  const bed = P.bed;
-  const printParts = [
-    ['底盤槽', L.tubLen, P.innerW + 2 * P.plateT, L.deckY0 - P.floorY],
-    ...(L.bay ? [['電池艙托盤', L.tubLen, L.hw - L.lipX0, L.trayT + 8]] : []),
-    ['上身骨架', L.tubLen, P.innerW + 2 * P.plateT, L.frameTop - L.deckY0],
-    ['身體外殼', P.bodyW, P.bodyD, P.bodyH],
-    ['頂板／頸座', 2 * L.inW, L.inZ1 - L.inZ0, L.topT + 7 + L.riserH],
-    ['頭罩', P.headW, P.headD, P.headH - 3],
-  ];
-  const tooBig = printParts.filter(([, a, b, c]) => Math.max(a, b) > bed - 4 || c > bed - 4).map(([n]) => n);
-  add('製造', `列印平台 ${bed}×${bed} mm`, tooBig.length ? 'fail' : 'pass', tooBig.length ? `${tooBig.join('、')} 放不下` : '全部零件可單件列印',
-    printParts.map(([n, a, b, c]) => `${n} ${fx(a, 0)}×${fx(b, 0)}×${fx(c, 0)}`).join('；'), []);
+  // 19 雷切：榫頭有沒有對到榫孔、孔有沒有破邊、排版放不放得下
+  const wp = woodParts(P, L);
+  const orph = wp.filter(p => p.orphans.length);
+  add('製造', '每個榫頭都有對應的榫孔', orph.length ? 'fail' : 'pass', orph.length ? `${orph.length} 片有懸空榫頭` : `${wp.reduce((s, p) => s + p.bumps.length, 0)} 個榫頭全部對上`,
+    orph.length ? `${orph.map(p => `${p.code} ${p.name}`).join('、')} 的榫頭沒有插進任何一片板，參數調太極端時會發生，請往預設值調回來。` : '榫孔是從榫頭位置自動挖的（每邊留 ' + P.fit + ' mm），改尺寸、改板厚都會跟著重算。', [...new Set(orph.map(p => p.grp))]);
+  const geo = wp.map(p => [p, panelIssues(p)]).filter(([, v]) => v.length);
+  add('製造', '板件幾何（孔不破邊、不黏在一起）', geo.length ? 'fail' : 'pass', geo.length ? `${geo.length} 片有問題` : `${wp.length} 片都 OK`,
+    geo.length ? geo.map(([p, v]) => `${p.code} ${p.name}：${v.join('、')}`).join('；') + '。雷切會把太細的地方燒斷。' : '每個孔離板邊、離其他孔都至少 0.8 mm，雷切不會燒斷。', [...new Set(geo.map(([p]) => p.grp))]);
+  const plan = laserPlan(P, wp, { codes: false });
+  add('製造', `雷切排版 ${P.sheetW}×${P.sheetH} mm`, plan.big.length ? 'fail' : 'pass', plan.big.length ? `${plan.big.map(p => p.code).join('、')} 放不下` : `${plan.sheets.length} 張板、${wp.length} 片`,
+    plan.big.length ? `${plan.big.map(p => p.code + ' ' + p.name).join('、')} 比板材大，請到「雷切」分頁選大一點的板子。` : `利用率 ${fx(plan.util * 100, 0)}%，雷切＋雕刻粗估 ${fx(plan.minutes, 0)} 分鐘。板厚 ${P.ply} mm、切縫 ${P.kerf} mm 都要先用測試片確認。`, []);
   return { list: C, st };
 }
 
@@ -975,12 +1653,13 @@ function runChecks(P, L) {
    ========================================================= */
 function partInfo(id, P, L) {
   const m = (label, value, st) => ({ label, value, st });
+  const W = '雷切件（3 mm 合板）';
   const I = {
-    tub: { name: '底盤槽', kind: '列印件', layer: '底盤層', mat: 'PETG 或 PLA，20% 格狀填充，3 層牆',
-      dims: [m('外形', `${L.tubLen} × ${P.innerW + 2 * P.plateT} × ${fx(L.deckY0 - P.floorY)}`, 'D'), m('側壁（兼馬達座）厚', P.plateT, 'D'), m('底板厚', P.floorT, 'D'), m('離地', fx(L.clearance), 'D')],
-      spec: '兩層樓的一體式「浴缸」底盤：下層放馬達、驅動板和電源區，上層是行動電源的電池艙（後面整個打開）。右側 16 mm 線材通道從地板直通上身。左右側壁就是馬達座與惰輪軸座。',
+    tub: { name: '底盤箱', kind: W, layer: '底盤層', mat: '3 mm 椴木合板，榫接＋白膠。先乾配（不上膠組一次），方向都對了再拆開上膠。',
+      dims: [m('外形', `${fx(L.tubLen + 2 * L.T, 0)} × ${fx(2 * L.wallOut, 0)} × ${fx(L.deckY0 - L.wallBot, 0)}`, 'D'), m('板厚', L.T, 'M'), m('板件', woodList('tub'), 'D'), m('離地', fx(L.clearance), 'D')],
+      spec: '合板榫接成兩層樓的箱子：下層放馬達、驅動板和電源區，上層是行動電源的電池艙（後面開口）。右側 16 mm 線材通道從地板直通上身。左右側壁在最外層，同時是馬達座與惰輪軸座。',
       use: '承載馬達、行動電源、驅動板與電源模組，並把履帶力量傳到上身。',
-      notes: ['底板在馬達正下方開槽，讓馬達外殼可以低到軸高減半徑。', '四根 M3 立柱（左壁兩根、右側兩根）讓上身底板從上方鎖入；左邊兩根之間就是電池艙可用寬 ' + fx(L.bayX1 - L.bayX0, 0) + ' mm。', '後壁上半部打開讓行動電源抽出；下半部有 USB-C 孔（CH224K），桌上測試也能直接插 PD 充電頭。', '惰輪軸孔是長槽，用來調履帶張力（±4 mm）。'] },
+      notes: ['底板在馬達正下方開缺口，讓馬達低到「軸高減半徑」。', '側壁頂邊有 4 個 T 型槽：M3 螺帽塞進橫槽，上身底板從上面用 M3×12 鎖下來（木板版取代了熱熔螺母立柱）。', '後壁上半部打開讓行動電源抽出；下半部有 USB-C 孔（CH224K）。', '惰輪軸孔是長槽，用來調履帶張力（±4 mm）；廠商套件的軸徑量好之後再改孔。', '馬達尾端靠在兩片托柱上，用束線帶綁住；電源模組位置雷雕在底板上，墊片黏好再用雙面膠貼模組。'] },
     motorL: motorInfo('左', L.mL), motorR: motorInfo('右', L.mR_),
     sprL: wheelInfo(true), sprR: wheelInfo(true), idlL: wheelInfo(false), idlR: wheelInfo(false),
     trackL: trackInfo(), trackR: trackInfo(),
@@ -988,21 +1667,21 @@ function partInfo(id, P, L) {
       dims: [m('外形', `${P.bankL} × ${P.bankW} × ${P.bankT}`, 'M'), m('重量', `${P.bankMass} g`, 'M'), m('容量', `${P.bankCap} mAh`, 'M'), m('電池艙可用（寬×高）', `${fx(L.bayX1 - L.bayX0, 0)} × ${fx(P.bayH - 0.5, 1)}`, 'D'), m('電池艙長（尾端開放）', fx(L.bayZ1 - L.tubZ0, 0), 'D')],
       spec: '一定要支援 USB PD 9 V（背面標示 9V⎓2A、18 W／20 W 以上），有 C 孔輸出。用 C-to-C 短線接到後壁的 CH224K。',
       use: L.bay ? '全車電源。躺在馬達正上方，本身就是降低重心的配重。' : '比較模式：掛在身體背後。重心高又偏後，請看「檢查 → 電池艙」。',
-      notes: ['只有 A 孔、或只有 5 V 的行動電源不能用：CH224K 會停在 5 V，馬達不會動。', '輸出 C 孔朝後放；輸入孔也朝後的話，不用拆就能直接在車上充電。', '電量燈或按鈕在側邊、尾端最好，放進去還看得到、按得到。', '太薄就把魔鬼氈拉緊；太短就在前面放列印墊塊（參數「前方墊塊」）；太長就讓它從車尾露出來。'] },
-    tray: { name: '電池艙托盤', kind: '列印件', layer: '底盤層', mat: 'PLA，平放列印，免支撐',
-      dims: [m('外形', `${L.tubLen} × ${fx(L.hw - L.lipX0, 0)} × ${L.trayT}`, 'D'), m('右緣立邊', '高 8（行動電源導軌）', 'D'), m('魔鬼氈扣孔', `3 組 × 兩側（z = ${L.strapSlots.join('、')}）`, 'D'), m('離馬達頂', fx(L.trayY0 - L.axleY - L.mR), 'D')],
-      spec: '架在左壁凸緣、前壁凸緣、後壁開口下緣和一根小立柱上，4 顆 M3 鎖住。右緣立邊兼行動電源導軌與線材通道的牆。',
+      notes: ['只有 A 孔、或只有 5 V 的行動電源不能用：CH224K 會停在 5 V，馬達不會動。', '輸出 C 孔朝後放；輸入孔也朝後的話，不用拆就能直接在車上充電。', '電量燈或按鈕在側邊、尾端最好，放進去還看得到、按得到。', '太薄就把魔鬼氈拉緊；太短就在前面塞合板疊片（參數「前方墊塊」）；太長就讓它從車尾露出來。'] },
+    tray: { name: '電池艙托盤', kind: W, layer: '底盤層', mat: '3 mm 合板，不上膠（要能拿起來）',
+      dims: [m('外形', `${fx(L.tubLen, 0)} × ${fx(L.hw - L.lipX0 + 3, 0)} × ${L.trayT}`, 'D'), m('右緣立板', '高 8（行動電源導軌）', 'D'), m('魔鬼氈扣孔', `3 組 × 兩側（z = ${L.strapSlots.join('、')}）`, 'D'), m('離馬達頂', fx(L.trayY0 - L.axleY - L.mR), 'D')],
+      spec: '前緣兩個榫頭插進前壁，左邊架在凸緣上，右邊靠小立板，後端落在後壁開口的下緣。右緣立板（上膠在托盤上）兼行動電源導軌與線材通道的牆。',
       use: '把行動電源和下層電路隔開，抽換時不會刮到線。',
-      notes: ['托盤下面就是馬達和驅動板：鎖托盤前先把下層的線壓低、整理到兩側。', '驅動板端子要鎖線時先拆托盤（4 顆螺絲）。', '挖空減重，但行動電源底下仍有整面支撐。'] },
+      notes: ['托盤不上膠：要修下層的線時，把後端抬起來、往後抽就拿出來了。', '托盤下面就是馬達和驅動板：放托盤前先把下層的線壓低、整理到兩側。', '挖空減重，但行動電源底下仍有整面支撐。'] },
     strap: { name: '魔鬼氈綁帶 ×2', kind: '採購件', layer: L.bay ? '底盤層' : '身體層', mat: '',
       dims: [m('寬', '20', 'D'), m('長', '約 250（剪成需要長度）', 'D')],
       spec: '「背對背」魔鬼氈（一面毛一面鉤），穿過托盤兩側扣孔、繞過行動電源拉緊。', use: '不同厚度的行動電源都能綁緊，急煞時不會往前衝。',
       notes: ['扣孔有 3 組，行動電源短的時候用前面兩組。'] },
-    spacer: { name: '前方墊塊', kind: '列印件', layer: '底盤層', mat: 'PLA，可疊（10 mm 一片）',
-      dims: [m('長', P.bankSpacer, 'D'), m('寬', fx(P.bankW - 6, 0), 'D')],
-      spec: '短的行動電源在前面塞墊塊，把它往後推、讓重心回到兩軸中間。', use: '配重微調。', notes: ['「檢查 → 行動電源前後位置」會算建議長度。'] },
-    backpack: { name: '背包支架（比較用）', kind: '列印件', layer: '身體層', mat: 'PLA',
-      dims: [m('底托', `${fx(P.bankL - 12, 0)} 寬`, 'D')],
+    spacer: { name: '前方墊塊', kind: W, layer: '底盤層', mat: '3 mm 合板疊片，白膠黏成一塊',
+      dims: [m('厚', `${Math.max(1, Math.round(P.bankSpacer / L.T))} 片 × ${L.T}`, 'D'), m('寬', fx(P.bankW - 6, 0), 'D')],
+      spec: '短的行動電源在前面塞墊塊，把它往後推、讓重心回到兩軸中間。', use: '配重微調。', notes: ['「檢查 → 行動電源前後位置」會算建議長度。', '也可以直接塞一塊泡棉或摺好的紙板，效果一樣。'] },
+    backpack: { name: '背包架（比較用）', kind: W, layer: '身體層', mat: '3 mm 合板',
+      dims: [m('底托', '68 寬', 'D')],
       spec: '只是為了比較「掛在外面」的效果，不建議使用。', use: '把行動電源掛在身體背後。', notes: ['重心升高又往後，急加速容易後仰；也擋住外殼拆裝。'] },
     pd: { name: 'CH224K PD 誘騙板（設 9 V）', kind: '採購件', layer: '底盤層', mat: '',
       dims: [m('PCB（暫定）', '12 × 25', 'M'), m('輸出', '9 V（行動電源 20 W → 最多 2.2 A）', 'D'), m('電壓設定方式', '跳線／電阻／撥碼', 'M'), m('後壁開孔', '13.5 × 7.6（C 公頭的外殼要進得去）', 'D')],
@@ -1030,25 +1709,25 @@ function partInfo(id, P, L) {
       dims: [m('J1', 'JST-XH 6P：9V_RAW、9V_SW、GND×2、5V×2', 'D'), m('J2', 'JST-XH 8P：IN1–4＋編碼器 A/B×4', 'D')],
       spec: '放在右側線材通道裡、上身線孔正下方。拆 4 顆螺絲、上身抬起一點就能拔。',
       use: '上身與底盤快速分離。', notes: ['XH 每 pin 約 3 A：9 V 最多 2.2 A 用單 pin；GND 與 5 V 各兩 pin 並聯。', '保險絲選配：行動電源本身有過流保護；想加就在 CH224K 輸出串 3 A 自恢復保險絲。'] },
-    frame: { name: '上身骨架', kind: '列印件', layer: '身體層', mat: 'PLA，直立列印（底板貼平台），免支撐',
-      dims: [m('底板', `${L.tubLen} × ${P.innerW + 2 * P.plateT} × ${P.deckT}`, 'D'), m('脊板', `${fx(2 * L.wingX1)} × ${fx(L.frameTop - L.bodyY0)} × 3`, 'D'), m('側翼', `${fx(L.spineZ1 - L.inZ0 - 2)} 深`, 'D')],
-      spec: '底板兼底盤上蓋；ㄇ字形脊板＋兩片側翼撐起頂板。後方開放，方便理線。',
-      use: '身體層所有模組都鎖在這裡。4 顆 M3 拆下後，上身（含頭）可以整組拿起。',
-      notes: ['底板右後方的長孔對準線材通道，J1／J2 從這裡上來；右邊斜撐在這裡斷開。', '底板四個角的 M3 孔對準底盤立柱。', '底板前緣兩個 M3 孔是任務模組介面。', '脊板中下方有穿線孔，讓功放的電源與 I2S 過到前面。'] },
-    topPlate: { name: '頂板／頸座', kind: '列印件', layer: '身體層', mat: 'PETG 較耐磨（軸環會和頭部裙邊摩擦）',
-      dims: [m('板厚', L.topT, 'D'), m('軸環', `ID ${L.collar.r0 * 2} / OD ${L.collar.r1 * 2} × 7 高`, 'D'), m('伺服開孔', `${fx(SERVO.l + 0.4)} × ${fx(SERVO.w + 0.4)}`, 'D'), m('機械限位', `±${L.stopAng}°`, 'D'), m('頸部加高', P.neckExtra, 'D')],
-      spec: '伺服機從下方塞入，耳片貼頂板底面，2 顆 M2 自攻鎖上。頂面軸環套進頭部裙邊，承受頭部側向力。後方腎形窗口讓線束通過。',
+    frame: { name: '上身骨架', kind: W, layer: '身體層', mat: '3 mm 合板：脊板、側翼的榫頭插進底板和頂板，白膠固定',
+      dims: [m('底板', `${fx(2 * L.wallOut + 5, 0)} × ${fx(L.tubLen + 2 * L.T, 0)} × ${L.T}`, 'D'), m('脊板', `${fx(2 * L.wingX0)} × ${fx(L.topY0 - L.deckY1)}`, 'D'), m('側翼', `${fx(L.spineZ0 + L.T + 3 - L.inZ0 - 2)} 深`, 'D'), m('板件', woodList('frame'), 'D')],
+      spec: '上身底板兼底盤上蓋；一片脊板＋兩片側翼撐起頂板，後方開放方便理線。兩片側翼壓了 M3 六角螺帽，外殼側面的螺絲就鎖在這裡。',
+      use: '身體層所有模組都裝在這裡。4 顆 M3 拆下後，上身（含頭）可以整組拿起。',
+      notes: ['底板右後方的長孔對準線材通道，J1／J2 從這裡上來。', '底板四個 M3 孔對準底盤側壁的 T 型槽。', '底板前緣兩個 M3 孔是任務模組介面。', '脊板中下方有穿線孔，功放用 M2 鎖在脊板前面。', '六角螺帽孔：螺帽用尖嘴鉗壓進去，背面點一滴快乾。'] },
+    topPlate: { name: '頂板／頸座', kind: W, layer: '身體層', mat: '3 mm 合板；兩片軸環照雷雕的圓圈疊黏在頂板上',
+      dims: [m('板厚', L.T, 'D'), m('軸環', `ID ${L.collar.r0 * 2} / OD ${L.collar.r1 * 2} × ${fx(2 * L.T, 0)} 高（兩片）`, 'D'), m('伺服開孔', `${fx(SERVO.l + 0.5)} × ${fx(SERVO.w + 0.5)}`, 'D'), m('機械限位', `±${L.stopAng}°`, 'D'), m('頸部加高', P.neckExtra, 'D'), m('板件', woodList('topPlate'), 'D')],
+      spec: '伺服機從下方塞入方孔，耳片貼頂板底面，2 顆 M2 自攻鎖上。兩片軸環疊成 ' + fx(2 * L.T, 0) + ' mm 高的環，套進頭部裙邊，承受頭部側向力。後方腎形窗口讓線束通過。',
       use: '頭部旋轉機構的固定端。',
-      notes: ['窗口位置在轉軸後方，避開伺服耳片。', '兩根限位柱比軟體範圍多 10°，伺服失控時保護線束。', '左後角開 19×13 的開關孔。'] },
-    shell: { name: '身體外殼（套筒）', kind: '列印件', layer: '身體層', mat: 'PLA，直立列印，壁厚 1.6（4 圈）',
-      dims: [m('外形', `${P.bodyW} × ${P.bodyD} × ${P.bodyH}`, 'D'), m('壁厚', P.shellT, 'D')],
-      spec: '上下開口的四面套筒。拆 4 顆側面 M3 後直接往上拔，連頭都不用拆（頭部最大對角小於套筒開口）。',
-      use: '外觀與保護。胸前格柵對準喇叭，下方是 ARES-1 名牌。',
-      notes: ['外殼沒有鎖任何電子零件，拔起來不用拔線。', '外殼是最高的大面積件，最佔重量（約 ' + fx(2 * (P.bodyW + P.bodyD) * P.bodyH * P.shellT * PLA, 0) + ' g），想降重心先改 1.2 mm 壁厚。'] },
+      notes: ['軸環和裙邊是木頭磨木頭：兩邊都用 400 號砂紙磨順，抹一點蠟（蠟燭就行），轉起來會很順。', '頂板最後才上膠：伺服、開關都裝好、頭試轉過再黏。', '兩根限位柱比軟體範圍多 10°，伺服失控時保護線束。', '左後角開 19×13 的開關孔。'] },
+    shell: { name: '身體外殼（套筒）', kind: W, layer: '身體層', mat: '3 mm 合板，四片榫接＋白膠成一個套筒',
+      dims: [m('外形', `${P.bodyW} × ${P.bodyD} × ${P.bodyH}`, 'D'), m('板厚', L.T, 'D'), m('板件', woodList('shell'), 'D')],
+      spec: '上下開口的四面套筒：左右側板在最外層，前後板內縮 3 mm 夾在中間（像相框）。拆 4 顆側面 M3 後直接往上拔，頭不用拆。',
+      use: `外觀與保護。胸前圓孔格柵對準喇叭，左側雷雕名牌「${P.nameTag}」。`,
+      notes: ['外殼沒有鎖任何電子零件，拔起來不用拔線。', '左側名牌在「雷切」分頁改，學員可以替自己的車取名字（中文也可以）。', '想上色：上膠前用壓克力顏料或水性漆塗，榫頭不要塗（會變太緊）。'] },
     speaker: { name: '喇叭 Ø40', kind: '採購件', layer: '身體層', mat: '',
-      dims: [m('尺寸', `Ø${P.spkD} × ${P.spkH}`, 'E'), m('阻抗／功率', '4 Ω 或 8 Ω、3 W', 'M'), m('固定方式', '墊高環夾住邊緣', 'M')],
+      dims: [m('尺寸', `Ø${P.spkD} × ${P.spkH}`, 'E'), m('阻抗／功率', '4 Ω 或 8 Ω、3 W', 'M'), m('固定方式', '熱熔膠黏在外殼前板內側', 'D')],
       spec: '由 MAX98357A 驅動。4 Ω 在 5 V 下最大約 3 W。', use: '機器人說話、音效。',
-      notes: ['墊高環把喇叭頂到離格柵 1 mm，聲音會大很多。', '喇叭在身體前下方，離頭部麥克風最遠。'] },
+      notes: ['喇叭邊框直接黏在前板背面、對準格柵，前板就是音箱面板，聲音比懸空大很多。', '喇叭線留長一點（約 12 cm），外殼才拔得起來；或在線上加一個 2P 小接頭。'] },
     amp: { name: 'MAX98357A I2S 功放', kind: '採購件', layer: '身體層', mat: '',
       dims: [m('PCB', '17.7 × 19.1', 'C'), m('上方兩孔距', '12.6（孔心距底邊 16.7）', 'C'), m('腳位', 'LRC BCLK DIN GAIN SD GND Vin（2.54）', 'C')],
       spec: 'I2S 數位輸入、D 類 3 W。VIN 接 5 V。GAIN 預設 9 dB。', use: '把 ESP32 的 I2S 音訊直接推喇叭。',
@@ -1072,27 +1751,25 @@ function partInfo(id, P, L) {
       spec: 'I2S 數位 MEMS 麥克風，L/R 接 GND＝左聲道。3.3 V 由 ESP32 板上取。',
       use: '語音與環境聲音。',
       notes: P.micInHead ? ['元件面（金屬殼）朝上貼頭頂，收音孔對準 3 個 Ø1.5 小孔；排針不要焊，5 條線直接焊在焊盤上比較薄。', '和相機一起轉：轉頭就是「轉耳朵」。', '在 USB 那一端，避開天線。'] : ['放在頂板下方後角。和喇叭共用外殼，會收到喇叭振動。'] },
-    headFloor: { name: '頭部轉盤', kind: '列印件', layer: '頭部層', mat: 'PETG',
-      dims: [m('板厚', L.head.floorT, 'D'), m('裙邊', `ID ${L.skirt.r0 * 2} / OD ${L.skirt.r1 * 2}，下垂 ${L.skirt.drop}`, 'D'), m('線束孔', `Ø8，轉軸後 ${L.harnessR} mm`, 'D')],
-      spec: '底部凸台鎖在 Ø20 圓舵盤上（2 顆 M2 自攻＋中心螺絲）。裙邊套住頸座軸環，後方有限位指。',
-      use: '頭部旋轉的活動端，所有頭部零件都鎖在它上面。',
-      notes: ['中心 Ø6 孔是讓螺絲起子鎖舵盤中心螺絲用的，要在裝頭罩前鎖。'] },
-    headHood: { name: '頭罩（護目鏡式）', kind: '列印件', layer: '頭部層', mat: 'PETG（相機發熱，PLA 在 55 °C 會軟）',
-      dims: [m('外形', `${P.headW} × ${P.headH} × ${P.headD}`, 'D'), m('壁厚', L.head.wall, 'D'), m('鏡頭孔', 'Ø12', 'D'), m('USB 開孔', '13 × 8', 'D')],
-      spec: '前、上、左右四面。內側四個角座（傾斜 ' + P.camTilt + '°）托住 ESP32 板子，後蓋的壓柱從後面壓住。',
-      use: L.head.camEye ? '右眼就是真鏡頭，左眼是印出來的造型眼，兩眼都有橘色眼圈，看起來是一對。' : '兩隻大眼是造型，真鏡頭藏在兩眼中間的深色護目鏡裡。',
-      notes: ['眼瞼是可替換小零件，營隊可以讓學員設計自己的表情。', '左側 8×20 開孔露出 OTG 與 TTL 兩個 USB-C。'] },
-    headBack: { name: '頭部後蓋', kind: '列印件', layer: '頭部層', mat: 'PETG',
-      dims: [m('外形', `${P.headW} × ${P.headH} × ${L.head.wall}`, 'D')],
-      spec: '兩顆 M2 鎖在轉盤上；有散熱槽。', use: '拆掉就能拔杜邦線、看 LED。', notes: ['散熱槽位置在 ESP32 模組後方。'] },
+    headFloor: { name: '頭部底盤', kind: W, layer: '頭部層', mat: '3 mm 合板：底板＋三片裙邊環疊黏',
+      dims: [m('板厚', L.T, 'D'), m('裙邊', `ID ${L.skirt.r0 * 2} / OD ${L.skirt.r1 * 2}，下垂 ${fx(L.skirt.drop, 0)}`, 'D'), m('線束孔', `Ø8，轉軸後 ${L.harnessR} mm`, 'D'), m('板件', woodList('headFloor'), 'D')],
+      spec: '底板用 2 顆 M2 自攻＋中心螺絲鎖在 Ø20 圓舵盤上。底下三片裙邊環套住頸座軸環，最下面那片帶限位指。',
+      use: '頭部旋轉的活動端，頭殼四面牆都插在它上面。',
+      notes: ['中心 Ø6 孔讓螺絲起子鎖舵盤中心螺絲，要在裝頭殼前鎖。', '三片裙邊環對齊底板上的雷雕圓圈黏上，乾了再用砂紙磨內圈，跟軸環試轉到順為止。'] },
+    headHood: { name: '頭殼（護目鏡臉）', kind: W, layer: '頭部層', mat: '3 mm 合板＋眼睛小件（眼圈可塗橘色，或用 3 mm 橘色壓克力切同一個檔案）',
+      dims: [m('外形', `${P.headW} × ${P.headH} × ${P.headD}`, 'D'), m('板厚', L.T, 'D'), m('鏡頭孔', 'Ø12', 'D'), m('USB 開孔', '9 × 20', 'D'), m('板件', woodList('headHood'), 'D')],
+      spec: '左右側板在最外層、前後板內縮 3 mm。兩片 ESP32 卡板插在底板上，PCB 兩端卡進十字孔、傾斜 ' + P.camTilt + '°。臉上雷雕一片深色護目鏡，眼圈、瞳孔、眼瞼是黏上去的小件。',
+      use: L.head.camEye ? '右眼就是真鏡頭，左眼是造型眼，兩眼都有眼圈，看起來是一對。' : '兩隻大眼是造型，真鏡頭藏在兩眼中間的深色護目鏡裡。',
+      notes: ['眼瞼是可替換小件：改「表情眼瞼角度」重切一片，營隊可以讓學員設計自己的表情。', '左側開孔露出 OTG 與 TTL 兩個 USB-C。', '後板有散熱槽，正對 ESP32 模組。'] },
+    headBack: { name: '頭上蓋', kind: W, layer: '頭部層', mat: '3 mm 合板：上蓋＋定位板疊黏',
+      dims: [m('外形', `${P.headW} × ${P.headD}`, 'D'), m('板件', woodList('headBack'), 'D')],
+      spec: '上蓋底下黏一片小一圈的定位板，定位板卡進四面牆裡，不用螺絲。麥克風收音孔開在上蓋。', use: '拿掉就能拔杜邦線、看 LED。', notes: ['卡太緊就砂一下定位板的邊；太鬆就在邊上貼一圈紙膠帶。'] },
     esp32: { name: 'ESP32-S3-CAM', kind: '採購件', layer: '頭部層', mat: '',
       dims: [m('PCB', '62.6 × 28.3', 'C'), m('排針', '2 × 20，列距 24.7（廠商圖）', 'C'), m('USB-C', 'OTG＋TTL 並排在同一端，中心 ±5.6', 'C'), m('天線突出 PCB', `約 ${ESP.antOver}`, 'E'), m('鏡頭位置', `軟排線，平常在鐵殼上，約 ${P.lensOffset}`, 'M'), m('鏡頭高出 PCB', P.lensH, 'M'), m('對角視角', P.fovDiag + '°', 'M')],
       spec: 'GOOUUU ESP32-S3-CAM，ESP32-S3-N16R8（Octal PSRAM）＋OV2640（軟排線）、板載 WS2812（GPIO48）、CH340 串列埠（TTL 口）與原生 USB（OTG 口）。',
       use: '大腦＋眼睛。整塊板子裝在頭裡，真鏡頭剛好落在右眼。',
       notes: ['相機模組不是焊死的：軟排線可以挪幾 mm，直接把鏡頭對到右眼圈中心，再用雙面膠固定。', '用 TTL 口燒錄；OTG 口的 GPIO19/20 拿去接編碼器。', 'G35/G36/G37 雖然有拉到排針，但被 Octal PSRAM 佔用，絕對不能接。', '排針朝後，杜邦母頭插好後點熱熔膠。板上只有一支 GND：5V 與 GND 用 24 AWG。', '天線端朝頭部右側，天線突出約 4 mm，周圍不放線與金屬。'] },
-    spkRing: { name: '喇叭墊高環', kind: '列印件', layer: '身體層', mat: 'PLA',
-      dims: [m('長度', fx(L.spk.zB - L.spineZ1), 'D'), m('內徑', P.spkD + 0.6, 'D')],
-      spec: '從脊板往前把喇叭推到格柵後方 1 mm。', use: '固定喇叭，同時形成密閉音箱。', notes: [] },
+
     mission: { name: '任務模組介面（預覽）', kind: '未來擴充', layer: '底盤層', mat: '',
       dims: [m('介面', '前壁 2×M3（間距 40）＋底板前緣 2×M3（間距 60）', 'D')],
       spec: '第一版不安裝，只保留孔位。圖中是簡單推土板示意。', use: '推方塊、推球、清路線等任務。', notes: ['裝推桿時重心前移，可再檢查穩定性。'] },
@@ -1107,18 +1784,24 @@ function partInfo(id, P, L) {
       notes: ['兩個 M3 孔左右（水平）排列，編碼器 6P 白色接頭就水平朝車身中央，不會頂到上面的電池艙托盤。', 'M3 用圓頭（ISO 7380）× 6 mm，頭高 1.65 剛好藏進 2 mm 沉孔，不碰驅動輪；進入減速箱不超過 4 mm。', '6P 線的腳位（M+、M−、VCC、GND、A、B）每家不同，請拍線材顏色或絲印給我。', '6 V 版本接 9 V：韌體 PWM 上限 66 %（平均約 6 V），加 0.25 s 軟啟動。'] };
   }
   function wheelInfo(drive) {
-    return { name: drive ? '驅動輪（鏈輪）' : '惰輪', kind: '列印件', layer: '底盤層', mat: 'PETG，100% 填充的輪轂',
-      dims: [m('節圓直徑', `${fx(L.PD, 2)}（≈ Ø41）`, 'D'), m('齒數', P.sprocketTeeth, 'D'), m('寬', P.trackW, 'D'), m('孔', drive ? 'Ø4 D 形孔＋M3 止付螺絲' : 'Ø4.3（M4 軸）或 624ZZ 軸承座', 'D')],
-      spec: `節距 ${P.trackPitch} × ${P.sprocketTeeth} 齒 → 節圓 ${fx(L.PD, 2)} mm。` + (drive ? '直接套在馬達 D 軸上。' : '和驅動輪同一個檔案，只換孔型。'),
-      use: drive ? '把馬達扭力傳到履帶。' : '另一端張緊履帶，軸孔在長槽中可前後移。',
-      notes: drive ? ['輪轂內埋 M3 螺母，止付螺絲壓在 D 切面上。'] : ['用 M4×40 螺絲＋尼龍防鬆螺帽當軸，或壓入 624ZZ 軸承。'] };
+    return { name: drive ? '驅動輪（廠商套件）' : '惰輪（廠商套件）', kind: '採購件（履帶套件）', layer: '底盤層', mat: '',
+      dims: [m('外徑／節圓', `模型暫用 ${fx(L.PD, 1)}`, 'M'), m('齒數', P.sprocketTeeth, 'M'), m('寬', P.trackW, 'M'), m('中心孔', drive ? '待量測（馬達軸 Ø4 D 形）' : '待量測', 'M')],
+      spec: '用營隊買的履帶套件。輪徑決定輪軸高度、整個底盤的高度和離地間隙，拿到實物量好後要把參數改成真的。',
+      use: drive ? '把馬達扭力傳到履帶。' : '另一端張緊履帶，軸在側壁長槽裡可前後移。',
+      notes: drive ? ['驅動輪中心孔如果不是 Ø4 D 形孔，要加聯軸器或法蘭轉接到 JGA25-370 的 Ø4 軸。'] : ['惰輪軸用 M4 螺絲＋尼龍防鬆螺帽穿過側壁長槽；套件附的軸徑不同就改孔。'] };
   }
   function trackInfo() {
-    return { name: '履帶（3D 列印履帶片）', kind: '列印件', layer: '底盤層', mat: 'PETG（耐磨），可選 TPU 止滑墊',
-      dims: [m('節距', P.trackPitch, 'D'), m('寬', P.trackW, 'D'), m('片厚', P.trackT, 'D'), m('每邊片數', L.links, 'D'), m('插銷', '1.75 mm 線材，兩端燙平', 'D')],
-      spec: `每片中間有齒窗讓鏈輪咬合。一圈 ${fx(L.loop)} mm，${L.links} 片。`,
-      use: '推薦理由：尺寸完全配合 Ø41 鏈輪、壞一片換一片、組履帶本身就是好的營隊活動。',
-      notes: ['一台車 ' + (2 * L.links) + ' 片，一盤可以印 14 片，約 1.5 小時。', '若改買現成橡膠履帶，請提供節距、寬度、內齒形狀，鏈輪檔案改參數即可。'] };
+    return { name: '履帶（廠商套件，一節一節拼）', kind: '採購件（履帶套件）', layer: '底盤層', mat: '',
+      dims: [m('節距', P.trackPitch, 'M'), m('寬', P.trackW, 'M'), m('每邊節數（模型推算）', L.links, 'D')],
+      spec: `一節一節拼的，長度可以自己加減。模型用 ${L.links} 節、一圈 ${fx(L.loop)} mm 算張力。`,
+      use: '抓地、越障。',
+      notes: ['量 10 節的長度 ÷ 10 最準。', '拼完套上去後，用惰輪長槽微調鬆緊：中間往下壓約 3–5 mm 剛好。'] };
+  }
+  function woodList(grp) {
+    const wp = (WOOD.length ? WOOD : woodParts(P, L)).filter(p => p.grp === grp);
+    const names = {};
+    for (const p of wp) (names[p.name] ||= []).push(p.code);
+    return Object.entries(names).map(([n, c]) => `${c.length > 1 ? c[0] + '–' + c[c.length - 1] : c[0]} ${n}${c.length > 1 ? '×' + c.length : ''}`).join('、');
   }
 }
 
@@ -1237,7 +1920,7 @@ function labelDiv(text, cls = 'lbl') { const d = document.createElement('div'); 
 /* =========================================================
    7. 建模
    ========================================================= */
-let root = null, headPivot = null, parts = {}, L = computeLayout(P), CHK = null;
+let root = null, headPivot = null, parts = {}, L = computeLayout(syncPly(P)), CHK = null, WOOD = [];
 let yaw = 0;
 const overlays = { dims: new THREE.Group(), cg: new THREE.Group(), fov: new THREE.Group(), sweep: new THREE.Group(), wires: new THREE.Group(), labels: new THREE.Group(), clash: new THREE.Group() };
 Object.values(overlays).forEach(g => scene.add(g));
@@ -1245,18 +1928,18 @@ Object.values(overlays).forEach(g => scene.add(g));
 const LAYER_OF = {
   tub: 'chassis', motorL: 'chassis', motorR: 'chassis', sprL: 'chassis', sprR: 'chassis', idlL: 'chassis', idlR: 'chassis', trackL: 'chassis', trackR: 'chassis',
   driver: 'chassis', tray: 'chassis', bank: 'chassis', strap: 'chassis', spacer: 'chassis', pd: 'chassis', buck: 'chassis', ldo: 'chassis', cap: 'chassis', conn: 'chassis', mission: 'chassis',
-  frame: 'body', topPlate: 'body', shell: 'body', speaker: 'body', spkRing: 'body', amp: 'body', perf: 'body', switch: 'body', servo: 'body', backpack: 'body',
+  frame: 'body', topPlate: 'body', shell: 'body', speaker: 'body', amp: 'body', perf: 'body', switch: 'body', servo: 'body', backpack: 'body',
   headFloor: 'head', headHood: 'head', headBack: 'head', esp32: 'head', mic: 'head',
 };
 const SHELLS = new Set(['shell', 'headHood', 'headBack']);
-const STRUCT = new Set(['tub', 'frame', 'topPlate', 'shell', 'headHood', 'headBack', 'headFloor', 'tray', 'spacer', 'backpack', 'bank', 'strap', 'spkRing', 'trackL', 'trackR', 'sprL', 'sprR', 'idlL', 'idlR', 'mission']);
+const STRUCT = new Set(['tub', 'frame', 'topPlate', 'shell', 'headHood', 'headBack', 'headFloor', 'tray', 'spacer', 'backpack', 'bank', 'strap', 'trackL', 'trackR', 'sprL', 'sprR', 'idlL', 'idlR', 'mission']);
 
 function explodeVec(id) {
   const v = {
     tub: [0, 0, 0], motorL: [0, 55, 0], motorR: [0, 55, 0], sprL: [45, 0, 0], idlL: [45, 0, 0], sprR: [-45, 0, 0], idlR: [-45, 0, 0],
     trackL: [85, 0, 0], trackR: [-85, 0, 0], driver: [0, 45, 0], mission: [0, 0, 60],
     tray: [0, 40, 0], bank: [0, 62, -150], strap: [0, 75, -150], spacer: [0, 62, 30], pd: [0, 22, -40], buck: [0, 22, -25], ldo: [-25, 22, -25], cap: [0, 30, 0], conn: [-30, 70, 0],
-    frame: [0, 95, 0], spkRing: [0, 95, 40], speaker: [0, 95, 70], amp: [0, 95, 40], perf: [-45, 95, 0], backpack: [0, 95, -40],
+    frame: [0, 95, 0], speaker: [0, 150, 90], amp: [0, 95, 40], perf: [-45, 95, 0], backpack: [0, 95, -40],
     topPlate: [0, 175, 0], servo: [0, 150, 0], switch: [0, 190, 0], shell: [0, 120, 0],
     headFloor: [0, 245, 0], headHood: [0, 300, 0], headBack: [0, 270, -60], esp32: [0, 275, 40], mic: [0, 320, 0],
   }[id] || [0, 0, 0];
@@ -1269,12 +1952,13 @@ function build() {
   if (root) { disposeTree(root); scene.remove(root); }
   root = new THREE.Group(); parts = {};
   scene.add(root);
-  L = computeLayout(P);
+  L = computeLayout(syncPly(P));
   headPivot = new THREE.Group();
   headPivot.position.copy(L.pivot);
   headPivot.rotation.y = yaw;
   root.add(headPivot);
 
+  WOOD = buildWood();
   buildChassis(); buildBody(); buildHead(); buildMission();
   if (parts.mic) parts.mic.layer = P.micInHead ? 'head' : 'body';
   if (!L.bay) for (const id of ['bank', 'strap']) if (parts[id]) parts[id].layer = 'body';
@@ -1293,60 +1977,59 @@ function build() {
   buildOverlays();
   applyState();
   renderChecks(); renderHud(); renderWires(); renderGpio(); renderPower(); refreshInspector();
+  if (!$('.tabpane[data-pane="laser"]').hidden) renderLaser(); else LZ_DIRTY = true;
 }
 function disposeTree(o) { o.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => { m.map?.dispose(); m.dispose(); }); }); }
 function part(id, parent = root) { const g = new THREE.Group(); g.name = id; parent.add(g); parts[id] = { id, obj: g, layer: LAYER_OF[id] }; return g; }
 
+/* ---------- 木作件（雷切合板） ---------- */
+const WOOD_COL = { tub: 0xc9a06c, tray: 0xd6b07e, frame: 0xd8b98b, topPlate: 0xcfa977, shell: 0xe2c69a, headFloor: 0xc9a06c, headHood: 0xe2c69a, headBack: 0xd8b98b, spacer: 0xbf9259, backpack: 0xbf9259 };
+const ENGRAVE = 0x5b3a1e;
+function plateOf(p, outline, holes, at, t, material) {
+  return (p.plane === 'XY' ? plateXY : p.plane === 'XZ' ? plateXZ : plateZY)(outline, holes, at, t, material);
+}
+function engraveText(p, tx) {
+  const cv = document.createElement('canvas'), cx = cv.getContext('2d');
+  const font = `700 64px "Noto Sans TC", "Chakra Petch", sans-serif`;
+  cx.font = font; const w = Math.ceil(cx.measureText(tx.s).width) + 16;
+  cv.width = w; cv.height = 84; cx.font = font; cx.fillStyle = '#5b3a1e'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(tx.s, w / 2, 44);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  const hgt = tx.size * 84 / 64, wid = hgt * w / 84;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(wid, hgt), new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.8, depthWrite: false }));
+  const n = p.face > 0 ? p.at + p.t + 0.06 : p.at - 0.06;
+  m.position.set(...panelPoint(p, tx.a, tx.b, n));
+  if (p.plane === 'XY') m.rotation.y = p.face > 0 ? 0 : Math.PI;
+  else if (p.plane === 'ZY') m.rotation.y = p.face > 0 ? Math.PI / 2 : -Math.PI / 2;
+  else if (p.face > 0) m.rotation.set(-Math.PI / 2, 0, Math.PI);
+  else m.rotation.set(Math.PI / 2, 0, 0);          // 從下面看：字的上方朝車頭（跟雷切檔一致）
+  m.userData.keepout = false;
+  return m;
+}
+function buildWood() {
+  const wp = woodParts(P, L), groups = {};
+  for (const p of wp) {
+    const g = groups[p.grp] ||= part(p.grp, p.head ? headPivot : root);
+    const col = p.name === '眼圈' ? COL.eye : p.name === '瞳孔' ? 0x3a4550 : p.name === '眼瞼' ? 0x6b5a48 : WOOD_COL[p.grp];
+    const m = plateOf(p, p.outline, p.holes, p.at, p.t, mat(col, { r: 0.82 }));
+    m.userData.panel = `${p.code} ${p.name}`;
+    g.add(m);
+    for (const f of p.fills) g.add(plateOf(p, f, [], p.face > 0 ? p.at + p.t : p.at - 0.15, 0.15, mat(ENGRAVE, { r: 0.9 })));
+    for (const tx of p.texts) g.add(engraveText(p, tx));
+    if (UI.lzCodes && !p.noCode) {   // 零件編號：位置、方向跟雷切檔一樣，看模型就知道哪一面朝哪裡
+      const sp = labelSpot(p), size = sp ? Math.min(4, (sp.room - 0.5) / 0.95) : 0;
+      if (size >= 1.8) g.add(engraveText(p, { s: p.code, a: sp.a, b: sp.b, size: +size.toFixed(1) }));
+    }
+  }
+  return wp;
+}
+
 /* ---------- 底盤 ---------- */
 function buildChassis() {
-  const mPrint = mat(COL.print1), mPrintDk = mat(0x6f777e), mBrass = mat(COL.copper, { m: 0.7, r: 0.35 });
-  const t = part('tub');
-  const xo = L.wallOut, z0 = L.tubZ0, z1 = L.tubZ1, E = L.endWallT, pw = L.pwr;
-  // 底板（馬達下方開槽）
-  const holes = [];
-  for (const mo of [L.mL, L.mR_]) {
-    const xa = Math.min(mo.flangeX, mo.innerX) - 1, xb = Math.max(mo.flangeX, mo.innerX) + 1;
-    holes.push(rrect(Math.max(xa, -L.hw + 0.5), mo.z - 9, Math.min(xb, L.hw - 0.5), mo.z + 9, 3));
-  }
-  t.add(plateXZ(rrect(-xo, z0, xo, z1, 6), holes, P.floorY, P.floorT, mPrint));
-  // 側壁（兼馬達座）：馬達軸孔、2×M3（左右排列）、惰輪長槽
-  const wallOutline = rrect(z0, P.floorY, z1, L.deckY0, 6);
-  for (const mo of [L.mL, L.mR_]) {
-    const sx = mo.sign > 0 ? L.hw : -L.hw - P.plateT;
-    const idz = -mo.z;
-    const hs = [circ(mo.z, L.axleY, 4.2, 20), circ(mo.z + P.motorHole / 2, L.axleY, 1.7, 12), circ(mo.z - P.motorHole / 2, L.axleY, 1.7, 12),
-      rrect(idz - 4 - 2.2, L.axleY - 2.2, idz + 4 + 2.2, L.axleY + 2.2, 2.1)];
-    t.add(plateZY(wallOutline, hs, sx, P.plateT, mPrint));
-  }
-  // 前後壁：後壁上半部是電池艙開口，下半部是 CH224K 的 USB-C 孔
-  const wy0 = L.floorTop, wy1 = L.deckY0;
-  const usbHole = rrect(pw.usbX - 6.75, L.usbY - 3.8, pw.usbX + 6.75, L.usbY + 3.8, 2.5);
-  const rearOut = L.bay ? [[-L.hw, wy0], [L.hw, wy0], [L.hw, wy1], [L.bayX1, wy1], [L.bayX1, L.trayY0], [L.lipX0, L.trayY0], [L.lipX0, wy1], [-L.hw, wy1]] : rrect(-L.hw, wy0, L.hw, wy1, 1);
-  const my = (wy0 + Math.min(L.trayY0, wy1)) / 2;
-  const frontHoles = [circ(-20, my, 1.7, 12), circ(20, my, 1.7, 12)], rearHoles = [];
-  (pw.front ? frontHoles : rearHoles).push(usbHole);
-  t.add(plateXY(rearOut, rearHoles, z0, E, mPrint));
-  t.add(plateXY(rrect(-L.hw, wy0, L.hw, wy1, 1), frontHoles, z1 - E, E, mPrint));
-  // 上身固定立柱（頂端 M3 熱熔螺母）
-  for (const p of L.pillars) {
-    t.add(boxB(p.x0, p.x1, p.y0, p.y1, p.z0, p.z1, mPrintDk));
-    t.add(cylY(2.1, p.y1 - 0.2, p.y1 + 0.05, (p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, mBrass, 14));
-  }
-  if (L.bay) {
-    // 托盤支撐：左壁凸緣（避開左後馬達）、前壁凸緣、通道邊小立柱；後壁開口下緣也撐著托盤
-    t.add(boxB(L.hw - 3, L.hw, L.trayY0 - 2.5, L.trayY0, L.mL.box.z1 + 1, z1 - E, mPrintDk));
-    t.add(boxB(L.lipX0, L.hw, L.trayY0 - 2.5, L.trayY0, z1 - E - 6, z1 - E, mPrintDk));
-    const tp = L.trayPost; t.add(boxB(tp.x0, tp.x1, tp.y0, tp.y1, tp.z0, tp.z1, mPrintDk));
-  }
-  // 馬達尾端托架：跨在底板槽兩側的立柱，束線帶繞過馬達
-  for (const c of L.cradles) t.add(boxB(c.x0, c.x1, c.y0, c.y1, c.z0, c.z1, mPrintDk));
-  for (const mo of [L.mL, L.mR_]) { const cx = mo.innerX + mo.sign * (P.encLen + 6); t.add(cylX(L.mR + 0.6, cx - 1.6, cx + 1.6, L.axleY, mo.z, mat(0xf2f2f2), 24)); }
-  // 驅動板螺絲座、電源模組底座
-  const d = L.drv;
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) t.add(cylY(3.25, L.floorTop, d.y0, d.x + sx * d.hole[0], d.z + sz * d.hole[1], mPrintDk, 16));
-  const pd = pw.pd, ra = Math.max(pd.z0, z0 + E), rb = Math.min(pd.z1, z1 - E);
-  for (const xx of [pd.x0 + 1.5, pd.x1 - 1.5]) t.add(boxB(xx - 1, xx + 1, L.floorTop, pd.y0, ra, rb, mPrintDk));
-  for (const m of [pw.buck, pw.ldo]) for (const zz of [m.z0 + 3, m.z1 - 3]) t.add(cylY(1.8, L.floorTop, m.y0, (m.x0 + m.x1) / 2, zz, mPrintDk, 12));
+  const z0 = L.tubZ0, z1 = L.tubZ1, pw = L.pwr, d = L.drv;
+  // 馬達尾端托柱上的束線帶
+  for (const mo of [L.mL, L.mR_]) { const cx = mo.innerX + mo.sign * (P.encLen + 6); parts.tub.obj.add(cylX(L.mR + 0.6, cx - 1.6, cx + 1.6, L.axleY, mo.z, mat(0xf2f2f2), 24)); }
+  // 上身底板鎖在側壁上的 M3 螺絲（T 型槽）
+  for (const q of L.tslots) parts.frame.obj.add(cylY(2.8, L.deckY1, L.deckY1 + 1.7, q.x, q.z, mat(0x5b6066, { m: 0.6 }), 14));
 
   // 馬達
   for (const mo of [L.mL, L.mR_]) {
@@ -1361,7 +2044,7 @@ function buildChassis() {
     const fz = mo.fz;
     g.add(boxB(xD + s * 1.5, xD + s * 9.5, L.axleY - 4.5, L.axleY + 4.5, mo.z + fz * (L.mR - 1.5), mo.z + fz * (L.mR + 3.5), mat(0xf2f2f2)));   // 6P 編碼器接頭，水平朝車身中央
     g.add(boxB(xD + s * 2, xD + s * 9, L.axleY - 3.5, L.axleY + 3.5, mo.z + fz * (L.mR + 3.5), mo.z + fz * (L.mR + 6), mat(0xe8e2c8)));        // 插頭
-    for (const dz of [-P.motorHole / 2, P.motorHole / 2]) g.add(cylX(2.8, xA + s * (P.plateT - 2), xA + s * (P.plateT - 0.35), L.axleY, mo.z + dz, mat(0x5b6066, { m: 0.6 }), 12));
+    for (const dz of [-P.motorHole / 2, P.motorHole / 2]) g.add(cylX(2.8, xA + s * P.plateT, xA + s * (P.plateT + 1.7), L.axleY, mo.z + dz, mat(0x5b6066, { m: 0.6 }), 12));
   }
 
   // 輪子
@@ -1410,6 +2093,7 @@ function buildChassis() {
   {
     const g = part('driver'); const b = d.box; const y1 = d.y0 + 1.6;
     g.add(boxB(b.x0, b.x1, d.y0, y1, b.z0, b.z1, mat(0x15181c, { r: 0.5 })));
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.add(cylY(2.6, L.floorTop, d.y0, d.x + sx * d.hole[0], d.z + sz * d.hole[1], mat(0xeeeae0), 12));   // M3×5 尼龍銅柱
     for (let i = 0; i < 6; i++) {
       const zc = d.tz(i);
       g.add(boxB(b.x1 - 8, b.x1 - 0.5, y1, y1 + 10, zc - 2.45, zc + 2.45, mat(0x2f7fd6, { r: 0.5 })));
@@ -1461,23 +2145,8 @@ function buildChassis() {
     for (const [a, b] of [c.j1, c.j2]) g.add(boxB(c.x0, c.x1, c.y0, c.y1, a, b, mat(0xf2f2f2)));
   }
 
-  // 電池艙：托盤、行動電源、綁帶、墊塊
+  // 行動電源、綁帶（托盤與墊塊是木作件）
   const B = L.bank;
-  if (L.bay) {
-    const g = part('tray'); const mT = mat(0x7d8b96);
-    const xr = L.hw - 0.4, zf = L.bayZ1 - 0.3, nx = L.bayX1 - 0.4;
-    const out = [[L.lipX0, z0], [L.bayX1, z0], [L.bayX1, z0 + E + 0.3], [xr, z0 + E + 0.3]];
-    for (const p of L.pillars.filter(p => p.x1 > 0).sort((a, b) => a.z0 - b.z0)) out.push([xr, p.z0 - 0.4], [nx, p.z0 - 0.4], [nx, p.z1 + 0.4], [xr, p.z1 + 0.4]);
-    out.push([xr, zf], [L.lipX0, zf]);
-    const hs = L.trayWins.map(([a, b, c, e]) => rrect(a, b, c, e, 4));
-    for (const zc of L.strapSlots) for (const xs of L.slotX) hs.push(rrect(xs - 1.5, zc - 11, xs + 1.5, zc + 11, 1.4));
-    g.add(plateXZ(out, hs, L.trayY0, L.trayT, mT));
-    g.add(boxB(L.lipX0, L.lipX1, L.trayTop, L.trayTop + 8, z0, zf, mT));
-    if (P.bankSpacer > 0) {
-      const sp = part('spacer');
-      sp.add(boxB(B.x - (P.bankW - 6) / 2, B.x + (P.bankW - 6) / 2, L.trayTop, L.trayTop + Math.min(P.bankT, P.bayH - 1) * 0.8, B.z1, L.bayZ1, mat(0xd08a3a)));
-    }
-  }
   {
     const g = part('bank');
     const bm = mat(0x30353d, { r: 0.42 }), dk = mat(0x0d0f12), led = mat(0x55d6ff);
@@ -1519,29 +2188,6 @@ function loopPoint(s) {
 
 /* ---------- 身體 ---------- */
 function buildBody() {
-  const mF = mat(COL.print2), mFd = mat(0x8ea2b1);
-  const f = part('frame');
-  const xo = L.wallOut;
-  // 底板（兼底盤上蓋）：右後方線孔對準通道、四根立柱的 M3 孔、前緣任務模組孔
-  const hz = L.deckHole;
-  const pinHoles = L.pillars.map(p => circ((p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, 1.7, 12));
-  f.add(plateXZ(rrect(-xo, L.tubZ0, xo, L.tubZ1, 6), [rrect(hz.x0, hz.z0, hz.x1, hz.z1, 2), circ(-30, L.tubZ1 - 8, 1.7, 12), circ(30, L.tubZ1 - 8, 1.7, 12), ...pinHoles], L.deckY0, P.deckT, mF));
-  const fh0 = L.deckY1, fh1 = L.frameTop;
-  // 脊板（中下方穿線孔）
-  f.add(plateXY(rrect(-L.wingX1, fh0, L.wingX1, fh1, 2), [rrect(-10, fh0 + 4, 10, fh0 + 16, 3)], L.spineZ0, 3, mF));
-  // 側翼
-  for (const s of [-1, 1]) f.add(boxB(s * L.wingX0, s * L.wingX1, fh0, fh1, L.inZ0 + 2, L.spineZ1, mF));
-  // 斜撐（右邊在線孔上方斷開）
-  for (const s of [-1, 1]) {
-    const bx0 = s * (L.wingX0 - 6), bx1 = s * L.wingX0;
-    const over = Math.min(bx0, bx1) < hz.x1 && Math.max(bx0, bx1) > hz.x0;
-    const segs = over ? [[L.inZ0 + 2, hz.z0 - 2], [hz.z1 + 2, L.spineZ0]] : [[L.inZ0 + 2, L.spineZ0]];
-    for (const [a, b] of segs) if (b - a > 3) f.add(boxB(bx0, bx1, fh0, fh0 + 10, a, b, mFd));
-  }
-
-  // 喇叭＋墊高環
-  const r = part('spkRing');
-  r.add(cylZ(L.spk.r + 2.2, L.spineZ1, L.spk.zB + 2, 0, L.spk.y, mat(0x7f95a6), 40));
   const s = part('speaker');
   s.add(cylZ(L.spk.r, L.spk.zF - 3, L.spk.zF, 0, L.spk.y, mat(0x2d2f33), 40));
   const cone = mesh(new THREE.ConeGeometry(L.spk.r - 3, 6, 40, 1, true), mat(0x151618, { side: THREE.DoubleSide }));
@@ -1566,32 +2212,7 @@ function buildBody() {
   const rk = boxB(L.sw.x - 6.5, L.sw.x + 6.5, L.sw.y1, L.sw.y1 + 6, L.sw.z - 9.5, L.sw.z + 9.5, mat(0xc63b2a));
   rk.rotation.x = 0.18; sw.add(rk);
 
-  // 頂板／頸座
-  const tp = part('topPlate');
   const nz = P.neckZ;
-  const winPts = [];
-  const r0 = L.windowR0, r1 = L.windowR1, wz = L.windowZ;
-  const aOut = Math.acos(-wz / r1), aIn = Math.acos(-wz / r0);
-  for (let i = 0; i <= 18; i++) { const t = -aOut + 2 * aOut * i / 18; winPts.push([r1 * Math.sin(t), nz - r1 * Math.cos(t)]); }
-  for (let i = 18; i >= 0; i--) { const t = -aIn + 2 * aIn * i / 18; winPts.push([r0 * Math.sin(t), nz - r0 * Math.cos(t)]); }
-  const servoHole = rrect(L.servoBox.x0 - 0.2, L.servoBox.z0 - 0.2, L.servoBox.x1 + 0.2, L.servoBox.z1 + 0.2, 0.5);
-  const swHole = rrect(L.sw.x - 6.5, L.sw.z - 9.5, L.sw.x + 6.5, L.sw.z + 9.5, 0.5);
-  const topHoles = [swHole];
-  if (!P.micInHead) topHoles.push(circ(-L.bw + 14, L.bodyZ0 + 12, 1.2, 10));
-  if (L.riserH <= 0) topHoles.push(servoHole, winPts);
-  else topHoles.push(rrect(-18, nz - 18, 18, nz + 18, 3));
-  tp.add(plateXZ(rrect(-L.inW + 0.3, L.inZ0 + 0.3, L.inW - 0.3, L.inZ1 - 0.3, 3), topHoles, L.topY0, L.topT, mF));
-  if (L.riserH > 0) {
-    const rh = L.riserH, ry0 = L.topY1, rw = 20;
-    for (const [a0, a1, b0, b1] of [[-rw, rw, rw - 2.4, rw], [-rw, rw, -rw, -rw + 2.4]]) tp.add(boxB(a0, a1, ry0, ry0 + rh - 4, nz + b0, nz + b1, mF));
-    for (const s of [-1, 1]) tp.add(boxB(s * (rw - 2.4), s * rw, ry0, ry0 + rh - 4, nz - rw, nz + rw, mF));
-    tp.add(plateXZ(rrect(-rw - 6, nz - rw - 6, rw + 6, nz + rw + 6, 4), [servoHole, winPts], L.mountY0, 4, mF));
-  }
-  tp.add(ringY(L.collar.r0, L.collar.r1, L.collar.y0, L.collar.y1, 0, nz, mat(0x7c93a4)));
-  for (const s of [-1, 1]) {
-    const a = (180 + s * L.stopAng) * D2R;
-    tp.add(cylY(2.5, L.mountY1, L.mountY1 + 6, 31 * Math.sin(a), nz + 31 * Math.cos(a), mat(0x55697a), 16));
-  }
 
   // 伺服機
   const sv = part('servo');
@@ -1605,33 +2226,9 @@ function buildBody() {
   sv.add(cylY(2.4, L.bossTop, L.bossTop + 3, 0, nz, mat(0xeeeeee), 12));
   sv.add(boxB(sb.x1 - 1, sb.x1 + 2, sb.y0 + 2, sb.y0 + 6, nz - 2, nz + 2, mat(0x6b3b1f)));
 
-  // 外殼套筒
-  const sh = part('shell');
-  const mS = mat(COL.shell, { r: 0.55 });
-  const y0 = L.bodyY0, y1 = L.bodyY1;
-  const grille = [];
-  for (let rr = 0; rr <= L.spk.r - 5; rr += 5.5) {
-    const n = rr === 0 ? 1 : Math.floor(2 * Math.PI * rr / 5.5);
-    for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2; grille.push(circ(rr * Math.cos(t), L.spk.y + rr * Math.sin(t), 1.5, 10)); }
-  }
-  sh.add(plateXY(rrect(-L.bw, y0, L.bw, y1, 3), grille, L.bodyZ1 - P.shellT, P.shellT, mS));
-  sh.add(plateXY(rrect(-L.bw, y0, L.bw, y1, 3), [-3, -2, -1, 0, 1, 2, 3].map(i => rrect(i * 5 - 1.25, y1 - 40, i * 5 + 1.25, y1 - 26, 1.2)), L.bodyZ0, P.shellT, mS));
-  for (const s of [-1, 1]) sh.add(plateZY(rrect(L.bodyZ0 + P.shellT, y0, L.bodyZ1 - P.shellT, y1, 1), [], s > 0 ? L.bw - P.shellT : -L.bw, P.shellT, mS));
-  // 胸前名牌與飾條
-  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
-  const cx = cv.getContext('2d'); cx.fillStyle = '#2a2e33'; cx.fillRect(0, 0, 256, 64);
-  cx.fillStyle = '#e8e2d6'; cx.font = 'bold 40px "Chakra Petch", sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('ARES-1', 128, 34);
-  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-  const plate = new THREE.Mesh(new THREE.PlaneGeometry(40, 10), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5 }));
-  plate.position.set(0, y0 + 11, L.bodyZ1 + 0.25); sh.add(plate);
-  sh.add(boxB(-L.bw, L.bw, y1 - 6, y1 - 3, L.bodyZ1, L.bodyZ1 + 0.8, mat(COL.shellAccent)));
-  for (const s of [-1, 1]) for (const dz of [-41, 5]) sh.add(cylX(2.7, s * L.bw, s * (L.bw + 0.8), y0 + 8, dz, mat(0x666c72, { m: 0.6 }), 12));
-
   // 比較用：行動電源掛在身體背後的背包支架
   if (!L.bay) {
-    const g = part('backpack'); const B = L.bank; const m = mat(0x5d7d99);
-    g.add(boxB(B.x0 + 6, B.x1 - 6, B.y0 - 3, B.y0, B.z0 - 2, L.bodyZ0, m));
-    for (const s of [-1, 1]) g.add(boxB(s * 30 - 5, s * 30 + 5, B.y0 - 3, B.y1 + 3, B.z1, L.bodyZ0, m));
+    const B = L.bank;
     const st = parts.strap?.obj, sm = mat(0x26292d, { r: 0.9 });
     if (st) for (const xc of [-30, 30]) {
       st.add(boxB(xc - 10, xc + 10, B.y0 - 4, B.y1 + 1.2, B.z0 - 1.2, B.z0, sm));
@@ -1645,53 +2242,10 @@ function buildHead() {
   const h = L.head;
   const W = P.headW / 2;
   // 轉盤＋裙邊＋舵盤
-  const hf = part('headFloor', headPivot);
-  const mHF = mat(0x6e8597);
-  hf.add(plateXZ(rrect(-W, h.z0, W, h.z1, 5), [circ(0, 0, 3, 16), circ(0, -L.harnessR, 4, 20)], 0, h.floorT, mHF));
-  hf.add(ringY(L.skirt.r0, L.skirt.r1, -L.skirt.drop, 0, 0, 0, mHF));
-  hf.add(plateXZ(circ(0, 0, L.skirt.r1, 48), [circ(0, 0, 3, 16), circ(0, -L.harnessR, 4, 20)], 0, h.floorT, mHF));
-  hf.add(boxB(-2.5, 2.5, -6, h.floorT, -L.skirt.r1 - 3.5, -L.skirt.r1 + 0.2, mHF));
-  hf.add(cylY(10, -2, 0, 0, 0, mHF, 28));
-  hf.add(cylY(SERVO.hornD / 2, -2 - 1.8, -2, 0, 0, mat(0xf4f4f0), 28));
-  hf.add(cylY(3.5, -(L.pivotY - L.bossTop), -3.8, 0, 0, mat(0xf4f4f0), 16));
-
-  // 頭罩
-  const hh = part('headHood', headPivot);
-  const mH = mat(COL.shell, { r: 0.5 });
-  const t = h.wall, H = P.headH;
+  const hf = parts.headFloor.obj;
+  hf.add(cylY(SERVO.hornD / 2, -1.8, 0, 0, 0, mat(0xf4f4f0), 28));                       // 圓舵盤（直接鎖在頭部底板下面）
+  hf.add(cylY(3.5, -(L.pivotY - L.bossTop), -1.8, 0, 0, mat(0xf4f4f0), 16));
   const lensX = P.lensOffset, lensY = h.pcbY;
-  hh.add(plateXY(rrect(-W, h.floorT, W, H, 4), [circ(lensX, lensY, 6, 24)], h.z1 - t, t, mH));
-  const micHoles = P.micInHead ? [circ(h.micLocal[0] - 3, h.micLocal[2], 0.75, 8), circ(h.micLocal[0], h.micLocal[2], 0.75, 8), circ(h.micLocal[0] + 3, h.micLocal[2], 0.75, 8)] : [];
-  hh.add(plateXZ(rrect(-W, h.z0 + t, W, h.z1 - t, 3), micHoles, H - t, t, mH));
-  hh.add(plateZY(rrect(h.z0 + t, h.floorT, h.z1 - t, H - t, 1), [rrect(h.pcbFrontZ - 2, lensY - 10, h.pcbFrontZ + 6, lensY + 10, 2)], W - t, t, mH));
-  hh.add(plateZY(rrect(h.z0 + t, h.floorT, h.z1 - t, H - t, 1), [], -W, t, mH));
-  // PCB 卡槽
-  for (const s of [-1, 1]) for (const v of [-1, 1]) {
-    hh.add(boxB(s * (ESP.l / 2 - 1.5), s * (W - t), lensY + v * (ESP.w / 2 - 4), lensY + v * (ESP.w / 2 + 1.5), h.pcbFrontZ - 3.5, h.pcbFrontZ + 2, mat(0xb9b4a8)));
-  }
-  // 護目鏡、眼睛、眼瞼
-  const vz = h.z1;
-  hh.add(plateXY(rrect(-W + 5, lensY - 13, W - 5, lensY + 13, 10), [circ(lensX, lensY, 6, 24)], vz, 0.8, mat(COL.visor, { r: 0.18, m: 0.2 })));
-  const ex = h.eyeX;
-  for (const s of [-1, 1]) {
-    hh.add(plateXY(circ(s * ex, lensY, 14, 40), [circ(s * ex, lensY, 10, 40)], vz + 0.8, 1.8, mat(COL.eye, { r: 0.4 })));
-    if (s !== h.camEye) {   // 裝飾眼：印出來的瞳孔＋反光點；鏡頭眼的瞳孔就是真鏡頭
-      hh.add(plateXY(circ(s * ex, lensY, 6.5, 32), [], vz + 0.8, 0.6, mat(0x3a4550, { r: 0.2, m: 0.3 })));
-      hh.add(plateXY(circ(s * ex + 2.5, lensY + 2.5, 1.6, 12), [], vz + 1.45, 0.3, mat(0xffffff, { r: 0.2 })));
-    }
-    const lid = [];
-    for (let i = 0; i <= 16; i++) { const a = i / 16 * Math.PI; lid.push([14.5 * Math.cos(a), 14.5 * Math.sin(a) * 0.62]); }
-    const lm = plateXY(lid, [], 0, 1.4, mat(0x565e66));
-    lm.position.set(s * ex, lensY + 3, vz + 2.6);
-    lm.rotation.z = -s * P.eyelid * D2R;
-    hh.add(lm);
-  }
-  hh.add(plateXY(circ(lensX, lensY, 6, 28), [circ(lensX, lensY, 4.4, 28)], vz, 1.4, mat(0xb8bcc0, { m: 0.75, r: 0.3 })));
-  // 頭部後蓋（散熱槽）
-  const hb = part('headBack', headPivot);
-  const vents = [];
-  for (let i = -3; i <= 3; i++) vents.push(rrect(i * 7 - 1.4, H * 0.45, i * 7 + 1.4, H * 0.8, 1.2));
-  hb.add(plateXY(rrect(-W, h.floorT, W, H, 4), vents, h.z0, t, mH));
 
   // ESP32-S3-CAM（依鏡頭點傾斜）
   const e = part('esp32', headPivot);
@@ -1912,7 +2466,7 @@ function buildWires() {
 /* =========================================================
    9. 狀態套用（爆炸、外殼、剖面、配線、組裝、干涉）
    ========================================================= */
-const UI = { shell: 'solid', explode: 0, section: 'off', sectionPos: 0, wires: false, dims: true, cg: false, fov: false, sweep: false, clash: true, labels: false, mission: false, layers: { chassis: true, body: true, head: true }, selected: null, checkFocus: null, asm: -1 };
+const UI = { shell: 'solid', explode: 0, section: 'off', sectionPos: 0, wires: false, dims: true, cg: false, fov: false, sweep: false, clash: true, labels: false, mission: false, lzCodes: true, layers: { chassis: true, body: true, head: true }, selected: null, checkFocus: null, asm: -1 };
 const secPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
 
 function clashParts() {
@@ -1979,21 +2533,21 @@ function isShown(o) { let n = o; while (n) { if (n.visible === false) return fal
    10. 組裝步驟
    ========================================================= */
 const ASM = [
-  { t: '檢查零件與工具', parts: ['tub'], d: '對照「規格」分頁的 BOM 清點。工具：十字起子、2.5 mm 六角扳手、烙鐵、熱熔膠槍、剝線鉗、三用電表。底盤四根立柱頂端先燙 M3 熱熔螺母。' },
-  { t: '裝左右馬達（對角）', parts: ['motorL', 'motorR'], d: '左馬達從左壁內側、靠車尾插入；右馬達從右壁內側、靠車頭插入。兩個 M3 孔轉成左右（水平）排列，編碼器白色 6P 接頭就會水平朝車身中央。每顆用 2 顆 M3×6 圓頭螺絲從側壁外面鎖入（進入減速箱 ≤ 4 mm）。馬達身體放在托架上用 3 mm 束線帶綁住。' },
-  { t: '裝驅動輪與惰輪', parts: ['sprL', 'sprR', 'idlL', 'idlR'], d: '驅動輪 D 形孔對準馬達軸 D 面推到底，鎖 M3 止付螺絲。惰輪穿 M4×40 螺絲放進長槽，先不要鎖緊。' },
-  { t: '裝 DRV8870 與 C1', parts: ['driver', 'cap'], d: '驅動板放底盤右側：藍色端子朝車身中央、VM 在後端、排針那一邊在線材通道正下方，4 顆 M3 自攻鎖在螺絲座。前（右）馬達接 OUT1/2、後（左）馬達接 OUT3/4。可變電阻轉到最小（限流最低），VO 不接任何東西。C1 1000 µF 躺在 VM 端子旁，並在 VM／G 上（灰色條紋＝負極接 G）。' },
-  { t: '電源區：CH224K、Mini560、AMS1117、J1/J2', parts: ['pd', 'buck', 'ldo', 'conn'], d: '⚠ CH224K 先單獨接行動電源，用三用電表量到 9.0 V 才裝（出廠常是 20 V）。誘騙板放在右後角滑軌上，USB-C 母座從後壁小孔伸出。Mini560 輸入接 9V_SW、輸出 5 V；AMS1117 從 5 V 降 3.3 V 給兩顆編碼器。J1／J2 放進右側線材通道。' },
-  { t: '組履帶並掛上', parts: ['trackL', 'trackR'], d: `每邊 ${'${links}'} 片，用 1.75 mm 線材當插銷，兩端用烙鐵燙平。套上驅動輪與惰輪，把惰輪往外推到履帶「手指壓下去約 5 mm」的鬆緊，再鎖緊 M4。` },
-  { t: '電池艙托盤', parts: ['tray'], d: '先把下層的線全部壓低、整理到兩側（編碼器線走馬達上緣），托盤放上去：架在左壁凸緣、前壁凸緣、後壁開口下緣和通道邊的小立柱上，4 顆 M3 鎖住。兩條魔鬼氈先穿過托盤側邊的扣孔。' },
-  { t: '上身骨架：喇叭與功放', parts: ['frame', 'spkRing', 'speaker', 'amp'], d: '喇叭放進墊高環、墊高環鎖在脊板前面。MAX98357A 用 M2 鎖在喇叭旁邊，喇叭線剪短到 8 cm 以內。' },
-  { t: '配電板', parts: ['perf'], d: '配電板鎖在右翼。焊好 SS34（Mini560 5 V → ESP32 5 V）、470 µF ×2（伺服、功放旁）、9 V 監測分壓 100k/33k（中點接 GPIO1）。' },
-  { t: '頂板：伺服與開關', parts: ['topPlate', 'servo', 'switch'], d: '伺服從頂板下方塞入，耳片貼住頂板底面用 M2 自攻鎖好。先用測試程式把伺服轉到 90°（置中）！開關壓入左後角開孔，接 J1 的 9V_RAW／9V_SW。頂板用 4 顆 M3 鎖在骨架上。' },
-  { t: '頭部轉盤裝上舵盤', parts: ['headFloor'], d: '圓舵盤先用 2 顆 M2 鎖在轉盤底部凸台，再把轉盤朝正前方套進伺服花鍵，從上方 Ø6 孔鎖中心螺絲。裙邊要蓋住頸座軸環，後方限位指落在兩根限位柱之間。' },
-  { t: 'ESP32、麥克風、頭罩', parts: ['esp32', 'mic', 'headHood'], d: '頸部線束先從頂板窗口往上穿過轉盤 Ø8 孔。ESP32 從頭罩後方放進四個角座（USB 朝左側開孔），把相機模組挪到右眼圈正後方用雙面膠固定。杜邦線插上後點熱熔膠。INMP441 金屬殼朝上貼在頭頂收音孔下。頭罩用 4 顆 M2 鎖在轉盤。' },
-  { t: '頸部線束整理與後蓋', parts: ['headBack'], d: '手動把頭轉到 ±45°，確認線束在窗口內滑動、沒有被拉緊。身體內的線束留一個 U 形餘長圈，用束線帶固定在骨架後方。裝上頭部後蓋。' },
-  { t: '上身與底盤合體、套外殼', parts: ['shell'], d: '上身抬在底盤上方，從上身底板右後方的長孔把 J1、J2 插好，再對準四根立柱鎖 4 顆 M3。外殼套筒從頭頂往下套，側面 4 顆 M3 固定。' },
-  { t: '放進行動電源', parts: ['bank', 'strap', 'spacer'], d: '行動電源從車尾推進電池艙、頂到前壁（太短就先放前方墊塊），輸出 C 孔朝後。兩條魔鬼氈繞過去拉緊。用 C-to-C 短線接到後壁下方的 USB-C。' },
+  { t: '雷切、清點、乾配底盤箱', parts: ['tub'], d: '先切「雷切」分頁的測試片，量好板厚與切縫填回去，再切正式板。每片都雷雕了編號（C1、S3…），對照「雷切 → 零件清單」。焦黑邊用 240 號砂紙輕刷。底盤箱先乾配（不上膠）：底板的榫頭插進四面牆，托柱、小立板、凸緣插進來，全部對得上再拆開，榫頭沾薄薄一層白膠重組，用橡皮筋或紙膠帶綁緊 30 分鐘。工具：砂紙、白膠、紙膠帶、十字起子、尖嘴鉗、烙鐵、熱熔膠槍、剝線鉗、三用電表。' },
+  { t: '裝左右馬達（對角）', parts: ['motorL', 'motorR'], d: '左馬達從左壁內側、靠車尾插入；右馬達從右壁內側、靠車頭插入。兩個 M3 孔轉成左右（水平）排列，編碼器白色 6P 接頭就會水平朝車身中央。每顆用 2 顆 M3×6 圓頭螺絲從側壁外面鎖入（穿過 3 mm 側壁後進入減速箱約 3 mm）。馬達尾端靠在托柱上，用束線帶綁住。' },
+  { t: '裝驅動輪與惰輪（廠商套件）', parts: ['sprL', 'sprR', 'idlL', 'idlR'], d: '依套件方式把驅動輪裝上馬達 Ø4 D 軸（中心孔不合就加聯軸器）。惰輪軸用 M4 螺絲穿過側壁長槽，先不要鎖緊。' },
+  { t: '裝 DRV8870 與 C1', parts: ['driver', 'cap'], d: '驅動板放底盤右側：藍色端子朝車身中央、VM 在後端、排針那一邊在線材通道正下方。底板已經開好 4 個孔，用 M3 尼龍柱（5 mm）墊高，螺絲從底板下面鎖。前（右）馬達接 OUT1/2、後（左）馬達接 OUT3/4。可變電阻轉到最小，VO 不接。C1 1000 µF 躺在 VM 端子旁，並在 VM／G 上（灰色條紋＝負極接 G）。' },
+  { t: '電源區：CH224K、Mini560、AMS1117、J1/J2', parts: ['pd', 'buck', 'ldo', 'conn'], d: '⚠ CH224K 先單獨接行動電源，用三用電表量到 9.0 V 才裝（出廠常是 20 V）。底板上雷雕了每個模組的框：先黏合板墊片，再用泡棉雙面膠貼模組。CH224K 的 USB-C 母座從後壁小孔伸出。Mini560 輸入接 9V_SW、輸出 5 V；AMS1117 從 5 V 降 3.3 V 給兩顆編碼器。J1／J2 放進右側線材通道。' },
+  { t: '拼履帶並掛上', parts: ['trackL', 'trackR'], d: '每邊約 ${links} 節（依實際套件），照套件方式拼成一圈。套上驅動輪與惰輪，把惰輪往外推到履帶「手指壓下去約 5 mm」的鬆緊，再鎖緊 M4。' },
+  { t: '電池艙托盤', parts: ['tray'], d: '先把下層的線全部壓低、整理到兩側（編碼器線走馬達上緣）。托盤右緣立板先黏在托盤上；托盤前緣兩個榫頭插進前壁的槽，後端放下、落在後壁開口下緣。托盤不上膠、不鎖螺絲，要修線時抬起來就拿出來了。兩條魔鬼氈先穿過托盤兩側的長孔。' },
+  { t: '上身骨架與功放', parts: ['frame', 'amp'], d: '脊板、左右側翼的榫頭插進上身底板，上膠。兩片側翼的六角孔各壓進 2 顆 M3 螺帽（外殼要鎖這裡），背面點一滴快乾。MAX98357A 用 M2 鎖在脊板前面。' },
+  { t: '配電板', parts: ['perf'], d: '配電板用束線帶綁在右翼的 4 個小孔上。焊好 SS34（Mini560 5 V → ESP32 5 V）、470 µF ×2（伺服、功放旁）、9 V 監測分壓 100k/33k（中點接 GPIO1）。' },
+  { t: '頂板：軸環、伺服、開關', parts: ['topPlate', 'servo', 'switch'], d: '兩片軸環照頂板上雷雕的圓圈疊黏，兩根限位柱插進頂板。伺服從頂板下方塞入方孔，耳片貼住頂板底面用 M2 自攻鎖好。先用測試程式把伺服轉到 90°（置中）！開關壓入左後角開孔，接 J1 的 9V_RAW／9V_SW。頂板蓋上骨架（脊板、側翼的榫頭插進來），試轉頭沒問題再上膠。' },
+  { t: '頭部底盤裝上舵盤', parts: ['headFloor'], d: '三片裙邊環照頭部底板的雷雕圓圈疊黏，帶限位指的那片在最下面、指頭朝後。軸環和裙邊內圈用 400 號砂紙磨順、抹一點蠟。圓舵盤用 2 顆 M2 鎖在底板下面，底盤朝正前方套進伺服花鍵，從上方 Ø6 孔鎖中心螺絲。限位指要落在兩根限位柱之間。' },
+  { t: 'ESP32、麥克風、頭殼', parts: ['esp32', 'mic', 'headHood'], d: '頸部線束先從頂板窗口往上穿過頭部底板的 Ø8 孔。ESP32 兩端先塞進兩片卡板的十字孔（USB 朝左），三個一起插進頭部底板。頭殼四面：左右側板在外、前後板在內，榫頭插進底板後上膠。相機模組挪到右眼後方用雙面膠固定，杜邦線插好點熱熔膠。INMP441 金屬殼朝上貼在上蓋收音孔下。眼圈、瞳孔、眼瞼黏在臉上。' },
+  { t: '頸部線束整理與上蓋', parts: ['headBack'], d: '手動把頭轉到 ±45°，確認線束在窗口內滑動、沒有被拉緊。身體內的線束留一個 U 形餘長圈，用束線帶固定在骨架後方。頭上蓋的定位板卡進四面牆裡，不用螺絲。' },
+  { t: '上身與底盤合體、套外殼', parts: ['shell'], d: '外殼四片先黏成套筒（側板在外、前後板在內）。底盤側壁頂邊 4 個 T 型槽先塞好 M3 螺帽；上身抬在底盤上方，從長孔把 J1、J2 插好，鎖 4 顆 M3×12。外殼套筒從頭頂往下套，側面 4 顆 M3×8 鎖進側翼的螺帽。喇叭用熱熔膠黏在外殼前板背面、對準格柵。' },
+  { t: '放進行動電源', parts: ['bank', 'strap', 'spacer'], d: '行動電源從車尾推進電池艙、頂到前壁（太短就先放合板疊片的前方墊塊），輸出 C 孔朝後。兩條魔鬼氈繞過去拉緊。用 C-to-C 短線接到後壁下方的 USB-C。' },
   { t: '通電測試', parts: [], d: '① 不接行動電源，用三用電表量 9 V 與 GND 不短路。② 接行動電源、開開關：J1 的 9V_SW 要是 9.0 V（只有 5 V＝PD 沒成功，換 C-to-C 線或換行動電源）、配電板 5 V。③ 燒錄測試程式：b 看 9 V、伺服 ±45° 掃描、左右馬達各正反轉、喇叭嗶聲、麥克風音量條、e 看編碼器。④ 地面測試：慢速前進、原地轉、急停不前翻、急加速不後仰。' },
 ];
 const asmAnim = { k: 0, t0: 0 };
@@ -2121,7 +2675,8 @@ function specPaneHtml() {
     ['行動電源（自備）', '長 × 寬 × 厚／重量', `${P.bankL} × ${P.bankW} × ${P.bankT}／${P.bankMass} g`, 'M'], ['行動電源（自備）', '必要規格', 'USB PD 9 V ≥ 2 A（20 W）、C 孔輸出', 'D'],
     ['電池艙', '可用寬 × 高 × 長', `${fx(L.bayX1 - L.bayX0, 0)} × ${fx(P.bayH - 0.5, 1)} × ${fx(L.bayZ1 - L.tubZ0, 0)}（尾端開放）`, 'D'],
     ['CH224K 誘騙板', '外形／9 V 設定方式', '約 12 × 25／—', 'M'], ['Mini560', '外形／固定或可調', `${P.buckL} × ${P.buckW}／—`, 'E'], ['AMS1117-3.3 模組', '外形', '22 × 11', 'E'], ['C1', '1000 µF／25 V', 'Ø10 × 20', 'E'], ['喇叭', '外形', `Ø${P.spkD} × ${P.spkH}`, 'E'],
-    ['履帶', '節距／寬／片數', `${P.trackPitch}／${P.trackW}／${L.links}`, 'D'], ['驅動輪', '節圓', `${fx(L.PD, 2)}（≈Ø41）`, 'D'],
+    ['履帶（廠商套件）', '節距／寬／每邊節數', `${P.trackPitch}／${P.trackW}／${L.links}`, 'M'], ['驅動輪（廠商套件）', '外徑／中心孔', `模型暫用 Ø${fx(L.PD, 0)}／—`, 'M'],
+    ['椴木合板', '實際板厚', `${P.ply}`, 'M'], ['雷切機', '切縫寬／平台', `${P.kerf}／${P.sheetW} × ${P.sheetH}`, 'M'],
   ];
   const risks = [
     ['高', '急煞前翻／急加速後仰', '直立式重心高。行動電源躺在馬達正上方當配重＋韌體加速度限制；換大顆行動電源、加推土板或頭部加高後要再看「檢查」。'],
@@ -2132,9 +2687,11 @@ function specPaneHtml() {
     ['中', '6 V 馬達接 9 V', 'PWM 上限 66 %（平均約 6 V）、0.25 s 軟啟動；不要拿掉上限。'],
     ['中', '每個學員的行動電源都不一樣', `電池艙可用 ${fx(L.bayX1 - L.bayX0, 0)} × ${fx(P.bayH - 0.5, 1)}、尾端開放；薄的用魔鬼氈拉緊，短的放前方墊塊。網頁「參數」可以先輸入尺寸檢查。`],
     ['中', '伺服／喇叭瞬間電流造成 ESP32 重開', 'Mini560、伺服與功放旁各 470 µF、ESP32 經 SS34 單獨一路 5 V；9 V 端 C1 1000 µF。'],
-    ['中', '馬達只靠前端兩顆 M3 懸臂', '尾端 U 形托架＋束線帶。'],
-    ['中', '驅動輪 D 孔打滑', '孔內埋 M3 螺母＋止付螺絲，輪轂 100% 填充。'],
-    ['中', '頭內 ESP32 發熱', '頭罩用 PETG、後蓋散熱槽、串流時降低解析度。'],
+    ['中', '馬達只靠前端兩顆 M3 懸臂', '尾端靠合板托柱＋束線帶。'],
+    ['中', '套件驅動輪的孔不合 Ø4 D 軸', '先量中心孔：Ø4 D 形直接上；圓孔或六角孔用聯軸器／法蘭轉接。'],
+    ['中', '榫接太緊或太鬆', '每一批合板厚度都可能差 0.1–0.2 mm：換板材就先切一次測試片，校正板厚和切縫再切正式板。'],
+    ['中', '頭內 ESP32 發熱', '頭殼後板散熱槽、串流時降低解析度；木頭不像 PLA 會在 55 °C 變軟。'],
+    ['低', '合板受潮翹曲', '組好後塗一層水性透明漆或蠟；不要放在大太陽下的車裡。'],
     ['中', '編碼器 5 V 燒壞 GPIO', '編碼器只接 AMS1117 的 3.3 V＋每條 1 kΩ；驅動板 VO 不要接。'],
     ['中', 'GPIO46（編碼器 B）影響燒錄', '先只接 A 相；B 相選配，燒錄失敗時拔 J2。'],
     ['低', '離地 ' + fx(L.clearance, 1) + ' mm', '營隊場地避免碎石；障礙物高度 ≤ 15 mm。'],
@@ -2149,7 +2706,8 @@ function specPaneHtml() {
     'JGA25-370：減速比（決定減速箱長 L），以及 6P 編碼器線每一條的顏色或絲印。',
     'SG92R：卡尺量耳片下緣到底部、軸心到本體端的距離。',
     '喇叭：你用的是 Ø40 圓形，還是商品圖裡那種長方形腔體喇叭？（尺寸、阻抗、功率）',
-    '營隊印表機型號／平台尺寸，以及能用的線材（PLA／PETG／TPU）。',
+    '雷切機：平台大小、雷射瓦數、用什麼軟體（LightBurn、RDWorks…）。我可以把排版改成剛好塞滿你們的平台。',
+    '履帶套件：驅動輪／惰輪的外徑、齒數、寬度、中心孔；履帶節距、寬度。輪徑決定底盤高度，量好我再改。',
   ];
   const cmp = [
     ['兩馬達干涉', '內寬 110 會互撞，需 ≥134', '完全錯開，無干涉', '同 B'],
@@ -2172,20 +2730,19 @@ function specPaneHtml() {
   ${risks.map(([a, b, c]) => `<tr><td>${a}</td><td>${esc(b)}</td><td>${esc(c)}</td></tr>`).join('')}</tbody></table></div>
   <h3>需要你補拍／補量</h3>
   <ol class="clean">${needs.map(n => `<li>${esc(n)}</li>`).join('')}</ol>
-  <h3>列印件清單（預設參數）</h3>
-  <p class="small muted">全部免支撐、STL 已擺好列印方向。先印試配套件拿實物試過，再印大件；順序與切片設定見 docs/PRINTING.md。</p>
-  <div class="tblwrap"><table><thead><tr><th>零件</th><th>數量</th><th>材料</th><th>STL</th></tr></thead><tbody>
-  ${[['試配套件（先印）', 8, 'PLA', 'fit/fit_*'], ['底盤槽', 1, 'PETG/PLA', 'tub'], ['驅動輪', 2, 'PETG', 'sprocket'], ['惰輪', 2, 'PETG', 'idler'], [`履帶片（16 片一盤，共 ${2 * L.links} 片＋備品）`, 4, 'PETG', 'track_links_16'], ['電池艙托盤', 1, 'PLA', 'battery_tray'], ['前方墊塊（10 mm，可疊）', 3, 'PLA', 'bank_spacer'],
-    ['上身骨架', 1, 'PLA', 'upper_frame'], ['頂板／頸座', 1, 'PETG', 'neck_deck'], ['身體外殼', 1, 'PLA', 'body_shell'], ['喇叭墊高環', 1, 'PLA', 'speaker_ring'],
-    ['頭部轉盤', 1, 'PETG', 'head_floor'], ['頭罩', 1, 'PETG', 'head_hood'], ['頭部後蓋', 1, 'PETG', 'head_back'], ['眼圈', 2, '橘色 PLA', 'eye_ring'], ['瞳孔（造型眼）', 1, '深灰 PLA', 'pupil'], ['眼瞼（可換）', 2, 'PLA', 'eyelid']]
-    .map(([a, b, c, d]) => `<tr><td>${a}</td><td class="v">${b}</td><td>${c}</td><td class="v">cad/stl/${d}.stl</td></tr>`).join('')}</tbody></table></div>
+  <h3>雷切件清單（目前參數）</h3>
+  <p class="small muted">全部 3 mm 椴木合板，榫接＋白膠。排版、下載 SVG／DXF 在「雷切」分頁；切割與組裝說明見 docs/LASER.md。</p>
+  <div class="tblwrap"><table><thead><tr><th>組件</th><th>片數</th><th>編號</th></tr></thead><tbody>
+  ${Object.entries(WOOD.reduce((o, p) => ((o[p.grp] ||= []).push(p.code), o), {})).map(([g, c]) => `<tr><td>${esc(WOOD_GROUPS[g][1])}</td><td class="v">${c.length}</td><td class="v">${c[0]}–${c[c.length - 1]}</td></tr>`).join('')}
+  <tr><td><b>合計</b></td><td class="v"><b>${WOOD.length}</b></td><td>${(() => { const pl = laserPlan(P, WOOD, { codes: false }); return `${pl.sheets.length} 張 ${P.sheetW}×${P.sheetH} mm＋測試片一小塊`; })()}</td></tr></tbody></table></div>
   <h3>採購件＋五金</h3>
   <ul class="clean">
     <li>JGA25-370（6 V）×2、ESP32-S3-CAM ×1、MAX98357A ×1、INMP441 ×1、DRV8870 雙路 ×1、SG92R ×1</li>
     <li>行動電源（學員自備：PD 20 W 以上、有 C 孔）、CH224K PD 誘騙板（設 9 V）、Mini560 5 V 降壓、AMS1117-3.3 模組、C-to-C 短線 10–15 cm（支援 PD 3 A）、20 mm 背對背魔鬼氈 ×2、Ø40 喇叭 4 Ω 3 W、KCD1 船型開關</li>
     <li>1000 µF/25 V ×1（C1）、470 µF/16 V ×2、SS34、100k＋33k、1 kΩ ×4（編碼器保護）、100 nF、JST-XH 6P／8P 各一組、5×7 洞洞板</li>
-    <li>M3×6 圓頭 ISO 7380 ×4（馬達）、M3×8 ×24、M3 熱熔螺母 ×4（立柱）、M3 止付螺絲＋M3 螺母 ×2、M4×40＋防鬆螺帽 ×2、M2×6 自攻 ×10</li>
-    <li>1.75 mm 線材約 2 m（履帶插銷）、杜邦母母線 20 cm ×20、20/22/26 AWG 矽膠線、熱縮管、3 mm 束線帶、螺旋纏線管</li>
+    <li>M3×6 圓頭 ISO 7380 ×4（馬達）、M3×12＋M3 螺帽 ×4（上身鎖進側壁 T 型槽）、M3×8＋M3 螺帽 ×4（外殼鎖側翼）、M3×10＋螺帽＋5 mm 尼龍隔離柱 ×4（DRV8870）、M2×6 自攻 ×4（伺服、舵盤）、M2×8＋螺帽 ×2（功放）、M4×40＋防鬆螺帽 ×2（惰輪軸，看套件）</li>
+    <li>木工：3 mm 椴木合板（張數見上表）、白膠（樹脂膠）、快乾膠、240／400 號砂紙、紙膠帶或橡皮筋（上膠時綁緊）、蠟燭一小截（頸部軸環潤滑）、泡棉雙面膠</li>
+    <li>履帶套件（驅動輪、惰輪、履帶）×2 組、杜邦母母線 20 cm ×20、20/22/26 AWG 矽膠線、熱縮管、3 mm 束線帶、螺旋纏線管</li>
   </ul>`;
 }
 
@@ -2201,10 +2758,10 @@ function refreshInspector() {
     <h2>${esc(I.name)}</h2>
     <div class="kind"><span class="pill">${esc(I.kind)}</span><span class="pill">${esc(I.layer)}</span>${mi ? `<span class="pill mono">≈ ${fx(mi.m, 0)} g</span>` : ''}</div>
     <h4>尺寸（mm）</h4>
-    <div class="tblwrap"><table><tbody>${I.dims.map(d => `<tr><td>${esc(d.label)}</td><td class="v">${esc(d.value)}</td><td>${tag(d.st)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="tblwrap"><table><tbody>${I.dims.map(d => `<tr><td>${esc(d.label)}</td><td class="${String(d.value).length > 28 ? 'small' : 'v'}">${esc(d.value)}</td><td>${tag(d.st)}</td></tr>`).join('')}</tbody></table></div>
     <h4>規格</h4><p>${esc(I.spec)}</p>
     <h4>用途</h4><p>${esc(I.use)}</p>
-    ${I.mat ? `<h4>材料／列印</h4><p>${esc(I.mat)}</p>` : ''}
+    ${I.mat ? `<h4>材料／加工</h4><p>${esc(I.mat)}</p>` : ''}
     ${I.notes.length ? `<h4>注意</h4><ul class="clean">${I.notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
     ${related.length ? `<h4>相關檢查</h4>${related.map(c => `<div class="note ${c.status === 'fail' ? 'bad' : c.status === 'pass' ? 'ok' : c.status === 'info' ? 'info' : ''}"><b>${esc(c.title)}</b>：<span class="mono">${esc(c.value)}</span></div>`).join('')}` : ''}
     <div class="row" style="justify-content:flex-start;gap:6px;margin-top:12px"><button class="btn" id="insFocus">鏡頭對準</button><button class="btn" id="insClear">回到總覽</button></div>`;
@@ -2247,9 +2804,10 @@ function overviewHtml() {
     <li><b>右眼就是真鏡頭</b>：GOOUUU 板的相機貼在模組上、偏天線端約 20 mm，剛好是一隻眼睛的位置；左眼是造型眼。</li>
     <li><b>編碼器接回 ESP32</b>：A 相用 GPIO19/20（改用 TTL 口燒錄），3.3 V 由 AMS1117 供應。</li>
     <li><b>頸部線束繞開轉軸</b>：伺服佔住轉軸，線束改從轉軸後方 16 mm 穿過腎形窗口。</li>
+    <li><b>整台車是雷切合板</b>：${WOOD.length} 片 3 mm 椴木合板榫接＋白膠，零 3D 列印。到「雷切」分頁下載 SVG／DXF。</li>
     <li><b>外殼是套筒</b>：拆 4 顆螺絲往上拔，連頭都不用拆。</li>
   </ul>
-  <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="ovBat">換行動電源示範</button><button class="btn" data-go="asm">看組裝步驟</button><button class="btn" data-go="wire">看配線</button><button class="btn" data-go="spec">待量測清單</button></div>`;
+  <div class="row" style="justify-content:flex-start;gap:6px;flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="ovBat">換行動電源示範</button><button class="btn" data-go="asm">看組裝步驟</button><button class="btn" data-go="wire">看配線</button><button class="btn" data-go="laser">雷切檔</button><button class="btn" data-go="spec">待量測清單</button></div>`;
 }
 function bindOverview() { $$('#inspector [data-go]').forEach(b => b.onclick = () => selectTab(b.dataset.go)); const ob = $('#ovBat'); if (ob) ob.onclick = () => batterySwap(batDemo.to < 1); }
 
@@ -2281,6 +2839,89 @@ function renderParams() {
   $('#bankNote').textContent = P.bankMount === 'back' ? '比較模式：行動電源掛在身體背後（身體自動加高，讓總高相同）。看「檢查 → 電池艙」的重心比較。' : '自己的行動電源不在清單上？直接拉下面「行動電源」的長、寬、厚與重量。';
   setSeg('#micSeg', P.micInHead ? 'head' : 'body');
 }
+/* ---------- 雷切分頁 ---------- */
+const LZ_UI = [
+  { k: 'ply', label: '板厚（實測）', min: 2.5, max: 3.6, step: 0.05, st: 'M', dec: 2, hint: '「3 mm」合板實際常是 2.7–3.2。用游標卡尺量 3 個地方取平均；整台車的榫孔、尺寸都會跟著變。' },
+  { k: 'kerf', label: '切縫寬', min: 0, max: 0.4, step: 0.01, st: 'M', dec: 2, hint: '雷射燒掉的線寬，CO2 切 3 mm 椴木大約 0.1–0.2。切測試片 X2 量出來：實際寬 = 設定值 + 20 − 量到的寬。' },
+  { k: 'fit', label: '榫孔每邊間隙', min: 0, max: 0.3, step: 0.01, st: 'D', dec: 2, hint: '0.05 = 手壓得進去、上白膠剛好。測試梳 X1 哪一格最剛好：+0.1 那格就把這裡加 0.05，−0.1 就減 0.05。' },
+];
+let LZ = null, LZT = null, LZ_DIRTY = true;
+const lzName = (n, tot, ext) => `ARES1_sheet${n}-of-${tot}_${P.sheetW}x${P.sheetH}_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.${ext}`;
+function download(name, text, type) {
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    return true;
+  } catch { return false; }
+}
+async function downloadMany(files) {
+  for (const [n, t, ty] of files) { download(n, t, ty); await new Promise(r => setTimeout(r, 350)); }
+  $('#laserMsg').textContent = `已下載 ${files.length} 個檔案。沒看到檔案？這個預覽視窗可能擋下載，請用 GitHub Pages 或本機開網頁；repo 的 laser/ 資料夾也有預設參數的檔案。`;
+}
+function renderLaserParams() {
+  const cur = SHEETS.find(([, w, h]) => w === P.sheetW && h === P.sheetH);
+  $('#laserParams').innerHTML = LZ_UI.map(it => `<div class="slider"><div class="lab">${esc(it.label)} ${tag(it.st)}</div><div class="val"><span id="lv_${it.k}">${fx(P[it.k], it.dec)}</span> mm</div>
+      <input type="range" id="l_${it.k}" min="${it.min}" max="${it.max}" step="${it.step}" value="${P[it.k]}" aria-label="${esc(it.label)}"><div class="hint">${esc(it.hint)}</div></div>`).join('') +
+    `<div class="lab small" style="margin-top:8px">板材／雷切機平台 ${tag('M')}</div>
+     <div class="seg" id="lzSheetSeg">${SHEETS.map(([n, w, h]) => `<button data-w="${w}" data-h="${h}" aria-pressed="${!!cur && cur[0] === n}">${n}${n === 'A4' ? '' : ' cm'}</button>`).join('')}</div>
+     <div class="lzfield"><span class="small">自訂</span><input type="number" id="lzW" min="150" max="1300" step="10" value="${P.sheetW}" aria-label="板寬 mm"> × <input type="number" id="lzH" min="100" max="900" step="10" value="${P.sheetH}" aria-label="板高 mm"><span class="small muted">mm（取板子和平台比較小的那個）</span></div>
+     <div class="lzfield"><span class="small">外殼左側名牌</span><input type="text" id="lzTag" maxlength="12" value="${esc(P.nameTag)}" aria-label="名牌文字"><span class="small muted">中文也可以</span></div>
+     <label class="check"><input type="checkbox" id="lzCodes" ${UI.lzCodes ? 'checked' : ''}> 雷雕零件編號（C1、B2…，只雕在看不到的那一面；外殼、頭殼、眼睛靠形狀認）</label>`;
+  LZ_UI.forEach(it => {
+    const inp = $('#l_' + it.k);
+    inp.addEventListener('input', () => {
+      P[it.k] = parseFloat(inp.value); $('#lv_' + it.k).textContent = fx(P[it.k], it.dec);
+      if (it.k === 'kerf') renderLaser(); else scheduleBuild();
+    });
+  });
+  const setSheet = (w, h) => { P.sheetW = clamp(Math.round(w), 150, 1300); P.sheetH = clamp(Math.round(h), 100, 900); renderLaserParams(); CHK = runChecks(P, L); renderChecks(); renderHud(); renderLaser(); };
+  $$('#lzSheetSeg button').forEach(b => b.onclick = () => setSheet(+b.dataset.w, +b.dataset.h));
+  $('#lzW').onchange = e => setSheet(+e.target.value || P.sheetW, P.sheetH);
+  $('#lzH').onchange = e => setSheet(P.sheetW, +e.target.value || P.sheetH);
+  $('#lzTag').oninput = e => { P.nameTag = e.target.value.trim() || 'ARES-1'; scheduleBuild(); };
+  $('#lzCodes').onchange = e => { UI.lzCodes = e.target.checked; scheduleBuild(); };
+}
+function renderLaser() {
+  LZ_DIRTY = false;
+  LZ = laserPlan(P, WOOD, { codes: UI.lzCodes });
+  LZT = laserPlan(P, testParts(P), { codes: true, W: 140, H: 60, crop: true });
+  const n = LZ.sheets.length;
+  $('#laserStats').innerHTML = `<div class="lzstats">
+      <div><b>${n} 張</b><span>${P.sheetW}×${P.sheetH} mm 板材</span></div>
+      <div><b>${LZ.count} 片</b><span>零件（含眼睛小件）</span></div>
+      <div><b>${fx(LZ.util * 100, 0)}%</b><span>板材利用率</span></div>
+      <div><b>≈ ${fx(LZ.minutes, 0)} 分</b><span>雷切＋雕刻（40 W 粗估）</span></div>
+    </div>
+    <p class="small muted">切割線總長 ${fx(LZ.cutLen / 1000, 1)} m、劃線 ${fx(LZ.scoreLen / 1000, 1)} m、雕刻 ${fx(LZ.fillArea / 100, 0)} cm²。${LZ.big.length ? '' : '每張板四周留 5 mm、零件間距 2.5 mm。'}</p>
+    ${LZ.big.length ? `<div class="note bad"><b>放不下</b>：${LZ.big.map(p => esc(p.code + ' ' + p.name)).join('、')} 比板材還大，請選大一點的板子。</div>` : ''}`;
+  $('#laserSheets').innerHTML = LZ.sheets.map(sh => `<div class="lzcard" data-n="${sh.n}">
+      <div class="row"><b class="small">第 ${sh.n} 張 · ${sh.parts.length} 片</b><span class="row" style="gap:4px;padding:0"><button class="btn" data-svg="${sh.n}">SVG</button><button class="btn" data-dxf="${sh.n}">DXF</button></span></div>
+      ${sheetSVG(sh, P, { preview: true })}</div>`).join('');
+  const rows = LZ.sheets.flatMap(sh => sh.parts.map(q => [q.p, sh.n, q]));
+  rows.sort((a, b) => a[0].code.localeCompare(b[0].code, 'en', { numeric: true }));
+  $('#laserList').innerHTML = `<div class="tblwrap"><table><thead><tr><th>編號</th><th>零件</th><th>尺寸</th><th>板</th></tr></thead><tbody>${rows.map(([p, sn, q]) =>
+    `<tr data-grp="${p.grp}" style="cursor:pointer"><td class="v">${esc(p.code)}</td><td>${esc(WOOD_GROUPS[p.grp][1])}・${esc(p.name)}${q.mirrored ? ' <span class="small muted">（翻面）</span>' : ''}</td><td class="v">${fx(q.rot ? q.h : q.w, 0)}×${fx(q.rot ? q.w : q.h, 0)}</td><td class="v">${sn}</td></tr>`).join('')}</tbody></table></div>`;
+  const pick = grp => { if (!parts[grp]) return; UI.selected = grp; applyState(); refreshInspector(); focusPart(grp); };
+  $$('#laserList tr[data-grp]').forEach(tr => tr.onclick = () => pick(tr.dataset.grp));
+  $$('#laserSheets .lzsheet').forEach(svg => svg.onclick = () => openSheet(+svg.closest('.lzcard').dataset.n));
+  $$('#laserSheets [data-svg]').forEach(b => b.onclick = () => { const sh = LZ.sheets[b.dataset.svg - 1]; download(lzName(sh.n, n, 'svg'), sheetSVG(sh, P, { title: `板 ${sh.n}/${n}` }), 'image/svg+xml'); });
+  $$('#laserSheets [data-dxf]').forEach(b => b.onclick = () => { const sh = LZ.sheets[b.dataset.dxf - 1]; download(lzName(sh.n, n, 'dxf'), sheetDXF(sh), 'application/dxf'); });
+}
+function openSheet(k) {
+  const sh = LZ.sheets[k - 1], n = LZ.sheets.length, dlg = $('#lzDlg');
+  $('#lzDlgT').textContent = `第 ${k}／${n} 張 · ${sh.W}×${sh.H} mm · ${sh.parts.length} 片`;
+  $('#lzDlgBody').innerHTML = sheetSVG(sh, P, { preview: true });
+  $('#lzDlgSvg').onclick = () => download(lzName(k, n, 'svg'), sheetSVG(sh, P, { title: `板 ${k}/${n}` }), 'image/svg+xml');
+  $('#lzDlgDxf').onclick = () => download(lzName(k, n, 'dxf'), sheetDXF(sh), 'application/dxf');
+  $$('#lzDlgBody g[data-grp]').forEach(g => g.onclick = () => { dlg.close(); if (parts[g.dataset.grp]) { UI.selected = g.dataset.grp; applyState(); refreshInspector(); focusPart(g.dataset.grp); } });
+  if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+}
+$('#lzDlgX').onclick = () => $('#lzDlg').close();
+$('#lzSvgAll').onclick = () => { const n = LZ.sheets.length; downloadMany(LZ.sheets.map(sh => [lzName(sh.n, n, 'svg'), sheetSVG(sh, P, { title: `板 ${sh.n}/${n}` }), 'image/svg+xml'])); };
+$('#lzDxfAll').onclick = () => { const n = LZ.sheets.length; downloadMany(LZ.sheets.map(sh => [lzName(sh.n, n, 'dxf'), sheetDXF(sh), 'application/dxf'])); };
+$('#lzTest').onclick = () => downloadMany([[`ARES1_test_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.svg`, sheetSVG(LZT.sheets[0], P, { title: '切縫測試片' }), 'image/svg+xml'], [`ARES1_test_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.dxf`, sheetDXF(LZT.sheets[0]), 'application/dxf']]);
 let buildPending = false;
 function scheduleBuild() { if (buildPending) return; buildPending = true; requestAnimationFrame(() => { buildPending = false; build(); }); }
 function syncYawRange() {
@@ -2296,6 +2937,7 @@ function selectTab(name) {
   $$('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   $$('.tabpane').forEach(p => p.hidden = p.dataset.pane !== name);
   if (name === 'spec') $('#specPane').innerHTML = specPaneHtml();
+  if (name === 'laser') { renderLaserParams(); if (LZ_DIRTY) renderLaser(); }
   if (name === 'wire' && !UI.wires) setWires(true);
 }
 $$('.tabs button').forEach(b => b.onclick = () => selectTab(b.dataset.tab));
@@ -2426,7 +3068,7 @@ renderParams();
 renderAsmList();
 build();
 // 除錯／文件用：在瀏覽器主控台輸入 __ares 可取得計算結果
-window.__ares = { UI, BANKS, PRESETS, DEFAULTS, get parts() { return parts; }, applyState, overlays, get L() { return L; }, get P() { return P; }, set P(v) { P = v; }, build, stability, runChecks, computeLayout, massItems, fovOcclusion, get wires() { return WIRE_DEFS; } };
+window.__ares = { UI, BANKS, PRESETS, DEFAULTS, get parts() { return parts; }, applyState, overlays, get L() { return L; }, get P() { return P; }, set P(v) { P = v; }, build, stability, runChecks, computeLayout, massItems, fovOcclusion, get wires() { return WIRE_DEFS; }, woodParts, laserPlan, laserPanel, sheetSVG, sheetDXF, testParts, panelIssues, textPolys, get WOOD() { return WOOD; } };
 resize();
 camera.position.set(0, 0, 0);
 { const dir = new THREE.Vector3(...VIEWS.iso).normalize(); controls.target.set(0, L.overallH * 0.45, 0); camera.position.copy(controls.target).addScaledVector(dir, Math.max(L.overallW, L.overallH, L.overallL) * 2.6 + 120); }
