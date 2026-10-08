@@ -391,7 +391,7 @@ const DEFAULTS = {
   // 分析
   fovDiag: 66, mu: 0.7,
   // 雷切木作（3 mm 椴木合板）
-  ply: 3, kerf: 0.15, fit: 0.05, sheetW: 400, sheetH: 300, woodRho: 0.55, nameTag: 'ARES-1',
+  ply: 3, kerf: 0.15, fit: 0.05, sheetW: 450, sheetH: 300, woodRho: 0.55, nameTag: 'ARES-1',
 };
 // 板厚一改，所有板件跟著改
 function syncPly(P) { P.plateT = P.floorT = P.deckT = P.shellT = P.ply; return P; }
@@ -939,7 +939,9 @@ function woodParts(P, L) {
     const fz0 = hz0 + ins + T, fz1 = hz1 - ins - T;    // 前後板內面
     // 底板：夾在四片牆中間；舵盤 M2 孔、中心螺絲孔、線束孔
     const fh = [circ(0, 0, 3, 18), circ(0, -L.harnessR, 4, 20), ...[45, 135, 225, 315].map(a => circ(7.2 * Math.cos(a * D2R), 7.2 * Math.sin(a * D2R), 1.1, 10))];
-    add('headFloor', '頭部底板', 'XZ', 0, edgePlate(-hW + T, fz0, hW - T, fz1, { e: tabsOn(fz0, fz1, T, { n: 2 }), w: tabsOn(fz0, fz1, T, { n: 2 }), s: tabsOn(-hW + T, hW - T, T, { n: 3 }), n: tabsOn(-hW + T, hW - T, T, { n: 3 }) }), { holes: fh, face: -1, head: true, marks: [circ(0, 0, L.skirt.r1, 72)] });
+    // 最上面那片裙邊跟前後牆的下緣同高：前後牆下緣挖缺口讓裙邊過，底板的榫頭避開缺口
+    const skN = z => L.skirt.r1 > z ? Math.sqrt(L.skirt.r1 ** 2 - z ** 2) + 1.5 : 0, nxF = skN(fz1), nxB = skN(-fz0);
+    add('headFloor', '頭部底板', 'XZ', 0, edgePlate(-hW + T, fz0, hW - T, fz1, { e: tabsOn(fz0, fz1, T, { n: 2 }), w: tabsOn(fz0, fz1, T, { n: 2 }), s: tabsOn(-hW + T, hW - T, T, { n: 5, avoid: nxB ? [[-nxB, nxB]] : [] }), n: tabsOn(-hW + T, hW - T, T, { n: 5, avoid: nxF ? [[-nxF, nxF]] : [] }) }), { holes: fh, face: -1, head: true, marks: [circ(0, 0, L.skirt.r1, 72)] });
     // 裙邊三片：最下面那片帶限位指
     for (let i = 1; i <= 3; i++) {
       let outer = circ(0, 0, L.skirt.r1, 72);
@@ -961,12 +963,13 @@ function woodParts(P, L) {
     }
     const hside = { e: tabsOn(-T, H - T, T, { n: 2 }), w: tabsOn(-T, H - T, T, { n: 2 }) };
     const lensX = P.lensOffset, lensY = h.pcbY;
-    add('headHood', '頭前板（臉）', 'XY', fz1, edgePlate(-hW + T, -T, hW - T, H - T, hside), {
+    const skirtNotch = nx => nx ? { s: [{ k: 'notch', c: 0, w: 2 * nx, d: T }] } : {};
+    add('headHood', '頭前板（臉）', 'XY', fz1, edgePlate(-hW + T, -T, hW - T, H - T, { ...hside, ...skirtNotch(nxF) }), {
       holes: [circ(lensX, lensY, 6, 28)], face: 1, head: true, fills: [rrect(-hW + T + 3, lensY - 13, hW - T - 3, lensY + 13, 9)],
     });
     const hv = [];
     for (let i = -3; i <= 3; i++) hv.push(rrect(i * 7 - 1.4, H * 0.42, i * 7 + 1.4, H * 0.75, 1.2));
-    add('headHood', '頭後板', 'XY', hz0 + ins, edgePlate(-hW + T, -T, hW - T, H - T, hside), { holes: hv, face: -1, head: true });
+    add('headHood', '頭後板', 'XY', hz0 + ins, edgePlate(-hW + T, -T, hW - T, H - T, { ...hside, ...skirtNotch(nxB) }), { holes: hv, face: -1, head: true });
     // ESP32 卡板：PCB 兩端穿過卡板的十字孔（上下角卡住，中間讓出 USB 與天線）
     {
       const th = P.camTilt * D2R, ct = Math.cos(th), st = Math.sin(th);
@@ -1047,8 +1050,9 @@ function panelPoint(p, a, b, n) { const o = {}; const [A, B, N] = WOOD_AX[p.plan
    顏色＝圖層：紅 #FF0000 切穿、藍 #0000FF 淺劃線、黑 #000000 填滿雕刻（文字、編號、護目鏡）。
    ========================================================= */
 const LASER_VIEW = { XY: 1, XZ: -1, ZY: -1 };   // 從法線哪一側看，(a, b) 剛好是「a 往右、b 往上」
-const LASER = { margin: 5, gap: 2.5, cutSpeed: 12, scoreSpeed: 60, fillRate: 25, perLoop: 0.4 };   // mm、mm/s、mm²/s、s（40 W CO2＋3 mm 椴木的保守值）
-const SHEETS = [['A4', 297, 210], ['30×20', 300, 200], ['40×30', 400, 300], ['60×40', 600, 400], ['60×30', 600, 300]];
+const LASER = { margin: 3, gap: 2.5, cutSpeed: 12, scoreSpeed: 60, fillRate: 25, perLoop: 0.4 };   // mm、mm/s、mm²/s、s（40 W CO2＋3 mm 椴木的保守值）
+const SHEETS = [['45×30', 450, 300], ['40×30', 400, 300], ['60×40', 600, 400], ['A4', 297, 210], ['30×20', 300, 200]];
+const SMALL_LAST = [['不換', null], ['38×27（8K）', [380, 270]], ['30×30', [300, 300]], ['A4', [297, 210]]];
 
 function segDist(p, a, b) {
   const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
@@ -1150,7 +1154,20 @@ function laserPanel(p, P, codes = true) {
   const tf = pts => pts.map(([a, b]) => [mir ? -a : a, b]);
   const outline = tf(offsetPoly(p.outline, k));
   const holes = p.holes.map(h => tf(offsetPoly(h, -k)));
-  const fill = p.fills.map(tf), score = p.marks.map(tf);
+  const fill = p.fills.map(tf);
+  // 劃線只留在零件上面的部分（對位圓可能比零件大）：整圈都在就保持封閉，否則切成開放折線
+  const solid = q => inPoly(q, p.outline) && !p.holes.some(h => inPoly(q, h)), score = [];
+  for (const mk of p.marks) {
+    const n = mk.length, inside = mk.map((q0, i) => { const q1 = mk[(i + 1) % n]; return solid([(q0[0] + q1[0]) / 2, (q0[1] + q1[1]) / 2]); });
+    if (inside.every(Boolean)) { score.push(tf(mk)); continue; }
+    const s0 = inside.indexOf(false);
+    let cur = [];
+    for (let k = 1; k <= n; k++) {
+      const i = (s0 + k) % n;
+      if (inside[i]) { if (!cur.length) cur.push(mk[i]); cur.push(mk[(i + 1) % n]); }
+      else if (cur.length) { const t = tf(cur); t.open = true; score.push(t); cur = []; }
+    }
+  }
   const put = (s, size, a, b) => textPolys(s, size).map(l => l.map(([x, y]) => [x + (mir ? -a : a), y + b]));
   for (const tx of p.texts) fill.push(...put(tx.s, tx.size, tx.a, tx.b));
   if (codes && p.code && !p.noCode) {
@@ -1212,36 +1229,195 @@ function packOnce(order, W, H, rule) {
   return { sheets, big };
 }
 // 排版：回傳每張板上每片零件的最終座標（mm，y 往下，跟 SVG 一樣）
+function placeItem(it, T, extra) {
+  const map = loops => loops.map(l => { const t = l.map(T); if (l.open) t.open = true; return t; });
+  const outline = it.outline.map(T), [x0, y0, x1, y1] = bbox(outline);
+  return { p: it.p, copy: it.copy ?? 1, mirrored: it.mirrored, outline, holes: map(it.holes), fill: map(it.fill), score: map(it.score), x: x0, y: y0, w: x1 - x0, h: y1 - y0, ...extra };
+}
+function planStats(sheets, count, extra = {}) {
+  let cutLen = 0, scoreLen = 0, fillArea = 0, loops = 0, used = 0, area = 0;
+  for (const sh of sheets) {
+    area += sh.W * sh.H;
+    for (const q of sh.parts) {
+      for (const l of [...q.holes, q.outline]) { cutLen += perimeter(l); loops++; }
+      for (const l of q.score) { scoreLen += perimeter(l); loops++; }
+      for (const l of q.fill) fillArea += Math.abs(polyArea(l));
+      used += Math.abs(polyArea(q.outline));
+    }
+  }
+  const minutes = (cutLen / LASER.cutSpeed + scoreLen / LASER.scoreSpeed + fillArea / LASER.fillRate + loops * LASER.perLoop) / 60;
+  return { sheets, cutLen, scoreLen, fillArea, minutes, util: area ? used / area : 0, count, ...extra };
+}
+function laserItems(P, panels, o) {
+  const base = panels.map(p => laserPanel(p, P, o.codes ?? true)), out = [];
+  for (let c = 1; c <= (o.copies ?? 1); c++) for (const it of base) out.push({ ...it, copy: c });
+  return out;
+}
+// 快速排版（外接矩形）：給「檢查」用，每次改參數都會跑
 function laserPlan(P, panels, o = {}) {
   const m = LASER.margin, g = LASER.gap;
-  const items = panels.map(p => laserPanel(p, P, o.codes ?? true));
+  const items = laserItems(P, panels, o);
   const W = o.W ?? P.sheetW, H = o.H ?? P.sheetH;
   const pk = packRects(items.map(it => ({ it, w: it.box[2] - it.box[0] + g, h: it.box[3] - it.box[1] + g })), W - 2 * m + g, H - 2 * m + g);
   const sheets = pk.sheets.map((sh, si) => {
     const parts = sh.placed.map(pl => {
-      const it = pl.it.it, [u0, v0, u1, v1] = it.box;
-      const rot = pl.rot;
+      const it = pl.it.it, [u0, v0, u1, v1] = it.box, rot = pl.rot;
       // 轉 90°：(u, v) → (−v, u)；之後 y 往下翻
-      const bx0 = rot ? -v1 : u0, by1 = rot ? u1 : v1;
-      const ox = m + pl.x, oy = m + pl.y;
-      const T = rot ? ([u, v]) => [ox + (-v - bx0), oy + (by1 - u)] : ([u, v]) => [ox + (u - bx0), oy + (by1 - v)];
-      const map = loops => loops.map(l => l.map(T));
-      return { p: it.p, rot, mirrored: it.mirrored, outline: it.outline.map(T), holes: map(it.holes), fill: map(it.fill), score: map(it.score), x: ox, y: oy, w: pl.w - g, h: pl.h - g };
+      const bx0 = rot ? -v1 : u0, by1 = rot ? u1 : v1, ox = m + pl.x, oy = m + pl.y;
+      return placeItem(it, rot ? ([u, v]) => [ox + (-v - bx0), oy + (by1 - u)] : ([u, v]) => [ox + (u - bx0), oy + (by1 - v)], { rot });
     });
     let W1 = W, H1 = H;
     if (o.crop) { W1 = Math.ceil(Math.max(...parts.map(q => q.x + q.w)) + m); H1 = Math.ceil(Math.max(...parts.map(q => q.y + q.h)) + m); }
     return { n: si + 1, W: W1, H: H1, parts };
   });
-  // 統計：切割長度、劃線長度、雕刻面積 → 粗估時間
-  let cutLen = 0, scoreLen = 0, fillArea = 0, loops = 0, used = 0;
-  for (const sh of sheets) for (const q of sh.parts) {
-    for (const l of [...q.holes, q.outline]) { cutLen += perimeter(l); loops++; }
-    for (const l of q.score) { scoreLen += perimeter(l); loops++; }
-    for (const l of q.fill) fillArea += Math.abs(polyArea(l));
-    used += Math.abs(polyArea(q.outline));
+  return planStats(sheets, items.length, { big: pk.big.map(b => b.it.p), copies: o.copies ?? 1 });
+}
+
+/* ---------- 真實形狀排版（點陣近似）：小零件可以塞進大零件的凹口和大孔裡 ---------- */
+const NEST = { res: 0.5, gap: 1.5 };   // 格子 0.5 mm、零件間距 1.5 mm
+function nestRaster(loops, R) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const l of loops) for (const [x, y] of l) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const cw = Math.max(1, Math.ceil((x1 - x0) / R - 1e-9)), ch = Math.max(1, Math.ceil((y1 - y0) / R - 1e-9)), g = new Uint8Array(cw * ch);
+  for (let r = 0; r < ch; r++) for (let s = 0; s < 4; s++) {   // 每格掃 4 條線，有碰到就算（保守）
+    const y = y0 + (r + (s + 0.5) / 4) * R, xs = [];
+    for (const l of loops) for (let i = 0, n = l.length; i < n; i++) {
+      const [ax, ay] = l[i], [bx, by] = l[(i + 1) % n];
+      if ((ay > y) !== (by > y)) xs.push(ax + (y - ay) * (bx - ax) / (by - ay));
+    }
+    xs.sort((a, b) => a - b);
+    for (let q = 0; q + 1 < xs.length; q += 2) {
+      const c1 = Math.min(cw - 1, Math.floor((xs[q + 1] - x0) / R - 1e-9));
+      for (let c = Math.max(0, Math.floor((xs[q] - x0) / R)); c <= c1; c++) g[r * cw + c] = 1;
+    }
   }
-  const minutes = (cutLen / LASER.cutSpeed + scoreLen / LASER.scoreSpeed + fillArea / LASER.fillRate + loops * LASER.perLoop) / 60;
-  return { sheets, big: pk.big.map(b => b.it.p), cutLen, scoreLen, fillArea, minutes, util: sheets.length ? used / (sheets.length * W * H) : 0, count: items.length };
+  return { g, cw, ch, x0, y0 };
+}
+function nestDilate(g, cw, ch, k) {
+  const W2 = cw + 2 * k, H2 = ch + 2 * k, tmp = new Uint8Array(W2 * ch), out = new Uint8Array(W2 * H2);
+  for (let r = 0; r < ch; r++) for (let c = 0; c < cw; c++) if (g[r * cw + c]) tmp.fill(1, r * W2 + c, r * W2 + c + 2 * k + 1);
+  for (let r = 0; r < ch; r++) for (let c = 0; c < W2; c++) if (tmp[r * W2 + c]) for (let d = 0; d <= 2 * k; d++) out[(r + d) * W2 + c] = 1;
+  return out;
+}
+const nestRot = (pts, rot) => pts.map(([x, y]) => rot === 0 ? [x, y] : rot === 1 ? [-y, x] : rot === 2 ? [-x, -y] : [y, -x]);
+// 產生器：每放一片就 yield 一次（讓畫面不卡）。shapes 已經是螢幕座標（y 往下）
+function* nestGen(shapes, sizes, order) {
+  const R = NEST.res, k = Math.ceil(NEST.gap / R - 1e-9);
+  const sheets = [], big = [];
+  const dims = i => sizes[Math.min(i, sizes.length - 1)].map(v => Math.floor(v / R));
+  const newSheet = i => { const [GW, GH] = dims(i); return { GW, GH, occ: new Uint8Array(GW * GH), last: new Int32Array(GW * GH).fill(-1), pre: new Int32Array((GW + 1) * GH), free: GW * GH, placed: [], fail: new Set() }; };
+  const rebuild = (S, r) => { let l = -1, s = 0; const b = r * S.GW, pb = r * (S.GW + 1); S.pre[pb] = 0; for (let c = 0; c < S.GW; c++) { if (S.occ[b + c]) { l = c; s++; } S.last[b + c] = l; S.pre[pb + c + 1] = s; } };
+  const findPos = (S, v) => {   // 由上往下、由左往右第一個放得下的位置；撞到就直接跳過那一段
+    const { GW, GH } = S;
+    if (v.cw > GW || v.ch > GH) return null;
+    for (let y = 0; y + v.ch <= GH; y++) {
+      let x = 0;
+      while (x + v.cw <= GW) {
+        let ok = true;
+        for (let r = 0; r < v.ch && ok; r++) {
+          const sp = v.spans[r], row = y + r, pb = row * (GW + 1);
+          for (let i = 0; i < sp.length; i += 2) {
+            const a = x + sp[i], b = x + sp[i + 1];
+            if (S.pre[pb + b + 1] !== S.pre[pb + a]) { x = S.last[row * GW + b] - sp[i] + 1; ok = false; break; }
+          }
+        }
+        if (ok) return { x, y };
+      }
+    }
+    return null;
+  };
+  const stamp = (S, v, x, y) => {
+    for (let r = 0; r < v.sh; r++) {
+      const row = y + r - k; if (row < 0 || row >= S.GH) continue;
+      for (let c = 0; c < v.sw; c++) { const col = x + c - k; if (col >= 0 && col < S.GW && v.stamp[r * v.sw + c] && !S.occ[row * S.GW + col]) { S.occ[row * S.GW + col] = 1; S.free--; } }
+      rebuild(S, row);
+    }
+  };
+  for (const s of order) {
+    let placed = false;
+    for (let si = 0; si <= sheets.length && !placed; si++) {
+      const S = sheets[si] || newSheet(si);
+      if (S.free < s.area || S.fail.has(s.per)) continue;   // 一樣的零件在這張放不下過，就不用再試
+      let best = null;
+      for (const v of s.per) { const p = findPos(S, v); if (p && (!best || p.y + v.ch < best.p.y + best.v.ch || (p.y + v.ch === best.p.y + best.v.ch && p.x < best.p.x))) best = { p, v }; }
+      if (!best) { S.fail.add(s.per); continue; }
+      stamp(S, best.v, best.p.x, best.p.y);
+      S.placed.push({ s, rot: best.v.rot, x: best.p.x * R - best.v.x0, y: best.p.y * R - best.v.y0 });
+      if (!sheets[si]) sheets.push(S);
+      placed = true;
+    }
+    if (!placed) big.push(s);
+    yield sheets.length;
+  }
+  return { sheets, big };
+}
+function nestShapes(items) {   // 每片零件的四個方向先畫成點陣（同一種零件只算一次）
+  const R = NEST.res, k = Math.ceil(NEST.gap / R - 1e-9), memo = new Map();
+  return items.map(it => {
+    let per = memo.get(it.outline);
+    if (!per) {
+      const scr = [it.outline, ...it.holes].map(l => l.map(([u, v]) => [u, -v]));
+      per = [0, 1, 2, 3].map(rot => {
+        const ra = nestRaster(scr.map(l => nestRot(l, rot)), R);
+        const spans = [];
+        for (let r = 0; r < ra.ch; r++) { const sp = []; let c = 0; while (c < ra.cw) { if (!ra.g[r * ra.cw + c]) { c++; continue; } const s0 = c; while (c < ra.cw && ra.g[r * ra.cw + c]) c++; sp.push(s0, c - 1); } spans.push(sp); }
+        let area = 0; for (const v of ra.g) area += v;
+        return { rot, cw: ra.cw, ch: ra.ch, x0: ra.x0, y0: ra.y0, spans, sig: ra.cw + 'x' + ra.ch + ':' + spans.join(';'), area, stamp: nestDilate(ra.g, ra.cw, ra.ch, k), sw: ra.cw + 2 * k, sh: ra.ch + 2 * k };
+      }).filter((v, i, a) => a.findIndex(w => w.sig === v.sig) === i);   // 對稱的零件轉 180° 一模一樣，只算一次
+      memo.set(it.outline, per);
+    }
+    return { it, per, area: per[0].area, ext: Math.max(per[0].cw, per[0].ch) };
+  });
+}
+let NEST_JOB = 0;
+// 真實形狀排版（非同步）：o.copies 一次排幾台、o.last 最後一張換成比較小的板 [w, h]；onProg(0–1)
+async function laserPlanNest(P, panels, o = {}, onProg) {
+  const job = ++NEST_JOB, m = LASER.margin, W = o.W ?? P.sheetW, H = o.H ?? P.sheetH;
+  const items = laserItems(P, panels, o), shapes = nestShapes(items);
+  const orders = [(a, b) => b.area - a.area, (a, b) => b.ext - a.ext || b.area - a.area];
+  // 多台一起排時多試兩種打亂的順序（固定亂數種子：每次排出來一樣）
+  for (let t = 0; t < (o.trials ?? (items.length > 60 ? 2 : 0)); t++) { let sd = 7 + t * 977; const rnd = () => (sd = sd * 16807 % 2147483647) / 2147483647; const noise = new Map(shapes.map(s => [s, 0.75 + 0.5 * rnd()])); orders.push((a, b) => b.area * noise.get(b) - a.area * noise.get(a)); }
+  const total = (items.length > 60 ? 1 : 2) + (o.last ? 1 : 0), runs = [];
+  const run = async (order, sizes) => {   // 每 30 ms 讓出一次畫面；參數又變了就放棄這一輪
+    const gen = nestGen(shapes, sizes, order);
+    let n, done = 0, t0 = performance.now();
+    while (!(n = gen.next()).done) {
+      done++;
+      if (performance.now() - t0 > 30) { onProg?.(Math.min(0.99, (runs.length + done / shapes.length) / total)); await new Promise(r => setTimeout(r, 0)); if (job !== NEST_JOB) return null; t0 = performance.now(); }
+    }
+    return n.value;
+  };
+  const full = [W - 2 * m, H - 2 * m];
+  const lb = Math.ceil(items.reduce((t, it) => t + Math.abs(polyArea(it.outline)), 0) / (full[0] * full[1]));   // 面積算出來的最少張數
+  let best = null, bestOrder = null;
+  for (const so of orders) {
+    if (best && best.sheets.length <= lb && (runs.length >= 2 || items.length > 60)) break;   // 已經到底線就不用再試
+    const order = shapes.slice().sort(so);
+    const r = await run(order, [full]);
+    if (!r) return null;
+    runs.push(r);
+    const lastUse = r.sheets.length ? r.sheets[r.sheets.length - 1].free : 0;
+    const score = r.big.length * 1e12 + r.sheets.length * 1e9 - lastUse;
+    if (!best || score < best.score) { best = { ...r, score }; bestOrder = order; }
+  }
+  let lastOk = null, sizes = [full];
+  if (o.last && best.sheets.length) {   // 最後一張改用小板：同樣順序重排一次，張數不變才算成功
+    const small = [o.last[0] - 2 * m, o.last[1] - 2 * m], sz = [...Array(best.sheets.length - 1).fill(full), small];
+    const r = await run(bestOrder, sz);
+    if (!r) return null;
+    lastOk = r.sheets.length === best.sheets.length && !r.big.length;
+    if (lastOk) { best = r; sizes = sz; }
+  }
+  const sheets = best.sheets.map((S, si) => {
+    const [sw, sh] = si < best.sheets.length - 1 || sizes.length === 1 ? [W, H] : o.last;
+    const parts = S.placed.map(pl => placeItem(pl.s.it, ([u, v]) => { const [a, b] = nestRot([[u, -v]], pl.rot)[0]; return [m + pl.x + a, m + pl.y + b]; }, { rot: pl.rot }));
+    // 放在別片大孔裡的零件要先切（孔一切開，裡面那塊就會掉下去）
+    const depth = q => { const c = [q.x + q.w / 2, q.y + q.h / 2]; return parts.filter(o2 => o2 !== q && o2.holes.some(h => inPoly(c, h))).length; };
+    parts.forEach(q => q.depth = depth(q));
+    parts.sort((a, b) => b.depth - a.depth);
+    return { n: si + 1, W: sw, H: sh, parts };
+  });
+  return planStats(sheets, items.length, { big: best.big.map(s => s.it.p), copies: o.copies ?? 1, lastOk, nested: true });
 }
 // 切縫／板厚測試片：X1 梳子（5 種寬度的開口＋1 個榫孔），X2 20 mm 方塊（下面帶一個榫頭）
 function testParts(P) {
@@ -1260,7 +1436,7 @@ function testParts(P) {
 const LAYER_COL = { cut: '#FF0000', score: '#0000FF', fill: '#000000' };
 function sheetSVG(sh, P, o = {}) {
   const f = v => +v.toFixed(3);
-  const d = loops => loops.map(l => 'M' + l.map(([x, y]) => `${f(x)} ${f(y)}`).join('L') + 'Z').join('');
+  const d = loops => loops.map(l => 'M' + l.map(([x, y]) => `${f(x)} ${f(y)}`).join('L') + (l.open ? '' : 'Z')).join('');
   const pv = !!o.preview;
   const cutS = pv ? 'stroke="var(--lz-cut)" stroke-width="0.7" fill="none"' : `stroke="${LAYER_COL.cut}" stroke-width="0.1" fill="none"`;
   const scoreS = pv ? 'stroke="var(--lz-score)" stroke-width="0.5" fill="none"' : `stroke="${LAYER_COL.score}" stroke-width="0.1" fill="none"`;
@@ -1286,7 +1462,7 @@ function sheetDXF(sh) {
   o.push('0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
   const f = v => v.toFixed(3);
   const poly = (l, layer) => {
-    o.push('0', 'POLYLINE', '8', layer, '66', '1', '70', '1', '10', '0', '20', '0', '30', '0');
+    o.push('0', 'POLYLINE', '8', layer, '66', '1', '70', l.open ? '0' : '1', '10', '0', '20', '0', '30', '0');
     for (const [x, y] of l) o.push('0', 'VERTEX', '8', layer, '10', f(x), '20', f(sh.H - y), '30', '0');
     o.push('0', 'SEQEND', '8', layer);
   };
@@ -1294,6 +1470,32 @@ function sheetDXF(sh) {
   for (const q of sh.parts) { q.holes.forEach(l => poly(l, 'CUT')); poly(q.outline, 'CUT'); }
   o.push('0', 'ENDSEC', '0', 'EOF');
   return o.join('\n') + '\n';
+}
+// 板件互撞：在每片板的中間面上每 2 mm 取一點，看有沒有落進別片板的實心部分（榫頭在榫孔裡不算）
+function woodClashes(wp) {
+  const box = p => { const [A, B, N] = WOOD_AX[p.plane], b = bbox(p.outline), o = {}; o[A] = [b[0], b[2]]; o[B] = [b[1], b[3]]; o[N] = [p.at, p.at + p.t]; return o; };
+  const solid = (p, u, v) => inPoly([u, v], p.outline) && !p.holes.some(h => inPoly([u, v], h));
+  const boxes = wp.map(box), hits = new Map(), step = 2;
+  wp.forEach((p, i) => {
+    const cands = wp.filter((q, j) => j !== i && q.head === p.head && ['x', 'y', 'z'].every(k => boxes[j][k][0] < boxes[i][k][1] && boxes[i][k][0] < boxes[j][k][1]));
+    if (!cands.length) return;
+    const [A, B, N] = WOOD_AX[p.plane], b = bbox(p.outline), pt = {};
+    pt[N] = p.at + p.t / 2;
+    for (let u = b[0] + step / 2; u < b[2]; u += step) for (let v = b[1] + step / 2; v < b[3]; v += step) {
+      pt[A] = u; pt[B] = v;
+      let inside = null;
+      for (const q of cands) {
+        const [qA, qB, qN] = WOOD_AX[q.plane];
+        if (pt[qN] <= q.at + 0.05 || pt[qN] >= q.at + q.t - 0.05 || !solid(q, pt[qA], pt[qB])) continue;
+        if (inside === null) inside = solid(p, u, v);
+        if (!inside) break;
+        const k = [p, q].sort((x, y) => x.code.localeCompare(y.code, 'en', { numeric: true }));
+        const key = k[0].code + '|' + k[1].code;
+        hits.set(key, { a: k[0], b: k[1], n: (hits.get(key)?.n || 0) + 1 });
+      }
+    }
+  });
+  return [...hits.values()].filter(h => h.n >= 2);
 }
 // 幾何健檢：孔不能破邊、孔跟孔不能黏在一起（雷切會把中間那條燒斷）
 function panelIssues(p) {
@@ -1641,6 +1843,9 @@ function runChecks(P, L) {
   const geo = wp.map(p => [p, panelIssues(p)]).filter(([, v]) => v.length);
   add('製造', '板件幾何（孔不破邊、不黏在一起）', geo.length ? 'fail' : 'pass', geo.length ? `${geo.length} 片有問題` : `${wp.length} 片都 OK`,
     geo.length ? geo.map(([p, v]) => `${p.code} ${p.name}：${v.join('、')}`).join('；') + '。雷切會把太細的地方燒斷。' : '每個孔離板邊、離其他孔都至少 0.8 mm，雷切不會燒斷。', [...new Set(geo.map(([p]) => p.grp))]);
+  const clash = woodClashes(wp);
+  add('製造', '木板之間不打架', clash.length ? 'fail' : 'pass', clash.length ? `${clash.length} 組重疊` : `${wp.length} 片 3D 掃過`,
+    clash.length ? clash.map(c => `${c.a.code} ${c.a.name} ✕ ${c.b.code} ${c.b.name}`).join('；') + '。兩片板佔到同一個空間，實際組不起來。' : '每片板每 2 mm 取一點檢查，沒有任何一片插進別片的實心部分（榫頭都落在榫孔裡）。', [...new Set(clash.flatMap(c => [c.a.grp, c.b.grp]))]);
   const plan = laserPlan(P, wp, { codes: false });
   add('製造', `雷切排版 ${P.sheetW}×${P.sheetH} mm`, plan.big.length ? 'fail' : 'pass', plan.big.length ? `${plan.big.map(p => p.code).join('、')} 放不下` : `${plan.sheets.length} 張板、${wp.length} 片`,
     plan.big.length ? `${plan.big.map(p => p.code + ' ' + p.name).join('、')} 比板材大，請到「雷切」分頁選大一點的板子。` : `利用率 ${fx(plan.util * 100, 0)}%，雷切＋雕刻粗估 ${fx(plan.minutes, 0)} 分鐘。板厚 ${P.ply} mm、切縫 ${P.kerf} mm 都要先用測試片確認。`, []);
@@ -2465,7 +2670,7 @@ function buildWires() {
 /* =========================================================
    9. 狀態套用（爆炸、外殼、剖面、配線、組裝、干涉）
    ========================================================= */
-const UI = { shell: 'solid', explode: 0, section: 'off', sectionPos: 0, wires: false, dims: true, cg: false, fov: false, sweep: false, clash: true, labels: false, mission: false, lzCodes: true, layers: { chassis: true, body: true, head: true }, selected: null, checkFocus: null, asm: -1 };
+const UI = { shell: 'solid', explode: 0, section: 'off', sectionPos: 0, wires: false, dims: true, cg: false, fov: false, sweep: false, clash: true, labels: false, mission: false, lzCodes: true, lzCopies: 1, lzLast: 0, layers: { chassis: true, body: true, head: true }, selected: null, checkFocus: null, asm: -1 };
 const secPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
 
 function clashParts() {
@@ -2845,7 +3050,7 @@ const LZ_UI = [
   { k: 'fit', label: '榫孔每邊間隙', min: 0, max: 0.3, step: 0.01, st: 'D', dec: 2, hint: '0.05 = 手壓得進去、上白膠剛好。測試梳 X1 哪一格最剛好：+0.1 那格就把這裡加 0.05，−0.1 就減 0.05。' },
 ];
 let LZ = null, LZT = null, LZ_DIRTY = true;
-const lzName = (n, tot, ext) => `ARES1_sheet${n}-of-${tot}_${P.sheetW}x${P.sheetH}_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.${ext}`;
+const lzName = (n, tot, ext) => `ARES1${UI.lzCopies > 1 ? `x${UI.lzCopies}` : ''}_sheet${n}-of-${tot}_${P.sheetW}x${P.sheetH}_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.${ext}`;
 // 下載：在 claude.ai 預覽裡走 downloads 能力（只收 svg／zip 等格式，DXF 會自動包成 zip）；其他地方用一般下載連結
 const DL = window.claude?.use ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
 const DL_OK = /\.(svg|zip|csv|txt|json|md|png|pdf)$/i;
@@ -2895,11 +3100,11 @@ function laserBundle(withSheets = true) {
   const t = `ARES1_test_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}`;
   files.push({ name: t + '.svg', data: sheetSVG(LZT.sheets[0], P, { title: '切縫測試片' }) }, { name: t + '.dxf', data: sheetDXF(LZT.sheets[0]) });
   if (withSheets) {
-    const rows = LZ.sheets.flatMap(sh => sh.parts.map(q => [q.p.code, q.p.grp, q.p.name, fx(q.rot ? q.h : q.w, 1), fx(q.rot ? q.w : q.h, 1), q.mirrored ? 1 : 0, sh.n]));
+    const rows = LZ.sheets.flatMap(sh => sh.parts.map(q => [q.p.code, q.copy, q.p.grp, q.p.name, fx(q.w, 1), fx(q.h, 1), q.mirrored ? 1 : 0, sh.n, `${sh.W}x${sh.H}`]));
     rows.sort((a, b) => a[0].localeCompare(b[0], 'en', { numeric: true }));
-    files.push({ name: 'parts.csv', data: '﻿code,group,name,width_mm,height_mm,mirrored,sheet\n' + rows.map(r => r.join(',')).join('\n') + '\n' });
+    files.push({ name: 'parts.csv', data: '﻿code,robot,group,name,width_mm,height_mm,mirrored,sheet,sheet_size\n' + rows.map(r => r.join(',')).join('\n') + '\n' });
   }
-  files.push({ name: 'README.txt', data: `ARES-1 雷切檔\r\n板材 ${P.sheetW}x${P.sheetH} mm × ${n} 張｜椴木合板 ${P.ply} mm｜切縫補償 ${P.kerf} mm（已內含，雷切軟體不要再補）｜榫孔每邊間隙 ${P.fit} mm\r\n紅 #FF0000＝切穿　藍 #0000FF＝淺劃線　黑 #000000＝填滿雕刻\r\n順序：雕刻 → 劃線 → 切割；每片先切內孔再切外框。先切 ARES1_test 測試片確認板厚與切縫。\r\n說明：docs/LASER.md\r\n` });
+  files.push({ name: 'README.txt', data: `ARES-1 雷切檔${UI.lzCopies > 1 ? `（${UI.lzCopies} 台一起排）` : ''}\r\n板材 ${P.sheetW}x${P.sheetH} mm × ${n} 張${LZ.lastOk ? `（最後一張是 ${LZ.sheets[n - 1].W}x${LZ.sheets[n - 1].H}）` : ''}｜椴木合板 ${P.ply} mm｜切縫補償 ${P.kerf} mm（已內含，雷切軟體不要再補）｜榫孔每邊間隙 ${P.fit} mm\r\n紅 #FF0000＝切穿　藍 #0000FF＝淺劃線　黑 #000000＝填滿雕刻\r\n順序：雕刻 → 劃線 → 切割；每片先切內孔再切外框。先切 ARES1_test 測試片確認板厚與切縫。\r\n說明：docs/LASER.md\r\n` });
   return files;
 }
 function renderLaserParams() {
@@ -2910,6 +3115,10 @@ function renderLaserParams() {
      <div class="seg" id="lzSheetSeg">${SHEETS.map(([n, w, h]) => `<button data-w="${w}" data-h="${h}" aria-pressed="${!!cur && cur[0] === n}">${n}${n === 'A4' ? '' : ' cm'}</button>`).join('')}</div>
      <div class="lzfield"><span class="small">自訂</span><input type="number" id="lzW" min="150" max="1300" step="10" value="${P.sheetW}" aria-label="板寬 mm"> × <input type="number" id="lzH" min="100" max="900" step="10" value="${P.sheetH}" aria-label="板高 mm"><span class="small muted">mm（取板子和平台比較小的那個）</span></div>
      <div class="lzfield"><span class="small">外殼左側名牌</span><input type="text" id="lzTag" maxlength="12" value="${esc(P.nameTag)}" aria-label="名牌文字"><span class="small muted">中文也可以</span></div>
+     <div class="lab small" style="margin-top:8px">一次排幾台 ${tag('D')}</div>
+     <div class="seg" id="lzCopySeg">${[1, 2, 3].map(c => `<button data-v="${c}" aria-pressed="${UI.lzCopies === c}">${c} 台${c === 3 ? '（最省）' : ''}</button>`).join('')}</div>
+     <div class="lab small" style="margin-top:8px">最後一張換成小板</div>
+     <div class="seg" id="lzLastSeg">${SMALL_LAST.map(([n], i) => `<button data-v="${i}" aria-pressed="${UI.lzLast === i}">${n}</button>`).join('')}</div>
      <label class="check"><input type="checkbox" id="lzCodes" ${UI.lzCodes ? 'checked' : ''}> 雷雕零件編號（C1、B2…，只雕在看不到的那一面；外殼、頭殼、眼睛靠形狀認）</label>`;
   LZ_UI.forEach(it => {
     const inp = $('#l_' + it.k);
@@ -2924,32 +3133,51 @@ function renderLaserParams() {
   $('#lzH').onchange = e => setSheet(P.sheetW, +e.target.value || P.sheetH);
   $('#lzTag').oninput = e => { P.nameTag = e.target.value.trim() || 'ARES-1'; scheduleBuild(); };
   $('#lzCodes').onchange = e => { UI.lzCodes = e.target.checked; scheduleBuild(); };
+  $$('#lzCopySeg button').forEach(b => b.onclick = () => { UI.lzCopies = +b.dataset.v; setSeg('#lzCopySeg', b.dataset.v); renderLaser(); });
+  $$('#lzLastSeg button').forEach(b => b.onclick = () => { UI.lzLast = +b.dataset.v; setSeg('#lzLastSeg', b.dataset.v); renderLaser(); });
 }
 function renderLaser() {
   LZ_DIRTY = false;
-  LZ = laserPlan(P, WOOD, { codes: UI.lzCodes });
+  const copies = UI.lzCopies, last = SMALL_LAST[UI.lzLast][1];
   LZT = laserPlan(P, testParts(P), { codes: true, W: 140, H: 60, crop: true });
-  const n = LZ.sheets.length;
+  const key = [P.sheetW, P.sheetH, copies, UI.lzLast, UI.lzCodes, P.kerf, WOOD.map(p => p.outline.length + ':' + fx(p.outline[0][0], 2) + ':' + p.holes.length).join(',')].join('|');
+  if (LZ?.key === key && LZ.nested) { renderLaserView(LZ); return; }
+  LZ = laserPlan(P, WOOD, { codes: UI.lzCodes, copies });   // 先用快速排版顯示，背景再算真實形狀排版
+  LZ.key = key;
+  renderLaserView(LZ, 0);
+  laserPlanNest(P, WOOD, { codes: UI.lzCodes, copies, last }, f => renderLaserView(null, f)).then(r => {
+    if (!r) return;
+    r.key = key; LZ = r; renderLaserView(LZ);
+  });
+}
+function renderLaserView(plan, prog) {
+  const busy = $('#lzBusy');
+  if (!plan) { if (busy) busy.textContent = `排版最佳化中… ${fx(prog * 100, 0)}%`; return; }
+  const n = plan.sheets.length, per = n / plan.copies, last = SMALL_LAST[UI.lzLast];
+  const lastNote = !plan.nested || !last[1] ? '' : plan.lastOk ? `<div class="note ok">最後一張換成 <b>${esc(last[0])}</b> 也放得下。</div>` : `<div class="note">最後一張換成 ${esc(last[0])} <b>放不下</b>，還是要用 ${P.sheetW}×${P.sheetH}。</div>`;
+  const lastSheet = plan.sheets[n - 1], lastUsed = lastSheet ? Math.max(...lastSheet.parts.map(q => q.y + q.h)) : 0;
   $('#laserStats').innerHTML = `<div class="lzstats">
-      <div><b>${n} 張</b><span>${P.sheetW}×${P.sheetH} mm 板材</span></div>
-      <div><b>${LZ.count} 片</b><span>零件（含眼睛小件）</span></div>
-      <div><b>${fx(LZ.util * 100, 0)}%</b><span>板材利用率</span></div>
-      <div><b>≈ ${fx(LZ.minutes, 0)} 分</b><span>雷切＋雕刻（40 W 粗估）</span></div>
+      <div><b>${n} 張</b><span>${P.sheetW}×${P.sheetH} mm${plan.copies > 1 ? `，${plan.copies} 台一起` : ''}</span></div>
+      <div><b>${fx(per, per % 1 ? 2 : 0)} 張</b><span>平均每台</span></div>
+      <div><b>${fx(plan.util * 100, 0)}%</b><span>板材利用率</span></div>
+      <div><b>≈ ${fx(plan.minutes, 0)} 分</b><span>雷切＋雕刻（40 W 粗估）</span></div>
     </div>
-    <p class="small muted">切割線總長 ${fx(LZ.cutLen / 1000, 1)} m、劃線 ${fx(LZ.scoreLen / 1000, 1)} m、雕刻 ${fx(LZ.fillArea / 100, 0)} cm²。${LZ.big.length ? '' : '每張板四周留 5 mm、零件間距 2.5 mm。'}</p>
-    ${LZ.big.length ? `<div class="note bad"><b>放不下</b>：${LZ.big.map(p => esc(p.code + ' ' + p.name)).join('、')} 比板材還大，請選大一點的板子。</div>` : ''}`;
-  $('#laserSheets').innerHTML = LZ.sheets.map(sh => `<div class="lzcard" data-n="${sh.n}">
-      <div class="row"><b class="small">第 ${sh.n} 張 · ${sh.parts.length} 片</b><span class="row" style="gap:4px;padding:0"><button class="btn" data-svg="${sh.n}">SVG</button><button class="btn" data-dxf="${sh.n}">DXF</button></span></div>
+    <p class="small muted" id="lzBusy">${plan.nested ? `✓ 真實形狀排版：小零件塞進大零件的凹口和大孔裡（零件間距 ${NEST.gap} mm、板邊留 ${LASER.margin} mm）。${!last[1] && lastSheet && lastSheet.H - lastUsed > 40 ? `最後一張下面還空 ${fx(lastSheet.H - lastUsed - LASER.margin, 0)} mm 寬的一整條，可以切測試片或備用零件。` : ''}` : `排版最佳化中… ${fx((prog || 0) * 100, 0)}%（先顯示快速排版）`}</p>
+    ${lastNote}
+    <p class="small muted">${plan.count} 片零件、切割線總長 ${fx(plan.cutLen / 1000, 1)} m、劃線 ${fx(plan.scoreLen / 1000, 1)} m、雕刻 ${fx(plan.fillArea / 100, 0)} cm²。</p>
+    ${plan.big.length ? `<div class="note bad"><b>放不下</b>：${[...new Set(plan.big.map(p => p.code + ' ' + p.name))].map(esc).join('、')} 比板材還大，請選大一點的板子。</div>` : ''}`;
+  $('#laserSheets').innerHTML = plan.sheets.map(sh => `<div class="lzcard" data-n="${sh.n}">
+      <div class="row"><b class="small">第 ${sh.n} 張 · ${sh.W}×${sh.H} · ${sh.parts.length} 片</b><span class="row" style="gap:4px;padding:0"><button class="btn" data-svg="${sh.n}">SVG</button><button class="btn" data-dxf="${sh.n}">DXF</button></span></div>
       ${sheetSVG(sh, P, { preview: true })}</div>`).join('');
-  const rows = LZ.sheets.flatMap(sh => sh.parts.map(q => [q.p, sh.n, q]));
-  rows.sort((a, b) => a[0].code.localeCompare(b[0].code, 'en', { numeric: true }));
+  const rows = plan.sheets.flatMap(sh => sh.parts.map(q => [q.p, sh.n, q]));
+  rows.sort((a, b) => a[0].code.localeCompare(b[0].code, 'en', { numeric: true }) || a[2].copy - b[2].copy);
   $('#laserList').innerHTML = `<div class="tblwrap"><table><thead><tr><th>編號</th><th>零件</th><th>尺寸</th><th>板</th></tr></thead><tbody>${rows.map(([p, sn, q]) =>
-    `<tr data-grp="${p.grp}" style="cursor:pointer"><td class="v">${esc(p.code)}</td><td>${esc(WOOD_GROUPS[p.grp][1])}・${esc(p.name)}${q.mirrored ? ' <span class="small muted">（翻面）</span>' : ''}</td><td class="v">${fx(q.rot ? q.h : q.w, 0)}×${fx(q.rot ? q.w : q.h, 0)}</td><td class="v">${sn}</td></tr>`).join('')}</tbody></table></div>`;
+    `<tr data-grp="${p.grp}" style="cursor:pointer"><td class="v">${esc(p.code)}${plan.copies > 1 ? `<span class="small muted">·${q.copy}</span>` : ''}</td><td>${esc(WOOD_GROUPS[p.grp][1])}・${esc(p.name)}${q.mirrored ? ' <span class="small muted">（翻面）</span>' : ''}</td><td class="v">${fx(q.w, 0)}×${fx(q.h, 0)}</td><td class="v">${sn}</td></tr>`).join('')}</tbody></table></div>`;
   const pick = grp => { if (!parts[grp]) return; UI.selected = grp; applyState(); refreshInspector(); focusPart(grp); };
   $$('#laserList tr[data-grp]').forEach(tr => tr.onclick = () => pick(tr.dataset.grp));
   $$('#laserSheets .lzsheet').forEach(svg => svg.onclick = () => openSheet(+svg.closest('.lzcard').dataset.n));
-  $$('#laserSheets [data-svg]').forEach(b => b.onclick = () => { const sh = LZ.sheets[b.dataset.svg - 1]; saveFile(lzName(sh.n, n, 'svg'), sheetSVG(sh, P, { title: `板 ${sh.n}/${n}` })); });
-  $$('#laserSheets [data-dxf]').forEach(b => b.onclick = () => { const sh = LZ.sheets[b.dataset.dxf - 1]; saveFile(lzName(sh.n, n, 'dxf'), sheetDXF(sh)); });
+  $$('#laserSheets [data-svg]').forEach(b => b.onclick = () => { const sh = plan.sheets[b.dataset.svg - 1]; saveFile(lzName(sh.n, n, 'svg'), sheetSVG(sh, P, { title: `板 ${sh.n}/${n}` })); });
+  $$('#laserSheets [data-dxf]').forEach(b => b.onclick = () => { const sh = plan.sheets[b.dataset.dxf - 1]; saveFile(lzName(sh.n, n, 'dxf'), sheetDXF(sh)); });
 }
 function openSheet(k) {
   const sh = LZ.sheets[k - 1], n = LZ.sheets.length, dlg = $('#lzDlg');
@@ -2961,7 +3189,7 @@ function openSheet(k) {
   if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
 }
 $('#lzDlgX').onclick = () => $('#lzDlg').close();
-$('#lzZip').onclick = () => saveFile(`ARES1_laser_${P.sheetW}x${P.sheetH}_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.zip`, makeZip(laserBundle(true)));
+$('#lzZip').onclick = () => saveFile(`ARES1${UI.lzCopies > 1 ? `x${UI.lzCopies}` : ''}_laser_${P.sheetW}x${P.sheetH}_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.zip`, makeZip(laserBundle(true)));
 $('#lzTest').onclick = () => saveFile(`ARES1_test_ply${P.ply.toFixed(2)}_kerf${P.kerf.toFixed(2)}.zip`, makeZip(laserBundle(false)));
 let buildPending = false;
 function scheduleBuild() { if (buildPending) return; buildPending = true; requestAnimationFrame(() => { buildPending = false; build(); }); }
@@ -3109,7 +3337,7 @@ renderParams();
 renderAsmList();
 build();
 // 除錯／文件用：在瀏覽器主控台輸入 __ares 可取得計算結果
-window.__ares = { UI, BANKS, PRESETS, DEFAULTS, get parts() { return parts; }, applyState, overlays, get L() { return L; }, get P() { return P; }, set P(v) { P = v; }, build, stability, runChecks, computeLayout, massItems, fovOcclusion, get wires() { return WIRE_DEFS; }, woodParts, laserPlan, laserPanel, sheetSVG, sheetDXF, testParts, panelIssues, textPolys, get WOOD() { return WOOD; } };
+window.__ares = { UI, BANKS, PRESETS, DEFAULTS, get parts() { return parts; }, applyState, overlays, get L() { return L; }, get P() { return P; }, set P(v) { P = v; }, build, stability, runChecks, computeLayout, massItems, fovOcclusion, get wires() { return WIRE_DEFS; }, woodParts, laserPlan, laserPlanNest, laserPanel, sheetSVG, sheetDXF, testParts, panelIssues, textPolys, get WOOD() { return WOOD; } };
 resize();
 camera.position.set(0, 0, 0);
 { const dir = new THREE.Vector3(...VIEWS.iso).normalize(); controls.target.set(0, L.overallH * 0.45, 0); camera.position.copy(controls.target).addScaledVector(dir, Math.max(L.overallW, L.overallH, L.overallL) * 2.6 + 120); }

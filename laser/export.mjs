@@ -15,7 +15,8 @@ const over = Object.fromEntries(process.argv.slice(2).filter(a => a.includes('='
   const [k, v] = a.split('=');
   return [k, isNaN(+v) ? v : +v];
 }));
-const SIZES = [[400, 300], [600, 400], [300, 200]];
+// 30×45 cm 板：1 台（2 張）、3 台一起（5 張，最省）
+const SETS = [{ W: 450, H: 300, copies: 1 }, { W: 450, H: 300, copies: 3 }];
 
 const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 const page = await browser.newPage();
@@ -30,21 +31,21 @@ if (process.env.THREE_DIR) {
 await page.goto('file://' + path.join(ROOT, 'web/index.html'));
 await page.waitForFunction(() => window.__ares && window.__ares.WOOD.length > 0, null, { timeout: 30000 });
 
-const res = await page.evaluate(([over, sizes]) => {
+const res = await page.evaluate(async ([over, sets]) => {
   const a = window.__ares;
   a.P = { ...a.P, ...over };
   a.build();
   const P = a.P, files = {};
-  const csv = ['code,group,name,width_mm,height_mm,mirrored,sheet_400x300'];
-  for (const [W, H] of sizes) {
+  const csv = ['code,group,name,width_mm,height_mm,mirrored,sheet'];
+  for (const { W, H, copies } of sets) {
     const PP = { ...P, sheetW: W, sheetH: H };
-    const plan = a.laserPlan(PP, a.WOOD);
+    const plan = await a.laserPlanNest(PP, a.WOOD, { copies });
     const n = plan.sheets.length;
     for (const sh of plan.sheets) {
-      const base = `ARES1_${W}x${H}_sheet${sh.n}of${n}`;
-      files[base + '.svg'] = a.sheetSVG(sh, PP, { title: `${W}×${H} 板 ${sh.n}/${n}` });
+      const base = `ARES1${copies > 1 ? 'x' + copies : ''}_${W}x${H}_sheet${sh.n}of${n}`;
+      files[base + '.svg'] = a.sheetSVG(sh, PP, { title: `${copies > 1 ? copies + ' 台 ' : ''}${W}×${H} 板 ${sh.n}/${n}` });
       files[base + '.dxf'] = a.sheetDXF(sh);
-      if (W === 400) for (const q of sh.parts) csv.push([q.p.code, q.p.grp, q.p.name, (q.rot ? q.h : q.w).toFixed(1), (q.rot ? q.w : q.h).toFixed(1), q.mirrored ? 1 : 0, sh.n].join(','));
+      if (copies === 1 && W === sets[0].W && H === sets[0].H) for (const q of sh.parts) csv.push([q.p.code, q.p.grp, q.p.name, q.w.toFixed(1), q.h.toFixed(1), q.mirrored ? 1 : 0, sh.n].join(','));
     }
     if (plan.big.length) files[`TOO_BIG_${W}x${H}.txt`] = plan.big.map(p => p.code + ' ' + p.name).join('\n');
   }
@@ -53,9 +54,9 @@ const res = await page.evaluate(([over, sizes]) => {
   files['ARES1_test.dxf'] = a.sheetDXF(test.sheets[0]);
   files['parts.csv'] = csv.sort((x, y) => x.startsWith('code') ? -1 : y.startsWith('code') ? 1 : x.localeCompare(y, 'en', { numeric: true })).join('\n') + '\n';
   return { files, P: { ply: P.ply, kerf: P.kerf, fit: P.fit, nameTag: P.nameTag, layout: P.layout } };
-}, [over, SIZES]);
+}, [over, SETS]);
 
-for (const f of fs.readdirSync(OUT)) if (/^(ARES1_|TOO_BIG_).*\.(svg|dxf|txt)$/.test(f)) fs.unlinkSync(path.join(OUT, f));
+for (const f of fs.readdirSync(OUT)) if (/^(ARES1|TOO_BIG_).*\.(svg|dxf|txt)$/.test(f)) fs.unlinkSync(path.join(OUT, f));
 for (const [name, text] of Object.entries(res.files)) fs.writeFileSync(path.join(OUT, name), text);
 console.log(`參數 ${JSON.stringify(res.P)}，寫出 ${Object.keys(res.files).length} 個檔案到 ${path.relative(process.cwd(), OUT) || '.'}`);
 if (errs.length) { console.error('網頁錯誤：', errs.join('\n')); process.exitCode = 1; }
