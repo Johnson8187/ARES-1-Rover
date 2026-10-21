@@ -15,8 +15,8 @@ const over = Object.fromEntries(process.argv.slice(2).filter(a => a.includes('='
   const [k, v] = a.split('=');
   return [k, isNaN(+v) ? v : +v];
 }));
-// 30×45 cm 板：1 台（2 張）、3 台一起（5 張，最省）
-const SETS = [{ W: 450, H: 300, copies: 1 }, { W: 450, H: 300, copies: 3 }];
+// 30×45 cm 板，第二版一台 3 張（多台一起排幾乎不會更省）
+const SETS = [{ W: 450, H: 300, copies: 1 }];
 
 const browser = await chromium.launch(process.env.CHROME ? { executablePath: process.env.CHROME } : {});
 const page = await browser.newPage();

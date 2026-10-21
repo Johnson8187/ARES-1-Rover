@@ -375,29 +375,31 @@ const tag = k => `<span class="tag ${ST[k].cls}">${ST[k].label}</span>`;
 const DEFAULTS = {
   layout: 'B',
   // 履帶 / 底盤
-  innerW: 110, wheelbase: 111.5, trackW: 30, trackPitch: 12.5, sprocketTeeth: 10,
+  innerW: 165, wheelbase: 167.5, trackW: 30, trackPitch: 12.5, sprocketTeeth: 10,
   plateT: 3, trackGap: 1.5, trackT: 5, grouser: 1.5, floorY: 14, floorT: 3,
   // JGA25-370（6 V 版）
   motorD: 25, motorCan: 31, encLen: 11, gearLen: 22, shaftD: 4, shaftLen: 12.5, motorHole: 17, motorMass: 85,
   // 行動電源（學員自備，預設＝10000 mAh 薄型）與電池艙
-  bankMount: 'deck', bankL: 148, bankW: 70, bankT: 15, bankMass: 215, bankCap: 10000, bankSpacer: 0, bayH: 28,
+  bankMount: 'deck', bankL: 148, bankW: 70, bankT: 15, bankMass: 215, bankCap: 10000, bankSpacer: 0, bayH: 34,
   // 模組（buck＝Mini560 5 V）
   drvL: 48, drvW: 30, buckL: 22, buckW: 17, buckH: 6, spkD: 40, spkH: 20,
   // 身體
-  bodyW: 110, bodyD: 100, bodyH: 78, shellT: 3, deckT: 3,
+  bodyW: 154, bodyD: 140, bodyH: 109, shellT: 3, deckT: 3,
   // 頭部
-  neckExtra: 0, neckZ: 0, headZ: -1, headW: 84, headH: 48, headD: 54,
+  neckExtra: 0, neckZ: 0, headZ: -1, headW: 101, headH: 58, headD: 65,
   camTilt: 10, lensOffset: -20, lensH: 11, eyelid: 8, yawMax: 45, micInHead: true,
   // 分析
   fovDiag: 66, mu: 0.7,
   // 雷切木作（3 mm 椴木合板）
-  ply: 3, kerf: 0.15, fit: 0.05, sheetW: 450, sheetH: 300, woodRho: 0.55, nameTag: 'ARES-1',
+  // 第二版：下盤 1.5 倍、身體 1.4 倍、頭 1.2 倍（相對第一版）；板厚改成實測的 2.7
+  scaleC: 1.5, scaleB: 1.4, scaleH: 1.2,
+  ply: 2.7, kerf: 0.15, fit: 0.1, sheetW: 450, sheetH: 300, woodRho: 0.55, nameTag: 'ARES-1',
 };
 // 板厚一改，所有板件跟著改
 function syncPly(P) { P.plateT = P.floorT = P.deckT = P.shellT = P.ply; return P; }
 const PRESETS = {
   B: {},
-  A: { layout: 'A', innerW: 134 },
+  A: { layout: 'A' },
   C: { layout: 'C', neckExtra: 70 },
 };
 // 常見行動電源（學員自備）；數值是市售品的典型值，實際請量自己那一顆
@@ -411,13 +413,32 @@ const AVG_W = 5.8;   // 平常行駛的平均耗電（W）：馬達 2×0.25 A×6
 const runtimeH = P => P.bankCap * 3.7 * 0.85 / 1000 / AVG_W;
 const LAYOUT_NOTE = {
   B: '兩顆馬達「左後、右前」對角擺放，互不重疊；行動電源躺在馬達正上方的電池艙，從車尾抽出。零件最少、重量前後平衡。',
-  A: '兩顆馬達都在後方同軸對頂。110 mm 內寬會互撞，必須加寬到約 134 mm 以上；車尾下層被馬達佔滿，CH224K 的 USB-C 只能改到前面。',
+  A: '兩顆馬達都在後方同軸對頂。內寬至少要約 132 mm（第一版 110 會互撞，第二版 165 放得下）；車尾下層被馬達佔滿，CH224K 的 USB-C 只能改到前面。',
   C: '主方案加一根 70 mm 頸部桅杆，鏡頭視角較高，但重心升高、頭部晃動與線束長度都變差。',
 };
+// 第一版（實際切過的那台）的尺寸，放大倍率以它為準
+const V1 = { innerW: 110, wheelbase: 111.5, bayH: 28, bodyW: 110, bodyD: 100, bodyH: 78, headW: 84, headH: 48, headD: 54 };
+const SCALE_KEYS = Object.keys(V1);
+function applyScale(P) {
+  const c = P.scaleC, b = P.scaleB, h = P.scaleH;
+  P.innerW = Math.round(V1.innerW * c);
+  // 軸距湊到履帶剛好整數節（惰輪長槽不用調）
+  const PD = P.trackPitch / Math.sin(Math.PI / P.sprocketTeeth), links = Math.round((2 * V1.wheelbase * c + Math.PI * PD) / P.trackPitch);
+  P.wheelbase = Math.round(links * P.trackPitch - Math.PI * PD) / 2;
+  P.bayH = Math.round(V1.bayH + 12 * (c - 1));
+  P.bodyW = Math.round(V1.bodyW * b); P.bodyD = Math.round(V1.bodyD * b); P.bodyH = Math.round(V1.bodyH * b);
+  P.headW = Math.round(V1.headW * h); P.headH = Math.round(V1.headH * h); P.headD = Math.round(V1.headD * h);
+  return P;
+}
 const PARAM_UI = [
+  { group: '整體大小（相對第一版）', items: [
+    { k: 'scaleC', label: '下盤（底盤＋電池艙）', min: 1, max: 2, step: 0.05, st: 'D', dec: 2, unit: '×', scale: true, hint: '第一版是 1×。下盤放最大最穩：輪子、馬達不變，底盤變寬變長，電池艙也更好放。' },
+    { k: 'scaleB', label: '身體', min: 1, max: 2, step: 0.05, st: 'D', dec: 2, unit: '×', scale: true, hint: '跟下盤差不多或略小，身體不要比底盤寬。' },
+    { k: 'scaleH', label: '頭', min: 1, max: 1.6, step: 0.05, st: 'D', dec: 2, unit: '×', scale: true, hint: '頭放最少：頭越大越重，SG92R 轉起來越吃力，也比較容易晃。' },
+  ]},
   { group: '底盤與履帶', items: [
-    { k: 'innerW', label: '底盤內寬', min: 90, max: 170, step: 1, st: 'D', hint: '兩側壁內面距離。同軸方案至少要 2×馬達總長＋間隙。' },
-    { k: 'wheelbase', label: '軸距（驅動輪↔惰輪）', min: 90, max: 150, step: 0.5, st: 'D', hint: '影響履帶片數與前後翻覆角。' },
+    { k: 'innerW', label: '底盤內寬', min: 90, max: 240, step: 1, st: 'D', hint: '兩側壁內面距離。同軸方案至少要 2×馬達總長＋間隙。' },
+    { k: 'wheelbase', label: '軸距（驅動輪↔惰輪）', min: 90, max: 240, step: 0.5, st: 'D', hint: '影響履帶片數與前後翻覆角。' },
     { k: 'trackW', label: '履帶寬', min: 20, max: 40, step: 1, st: 'D' },
     { k: 'gearLen', label: '減速箱長 L', min: 15, max: 32, step: 0.5, st: 'E', hint: '未標示，先估 22 mm；會影響馬達總長與干涉。' },
   ]},
@@ -428,20 +449,20 @@ const PARAM_UI = [
     { k: 'bankMass', label: '行動電源重量', min: 60, max: 500, step: 5, st: 'M', unit: 'g' },
     { k: 'bankCap', label: '標示容量', min: 2000, max: 26000, step: 1000, st: 'M', unit: 'mAh', hint: '只用來估算續航。' },
     { k: 'bankSpacer', label: '前方墊塊', min: 0, max: 60, step: 1, st: 'D', hint: '短的行動電源在前面塞合板疊片，把重心推回中間。「檢查」會算建議值。' },
-    { k: 'bayH', label: '電池艙高度', min: 16, max: 40, step: 1, st: 'D', hint: '加高能放更厚的行動電源，但整台車跟著變高。' },
+    { k: 'bayH', label: '電池艙高度', min: 16, max: 50, step: 1, st: 'D', hint: '加高能放更厚的行動電源，但整台車跟著變高。' },
   ]},
   { group: '身體', items: [
-    { k: 'bodyW', label: '身體寬', min: 90, max: 150, step: 1, st: 'D' },
-    { k: 'bodyD', label: '身體深', min: 80, max: 130, step: 1, st: 'D' },
-    { k: 'bodyH', label: '身體高', min: 60, max: 130, step: 1, st: 'D', hint: '電池艙把底盤墊高 18 mm，身體縮成 78 讓總高不變。' },
+    { k: 'bodyW', label: '身體寬', min: 90, max: 230, step: 1, st: 'D' },
+    { k: 'bodyD', label: '身體深', min: 80, max: 210, step: 1, st: 'D' },
+    { k: 'bodyH', label: '身體高', min: 60, max: 170, step: 1, st: 'D' },
   ]},
   { group: '頭部', items: [
     { k: 'neckExtra', label: '頸部加高', min: 0, max: 100, step: 1, st: 'D', hint: '0 = 伺服直接裝在身體頂板。' },
     { k: 'neckZ', label: '轉軸前後位置', min: -20, max: 3, step: 1, st: 'D' },
     { k: 'headZ', label: '頭部相對轉軸前移', min: -10, max: 15, step: 1, st: 'D' },
-    { k: 'headW', label: '頭寬', min: 76, max: 110, step: 1, st: 'D', hint: 'PCB 62.6 橫放，加上兩側卡板與 3 mm 側板至少約 78。' },
-    { k: 'headH', label: '頭高', min: 44, max: 64, step: 1, st: 'D', hint: '底板、上蓋和上蓋定位板各 3 mm。' },
-    { k: 'headD', label: '頭深', min: 46, max: 70, step: 1, st: 'D', hint: '要容納鏡頭＋PCB＋排針＋杜邦頭＋線彎；前後板內縮 3 mm 做出框。' },
+    { k: 'headW', label: '頭寬', min: 76, max: 130, step: 1, st: 'D', hint: 'PCB 62.6 橫放，加上兩側卡板與 3 mm 側板至少約 78。' },
+    { k: 'headH', label: '頭高', min: 44, max: 80, step: 1, st: 'D', hint: '底板、上蓋和上蓋定位板各一片板厚。' },
+    { k: 'headD', label: '頭深', min: 46, max: 90, step: 1, st: 'D', hint: '要容納鏡頭＋PCB＋排針＋杜邦頭＋線彎；前後板內縮 3 mm 做出框。' },
     { k: 'camTilt', label: '鏡頭俯角', min: 0, max: 25, step: 1, st: 'D', hint: '往下看地面比較好，但轉頭時畫面下緣可能拍到車身。' },
     { k: 'lensOffset', label: '鏡頭偏離 PCB 中心（負＝天線端）', min: -24, max: 24, step: 0.5, st: 'M', hint: 'GOOUUU 板的相機是軟排線接的，平常貼在模組鐵殼上，約 −20。偏移 ≥ 12 mm 時，真鏡頭會放進一隻眼睛。' },
     { k: 'lensH', label: '鏡頭高出 PCB', min: 4, max: 16, step: 0.5, st: 'M', hint: '相機模組墊在模組鐵殼上，依商品照估 11。' },
@@ -529,14 +550,17 @@ function computeLayout(P) {
   }
 
   // 右側線材通道（地板直通上身底板）與電池艙
-  L.chX0 = -L.hw; L.chX1 = -L.hw + 16;
+  // 通道至少 16 mm 寬；身體比底盤窄時通道往內加寬，讓上身線孔一定落在身體裡（右翼內側）
+  const wingX0Early = P.bodyW / 2 - T - 1.4 - T;
+  L.chX0 = -L.hw; L.chX1 = -Math.min(L.hw - 16, wingX0Early - 9);
   L.lipX0 = L.chX1; L.lipX1 = L.chX1 + T;          // 托盤右緣立板：兼通道牆與行動電源導軌
   L.bayX0 = L.lipX1; L.bayX1 = L.hw - 6;           // 可用寬（預設 85）；左邊留 6 mm 給後壁的小立柱
   L.bayZ1 = L.tubZ1 - L.endWallT;                  // 前壁就是擋塊，後方整個打開
   L.pillars = [];                                  // 木作版不用立柱：上身底板用 T 型槽螺絲鎖在側壁頂邊
-  L.tslots = [[1, -30], [1, 30], [-1, -30], [-1, 30]].map(([s, z]) => ({ s, z, x: s * (L.hw + T / 2) }));
+  const tsz = Math.round(L.tubLen * 0.19);         // 第一版 ±30，跟著底盤長度放大
+  L.tslots = [[1, -tsz], [1, tsz], [-1, -tsz], [-1, tsz]].map(([s, z]) => ({ s, z, x: s * (L.hw + T / 2) }));
   L.trayPost = { x0: L.lipX0, x1: L.lipX0 + T, y0: L.floorTop, y1: L.trayY0, z0: 18, z1: 32 };
-  L.strapSlots = [-55, -10, 35];                   // 魔鬼氈扣孔（每側兩個一組）
+  L.strapSlots = [-0.355, -0.065, 0.226].map(f => Math.round(f * L.tubLen));   // 魔鬼氈扣孔（第一版 −55、−10、35）
   L.slotX = [L.lipX1 + 2.5, L.lipX1 + 10.5, L.bayX1 - 10.5, L.bayX1 - 2.5];
   {
     const zs = [L.tubZ0 + 6, ...L.strapSlots.flatMap(z => [z - 13, z + 13]), L.bayZ1 - 6];
@@ -1128,6 +1152,10 @@ function textPolys(str, size) {
       if (sm.length >= 3 && Math.abs(polyArea(sm)) > 2) loops.push(sm.map(([x, y]) => [(x - W / 2) * s, (H / 2 - y) * s]));
     }
   }
+  // 雕刻字加粗 0.1 mm（減號、小數點這種細碎片有些雷切軟體讀不到），再丟掉還是太小的碎片
+  const holeOf = loops.map((l, i) => loops.filter((m, j) => j !== i && inPoly(l[0], m)).length % 2 === 1);
+  const thick = loops.map((l, i) => offsetPoly(l, holeOf[i] ? -0.1 : 0.1)).filter(l => { const [a0, b0, a1, b1] = bbox(l); return Math.min(a1 - a0, b1 - b0) >= 0.5 && Math.abs(polyArea(l)) >= 0.3; });
+  loops.length = 0; loops.push(...thick);
   _txtCache.set(key, loops);
   return loops;
 }
@@ -1172,7 +1200,7 @@ function laserPanel(p, P, codes = true) {
   for (const tx of p.texts) fill.push(...put(tx.s, tx.size, tx.a, tx.b));
   if (codes && p.code && !p.noCode) {
     const sp = labelSpot(p), size = sp ? Math.min(4, (sp.room - 0.5) / 0.95) : 0;
-    if (size >= 1.8) fill.push(...put(p.code, +size.toFixed(1), sp.a, sp.b));
+    if (size >= 2.5) fill.push(...put(p.code, +size.toFixed(1), sp.a, sp.b));
   }
   return { p, outline, holes, fill, score, box: bbox(outline), mirrored: mir };
 }
@@ -1433,10 +1461,17 @@ function testParts(P) {
   return out;
 }
 // ---------- 匯出 ----------
+// 輸出前清理：四捨五入到 0.001 mm 後去掉重複的點（有些雷切軟體遇到零長度線段會整條讀不到）
+function cleanLoop(l) {
+  const out = [];
+  for (const [x, y] of l) { const q = [Math.round(x * 1000) / 1000, Math.round(y * 1000) / 1000], r = out[out.length - 1]; if (!r || r[0] !== q[0] || r[1] !== q[1]) out.push(q); }
+  if (!l.open) while (out.length > 1 && out[0][0] === out[out.length - 1][0] && out[0][1] === out[out.length - 1][1]) out.pop();
+  return out;
+}
 const LAYER_COL = { cut: '#FF0000', score: '#0000FF', fill: '#000000' };
 function sheetSVG(sh, P, o = {}) {
   const f = v => +v.toFixed(3);
-  const d = loops => loops.map(l => 'M' + l.map(([x, y]) => `${f(x)} ${f(y)}`).join('L') + (l.open ? '' : 'Z')).join('');
+  const d = loops => loops.map(l => [l, cleanLoop(l)]).filter(([l, c]) => c.length >= (l.open ? 2 : 3)).map(([l, c]) => 'M' + c.map(([x, y]) => `${f(x)} ${f(y)}`).join('L') + (l.open ? '' : 'Z')).join('');
   const pv = !!o.preview;
   const cutS = pv ? 'stroke="var(--lz-cut)" stroke-width="0.7" fill="none"' : `stroke="${LAYER_COL.cut}" stroke-width="0.1" fill="none"`;
   const scoreS = pv ? 'stroke="var(--lz-score)" stroke-width="0.5" fill="none"' : `stroke="${LAYER_COL.score}" stroke-width="0.1" fill="none"`;
@@ -1460,10 +1495,11 @@ function sheetDXF(sh) {
     '0', 'SECTION', '2', 'TABLES', '0', 'TABLE', '2', 'LAYER', '70', '3'];
   for (const [n, c] of [['CUT', 1], ['SCORE', 5], ['ENGRAVE', 7]]) o.push('0', 'LAYER', '2', n, '70', '0', '62', String(c), '6', 'CONTINUOUS');
   o.push('0', 'ENDTAB', '0', 'ENDSEC', '0', 'SECTION', '2', 'ENTITIES');
-  const f = v => v.toFixed(3);
   const poly = (l, layer) => {
-    o.push('0', 'POLYLINE', '8', layer, '66', '1', '70', l.open ? '0' : '1', '10', '0', '20', '0', '30', '0');
-    for (const [x, y] of l) o.push('0', 'VERTEX', '8', layer, '10', f(x), '20', f(sh.H - y), '30', '0');
+    const pts = cleanLoop(l);
+    if (pts.length < (l.open ? 2 : 3)) return;
+    o.push('0', 'POLYLINE', '8', layer, '66', '1', '70', l.open ? '0' : '1', '10', '0.0', '20', '0.0', '30', '0.0');
+    for (const [x, y] of pts) o.push('0', 'VERTEX', '8', layer, '10', x.toFixed(3), '20', (sh.H - y).toFixed(3), '30', '0.0', '70', '0');
     o.push('0', 'SEQEND', '8', layer);
   };
   for (const q of sh.parts) { q.fill.forEach(l => poly(l, 'ENGRAVE')); q.score.forEach(l => poly(l, 'SCORE')); }
@@ -2221,7 +2257,7 @@ function buildWood() {
     for (const tx of p.texts) g.add(engraveText(p, tx));
     if (UI.lzCodes && !p.noCode) {   // 零件編號：位置、方向跟雷切檔一樣，看模型就知道哪一面朝哪裡
       const sp = labelSpot(p), size = sp ? Math.min(4, (sp.room - 0.5) / 0.95) : 0;
-      if (size >= 1.8) g.add(engraveText(p, { s: p.code, a: sp.a, b: sp.b, size: +size.toFixed(1) }));
+      if (size >= 2.5) g.add(engraveText(p, { s: p.code, a: sp.a, b: sp.b, size: +size.toFixed(1) }));
     }
   }
   return wp;
@@ -3030,6 +3066,10 @@ function renderParams() {
     inp.addEventListener('input', () => {
       P[it.k] = parseFloat(inp.value);
       $('#pv_' + it.k).textContent = fx(P[it.k], it.dec ?? (it.step < 1 ? 1 : 0));
+      if (it.scale) {   // 倍率一改，下面的寬深高跟著改（不重畫面板，拖曳才不會斷）
+        applyScale(P);
+        for (const g of PARAM_UI) for (const j of g.items) if (SCALE_KEYS.includes(j.k) && $('#p_' + j.k)) { $('#p_' + j.k).value = P[j.k]; $('#pv_' + j.k).textContent = fx(P[j.k], j.dec ?? (j.step < 1 ? 1 : 0)); }
+      }
       if (it.k === 'yawMax') syncYawRange();
       scheduleBuild();
     });
@@ -3337,7 +3377,7 @@ renderParams();
 renderAsmList();
 build();
 // 除錯／文件用：在瀏覽器主控台輸入 __ares 可取得計算結果
-window.__ares = { UI, BANKS, PRESETS, DEFAULTS, get parts() { return parts; }, applyState, overlays, get L() { return L; }, get P() { return P; }, set P(v) { P = v; }, build, stability, runChecks, computeLayout, massItems, fovOcclusion, get wires() { return WIRE_DEFS; }, woodParts, laserPlan, laserPlanNest, laserPanel, sheetSVG, sheetDXF, testParts, panelIssues, textPolys, get WOOD() { return WOOD; } };
+window.__ares = { UI, BANKS, PRESETS, DEFAULTS, get parts() { return parts; }, applyState, overlays, get L() { return L; }, get P() { return P; }, set P(v) { P = v; }, build, stability, runChecks, computeLayout, massItems, fovOcclusion, get wires() { return WIRE_DEFS; }, woodParts, applyScale, laserPlan, laserPlanNest, laserPanel, sheetSVG, sheetDXF, testParts, panelIssues, textPolys, get WOOD() { return WOOD; } };
 resize();
 camera.position.set(0, 0, 0);
 { const dir = new THREE.Vector3(...VIEWS.iso).normalize(); controls.target.set(0, L.overallH * 0.45, 0); camera.position.copy(controls.target).addScaledVector(dir, Math.max(L.overallW, L.overallH, L.overallL) * 2.6 + 120); }
