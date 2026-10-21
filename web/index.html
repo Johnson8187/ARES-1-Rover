@@ -477,6 +477,8 @@ const PARAM_UI = [
 
 // SG92R（依 SG9x 系列規格書，待實物量測）
 const SERVO = { l: 23.2, w: 12.1, h: 22.7, tabSpan: 32.1, tabT: 2.5, tabZ: 15.9, shaftOff: 5.9, bossD: 11.8, bossH: 4.0, holeSp: 27.8, hornD: 20, hornH: 4.2 };
+// 萬用電路板 5×7 cm（FR-4、孔距 2.54、厚 1.6）；四角安裝孔的位置與孔徑待量測
+const PERF = { l: 70, w: 50, t: 1.6, holeInset: 2.5, holeD: 2.0, standoff: 8 };
 // ESP32-S3-CAM
 const ESP = { l: 62.6, w: 28.3, t: 1.6, rowSp: 24.7, antOver: 4.3, shield0: 1.9, shield1: 21.2, fpcX: -2.5, pinLen: 8.5, dupont: 14, bend: 6 };
 // GOOUUU ESP32-S3-CAM（N16R8）：沿長邊從天線端量起；天線約突出 PCB 4.3 mm，相機 FPC 座在中間略偏天線端
@@ -622,9 +624,16 @@ function computeLayout(P) {
   L.spk.y = L.bodyY0 + clamp(P.bodyH * 0.5, 26, 52);
   // 功放 MAX98357A：骨架前面、喇叭旁
   L.amp = { x: clamp(L.spk.r + 14, 20, L.wingX0 - 10), y: L.bodyY0 + 14, z: L.spineZ1 + 3 };
-  // 配電洞洞板：右翼內側（降壓模組已搬到底盤電源區）
-  L.perf = { x0: -L.wingX0, x1: -L.wingX0 + 12, y0: Math.min(L.bodyY0 + 43, L.topY0 - 31), z1: L.spineZ0 - 3 };
-  L.perf.x0 = -L.wingX0; L.perf.x1 = -L.wingX0 + 12; L.perf.y1 = L.perf.y0 + 30; L.perf.z0 = L.perf.z1 - 44;   // 讓開右後方頂板螺絲柱
+  // 萬用電路板（整片 5×7 cm，不裁）：4 根尼龍隔離柱鎖在右翼內側；空間夠就長邊前後擺，不夠就直立
+  {
+    const so = PERF.standoff, x0 = -L.wingX0 + so, zTop = L.spineZ0 - 1.5, zMin = L.inZ0 + 2.5;
+    const flat = zTop - zMin >= PERF.l;
+    const dz = flat ? PERF.l : PERF.w, dy = flat ? PERF.w : PERF.l;
+    const y0 = flat ? L.bodyY0 + 16 : Math.max(L.bodyY0 + 16, L.topY0 - 2 - dy);
+    L.perf = { flat, x0, x1: x0 + PERF.t + 12, y0, y1: y0 + dy, z1: zTop, z0: zTop - dz, wx: -L.wingX0 };
+    const hi = PERF.holeInset;
+    L.perf.holes = [[L.perf.z0 + hi, y0 + hi], [L.perf.z1 - hi, y0 + hi], [L.perf.z0 + hi, y0 + dy - hi], [L.perf.z1 - hi, y0 + dy - hi]];   // (z, y)
+  }
   // 船型開關（身體頂板左後角，朝上）
   L.sw = { x: L.bw - 22, z: L.inZ0 + 11.5, y1: L.topY1, y0: L.topY1 - 18 };   // 21 mm 長，離後壁內側 1 mm
 
@@ -893,7 +902,7 @@ function woodParts(P, L) {
     for (const s of [-1, 1]) {
       const x0 = s > 0 ? L.wingX0 : -L.wingX1;
       const holes = L.shellZ.map(z => circ(z, L.bodyY0 + 8, 3.2, 6));   // M3 六角螺帽孔：壓入螺帽、點膠
-      if (s < 0) for (const yy of [L.spineZ0 - 12, L.spineZ0 - 40]) for (const zz of [L.perf.y0 + 5.5, L.perf.y0 + 23.5]) holes.push(rectP(yy - 1.5, zz - 2, yy + 1.5, zz + 2));
+      if (s < 0) for (const [z, y] of L.perf.holes) holes.push(circ(z, y, PERF.holeD / 2 + 0.2, 14));   // 萬用板隔離柱的 M2 螺絲孔
       add('frame', s > 0 ? '左側翼' : '右側翼', 'ZY', x0, edgePlate(za, fy0, zb, fy1, { s: tabsOn(za, zb - 3, T, { n: 2 }), n: tabsOn(za, zb - 3, T, { n: 2 }) }), { holes });
     }
   }
@@ -1592,7 +1601,7 @@ function massItems(P, L, yaw) {
   add('wiresC', '底盤線材', 15, 0, (L.floorTop + L.deckY0) / 2, 0);
   add('speaker', '喇叭', 25, 0, L.spk.y, (L.spk.zF + L.spk.zB) / 2);
   add('amp', 'MAX98357A', 2, L.amp.x, L.amp.y, L.amp.z);
-  add('perf', '配電洞洞板', 10, (L.perf.x0 + L.perf.x1) / 2, (L.perf.y0 + L.perf.y1) / 2, (L.perf.z0 + L.perf.z1) / 2);
+  add('perf', '萬用電路板 5×7', 16, (L.perf.x0 + L.perf.x1) / 2, (L.perf.y0 + L.perf.y1) / 2, (L.perf.z0 + L.perf.z1) / 2);
   add('switch', '電源開關', 6, L.sw.x, L.sw.y0 + 8, L.sw.z);
   add('servo', 'SG92R', 13, (L.servoBox.x0 + L.servoBox.x1) / 2, (L.servoY0 + L.servoTop) / 2, P.neckZ);
   add('wiresB', '身體線材', 15, 0, (L.bodyY0 + L.bodyY1) / 2 + 10, -25);
@@ -1776,7 +1785,7 @@ function runChecks(P, L) {
   const pairHit = overlap(perfBox, swBox).hit || overlap(perfBox, spineBox).hit;
   add('機構干涉', '身體內部模組擺放', (outside.length || !spkOk || pairHit) ? 'fail' : 'pass',
     (outside.length || !spkOk || pairHit) ? '空間不足' : 'OK',
-    !spkOk ? '身體太淺，喇叭會撞到骨架，請加深身體。' : outside.length ? `${outside.join('、')} 超出外殼或撞到頂板。` : pairHit ? '配電板與開關或骨架重疊。' : '喇叭貼前格柵、功放在旁、配電板在右翼，後方留給線束。降壓模組已經搬到底盤電源區，身體可以縮短。',
+    !spkOk ? '身體太淺，喇叭會撞到骨架，請加深身體。' : outside.length ? `${outside.join('、')} 超出外殼或撞到頂板${outside.includes('配電板') ? '：5×7 萬用板放不下，身體倍率至少要約 1.15 倍' : ''}。` : pairHit ? '配電板與開關或骨架重疊。' : `喇叭貼前格柵、功放在旁，整片 5×7 萬用板用隔離柱鎖在右翼（${L.perf.flat ? '長邊前後擺' : '直立擺'}），後方留給線束。`,
     ['speaker', 'amp', 'perf', 'switch']);
 
   // 10 頭部旋轉掃掠
@@ -1972,11 +1981,11 @@ function partInfo(id, P, L) {
       dims: [m('PCB', '17.7 × 19.1', 'C'), m('上方兩孔距', '12.6（孔心距底邊 16.7）', 'C'), m('腳位', 'LRC BCLK DIN GAIN SD GND Vin（2.54）', 'C')],
       spec: 'I2S 數位輸入、D 類 3 W。VIN 接 5 V。GAIN 預設 9 dB。', use: '把 ESP32 的 I2S 音訊直接推喇叭。',
       notes: ['放在喇叭旁邊，喇叭線 < 8 cm，減少 D 類輸出干擾。', 'SD 腳預設（未接）＝左右聲道平均輸出。'] },
-    perf: { name: '配電洞洞板', kind: '自製', layer: '身體層', mat: '5×7 cm 洞洞板裁成 44 × 30',
-      dims: [m('尺寸', '44 × 30', 'D')],
-      spec: '5 V 與 GND 匯流排、SS34 二極體、470 µF×2、9 V 監測分壓 100k/33k、伺服 3P 排針、頸部線束排針。',
+    perf: { name: '萬用電路板（5×7 cm 洞洞板）', kind: '採購件＋自己焊', layer: '身體層', mat: '綠油單面 FR-4 環氧板，整片不用裁',
+      dims: [m('尺寸', `${PERF.l} × ${PERF.w} × ${PERF.t}`, 'C'), m('孔距／孔徑', '2.54 ／ Ø1.0', 'C'), m('安裝孔', `四角，離邊約 ${PERF.holeInset}、Ø${PERF.holeD}`, 'M'), m('固定', `M2 尼龍隔離柱 ${PERF.standoff} mm ×4，鎖在右翼`, 'D'), m('擺法', L.perf.flat ? '長邊前後（橫放）' : '長邊上下（直立）', 'D')],
+      spec: '5 V 與 GND 匯流排、SS34 二極體、470 µF×2、9 V 監測分壓 100k/33k、伺服 3P 排針、頸部線束排針。整片 5×7 比原本裁小的 44×30 大一倍多，零件可以排鬆一點，之後要加感測器也有位置。',
       use: '所有 5 V 負載從這裡分出去，GND 在此單點匯集。',
-      notes: ['SS34 串在「Mini560 5 V → ESP32 5 V」這條，接 USB 燒錄時不會倒灌。', '分壓：9V_SW—100k—(GPIO1)—33k—GND，9 V 時 ADC 端 2.23 V；PD 沒成功（5 V）時只有 1.24 V，韌體就知道。'] },
+      notes: ['元件面朝車身中央、焊接面朝右翼；隔離柱留出 8 mm，上身底板的走線孔剛好在板子背後，J1／J2 的線從這裡上來直接焊。', '右翼上的 4 個螺絲孔是照「四角離邊 2.5 mm」估的：板子到了先量四角孔的中心距和孔徑，告訴我或改網頁再重切右翼。', 'SS34 串在「Mini560 5 V → ESP32 5 V」這條，接 USB 燒錄時不會倒灌。', '分壓：9V_SW—100k—(GPIO1)—33k—GND，9 V 時 ADC 端 2.23 V；PD 沒成功（5 V）時只有 1.24 V，韌體就知道。'] },
     switch: { name: '電源開關', kind: '採購件', layer: '身體層', mat: '',
       dims: [m('型號', 'KCD1 船型開關', 'E'), m('開孔', '19 × 13', 'E')],
       spec: '6 A／250 VAC 等級，切 9 V（≤ 2.2 A）綽綽有餘。', use: '總電源：串在 CH224K 輸出和所有負載之間。放在身體頂部左後角，外殼拔起時不會卡到。',
@@ -2441,10 +2450,19 @@ function buildBody() {
   a.add(boxB(L.amp.x - 2, L.amp.x + 2, L.amp.y - 2, L.amp.y + 2, L.amp.z + 1.6, L.amp.z + 2.4, mat(0x111111)));
   // 配電板
   const pb = part('perf'); const Q = L.perf;
-  pb.add(boxB(Q.x0, Q.x0 + 1.6, Q.y0, Q.y1, Q.z0, Q.z1, mat(0xc9a15a, { r: 0.7 })));
-  for (const dz of [8, 20]) pb.add(cylX(4, Q.x0 + 1.6, Q.x0 + 12, Q.y1 - 8, Q.z0 + dz, mat(0x223355), 18));
-  pb.add(boxB(Q.x0 + 1.6, Q.x0 + 10, Q.y0 + 3, Q.y0 + 6, Q.z0 + 30, Q.z1 - 3, mat(0x111111)));
-  pb.add(boxB(Q.x0 + 1.6, Q.x0 + 5, Q.y0 + 12, Q.y0 + 15, Q.z0 + 32, Q.z0 + 38, mat(0x333333)));
+  pb.add(boxB(Q.x0, Q.x0 + PERF.t, Q.y0, Q.y1, Q.z0, Q.z1, mat(0x2f8f45, { r: 0.6 })));          // 綠油 FR-4
+  for (const [z, y] of Q.holes) pb.add(cylX(2, Q.wx, Q.x0, y, z, mat(0xeeeeee, { r: 0.5 }), 6));    // 尼龍隔離柱
+  { // 銅墊點陣（每 2.54 mm，畫稀一點）
+    const dots = [], g = new THREE.CylinderGeometry(0.7, 0.7, 0.2, 6);
+    for (let z = Q.z0 + 3; z < Q.z1 - 2; z += 5.08) for (let y = Q.y0 + 3; y < Q.y1 - 2; y += 5.08) dots.push([z, y]);
+    const im = new THREE.InstancedMesh(g, mat(0xc8954a, { m: 0.6, r: 0.4 }), dots.length), o = new THREE.Object3D();
+    dots.forEach(([z, y], i) => { o.position.set(Q.x0 + PERF.t + 0.1, y, z); o.rotation.set(0, 0, Math.PI / 2); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
+    pb.add(im);
+  }
+  const cx0 = Q.x0 + PERF.t, zc = (Q.z0 + Q.z1) / 2, yc = (Q.y0 + Q.y1) / 2;
+  for (const dz of [-14, 14]) pb.add(cylX(4, cx0, cx0 + 11, yc + 10, zc + dz, mat(0x223355), 18));       // 470 µF ×2
+  pb.add(boxB(cx0, cx0 + 8.5, Q.y0 + 4, Q.y0 + 6.5, Q.z0 + 8, Q.z1 - 8, mat(0x111111)));               // 排針（5 V／GND 匯流排、伺服、頸部線束）
+  pb.add(boxB(cx0, cx0 + 2.5, yc - 6, yc - 2, zc - 4, zc + 4, mat(0x333333)));                         // SS34
 
   // 開關
   const sw = part('switch');
@@ -2570,7 +2588,7 @@ function buildOverlays() {
   updateDynamicOverlays();
   // 標籤
   const lg = overlays.labels; clearGroup(lg);
-  const names = { motorL: '左馬達（後）', motorR: '右馬達（前）', bank: '行動電源', driver: 'DRV8870', pd: 'CH224K', buck: 'Mini560', ldo: 'AMS1117', cap: 'C1', speaker: '喇叭', perf: '配電板', servo: 'SG92R', esp32: 'ESP32-S3-CAM', mic: 'INMP441', switch: '開關', amp: 'MAX98357A' };
+  const names = { motorL: '左馬達（後）', motorR: '右馬達（前）', bank: '行動電源', driver: 'DRV8870', pd: 'CH224K', buck: 'Mini560', ldo: 'AMS1117', cap: 'C1', speaker: '喇叭', perf: '萬用板', servo: 'SG92R', esp32: 'ESP32-S3-CAM', mic: 'INMP441', switch: '開關', amp: 'MAX98357A' };
   for (const [id, n] of Object.entries(names)) {
     const p = parts[id]; if (!p) continue;
     const b = new THREE.Box3().setFromObject(p.obj); const c = b.getCenter(new THREE.Vector3());
@@ -2781,7 +2799,7 @@ const ASM = [
   { t: '拼履帶並掛上', parts: ['trackL', 'trackR'], d: '每邊約 ${links} 節（依實際套件），照套件方式拼成一圈。套上驅動輪與惰輪，把惰輪往外推到履帶「手指壓下去約 5 mm」的鬆緊，再鎖緊 M4。' },
   { t: '電池艙托盤', parts: ['tray'], d: '先把下層的線全部壓低、整理到兩側（編碼器線走馬達上緣）。托盤右緣立板先黏在托盤上；托盤前緣兩個榫頭插進前壁的槽，後端放下、落在後壁開口下緣。托盤不上膠、不鎖螺絲，要修線時抬起來就拿出來了。兩條魔鬼氈先穿過托盤兩側的長孔。' },
   { t: '上身骨架與功放', parts: ['frame', 'amp'], d: '脊板、左右側翼的榫頭插進上身底板，上膠。兩片側翼的六角孔各壓進 2 顆 M3 螺帽（外殼要鎖這裡），背面點一滴快乾。MAX98357A 用 M2 鎖在脊板前面。' },
-  { t: '配電板', parts: ['perf'], d: '配電板用束線帶綁在右翼的 4 個小孔上。焊好 SS34（Mini560 5 V → ESP32 5 V）、470 µF ×2（伺服、功放旁）、9 V 監測分壓 100k/33k（中點接 GPIO1）。' },
+  { t: '萬用電路板', parts: ['perf'], d: '整片 5×7 萬用板先焊好，再用 4 根 M2 尼龍隔離柱（8 mm）鎖在右翼內側，元件面朝車身中央。焊好 SS34（Mini560 5 V → ESP32 5 V）、470 µF ×2（伺服、功放旁）、9 V 監測分壓 100k/33k（中點接 GPIO1）。' },
   { t: '頂板：軸環、伺服、開關', parts: ['topPlate', 'servo', 'switch'], d: '兩片軸環照頂板上雷雕的圓圈疊黏，兩根限位柱插進頂板。伺服從頂板下方塞入方孔，耳片貼住頂板底面用 M2 自攻鎖好。先用測試程式把伺服轉到 90°（置中）！開關壓入左後角開孔，接 J1 的 9V_RAW／9V_SW。頂板蓋上骨架（脊板、側翼的榫頭插進來），試轉頭沒問題再上膠。' },
   { t: '頭部底盤裝上舵盤', parts: ['headFloor'], d: '三片裙邊環照頭部底板的雷雕圓圈疊黏，帶限位指的那片在最下面、指頭朝後。軸環和裙邊內圈用 400 號砂紙磨順、抹一點蠟。圓舵盤用 2 顆 M2 鎖在底板下面，底盤朝正前方套進伺服花鍵，從上方 Ø6 孔鎖中心螺絲。限位指要落在兩根限位柱之間。' },
   { t: 'ESP32、麥克風、頭殼', parts: ['esp32', 'mic', 'headHood'], d: '頸部線束先從頂板窗口往上穿過頭部底板的 Ø8 孔。ESP32 兩端先塞進兩片卡板的十字孔（USB 朝左），三個一起插進頭部底板。頭殼四面：左右側板在外、前後板在內，榫頭插進底板後上膠。相機模組挪到右眼後方用雙面膠固定，杜邦線插好點熱熔膠。INMP441 金屬殼朝上貼在上蓋收音孔下。眼圈、瞳孔、眼瞼黏在臉上。' },
@@ -2979,7 +2997,7 @@ function specPaneHtml() {
   <ul class="clean">
     <li>JGA25-370（6 V）×2、ESP32-S3-CAM ×1、MAX98357A ×1、INMP441 ×1、DRV8870 雙路 ×1、SG92R ×1</li>
     <li>行動電源（學員自備：PD 20 W 以上、有 C 孔）、CH224K PD 誘騙板（設 9 V）、Mini560 5 V 降壓、AMS1117-3.3 模組、C-to-C 短線 10–15 cm（支援 PD 3 A）、20 mm 背對背魔鬼氈 ×2、Ø40 喇叭 4 Ω 3 W、KCD1 船型開關</li>
-    <li>1000 µF/25 V ×1（C1）、470 µF/16 V ×2、SS34、100k＋33k、1 kΩ ×4（編碼器保護）、100 nF、JST-XH 6P／8P 各一組、5×7 洞洞板</li>
+    <li>1000 µF/25 V ×1（C1）、470 µF/16 V ×2、SS34、100k＋33k、1 kΩ ×4（編碼器保護）、100 nF、JST-XH 6P／8P 各一組、5×7 cm 萬用板（綠油 FR-4，整片不用裁）＋ M2 尼龍隔離柱 8 mm ×4＋M2 螺絲 ×8</li>
     <li>M3×6 圓頭 ISO 7380 ×4（馬達）、M3×12＋M3 螺帽 ×4（上身鎖進側壁 T 型槽）、M3×8＋M3 螺帽 ×4（外殼鎖側翼）、M3×10＋螺帽＋5 mm 尼龍隔離柱 ×4（DRV8870）、M2×6 自攻 ×4（伺服、舵盤）、M2×8＋螺帽 ×2（功放）、M4×40＋防鬆螺帽 ×2（惰輪軸，看套件）</li>
     <li>木工：3 mm 椴木合板（張數見上表）、白膠（樹脂膠）、快乾膠、240／400 號砂紙、紙膠帶或橡皮筋（上膠時綁緊）、蠟燭一小截（頸部軸環潤滑）、泡棉雙面膠</li>
     <li>履帶套件（驅動輪、惰輪、履帶）×2 組、杜邦母母線 20 cm ×20、20/22/26 AWG 矽膠線、熱縮管、3 mm 束線帶、螺旋纏線管</li>
